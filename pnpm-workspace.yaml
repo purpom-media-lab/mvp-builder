@@ -1,0 +1,7 @@
+# pnpm 11 settings (https://pnpm.io/settings)
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
+  - unrs-resolver
+# 実行前の依存検証を無効化（ignored-build-scripts で誤って pnpm <script> が失敗するのを防ぐ）
+verifyDepsBeforeRun: false

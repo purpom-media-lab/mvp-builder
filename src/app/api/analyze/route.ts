@@ -1,0 +1,74 @@
+import { NextResponse } from "next/server";
+import type { LlmProvider } from "@/lib/ai/catalog";
+import {
+  generateActors,
+  generateBackendSpec,
+  generateDataModel,
+  generateJourney,
+  generateNavigation,
+  generateOoui,
+  generateUseCases,
+  generateWireframes,
+} from "@/lib/ai/steps";
+import { getSessionUser } from "@/lib/auth/session";
+import { saveStepResult, type StepKey } from "@/lib/projects";
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
+const STEP_FNS = {
+  actors: generateActors,
+  usecases: generateUseCases,
+  ooui: generateOoui,
+  journey: generateJourney,
+  navigation: generateNavigation,
+  wireframe: generateWireframes,
+  datamodel: generateDataModel,
+  backend: generateBackendSpec,
+} as const;
+
+interface Body {
+  step: StepKey;
+  context: string;
+  provider?: LlmProvider;
+  modelId?: string;
+  projectId?: string;
+}
+
+export async function POST(req: Request) {
+  const user = await getSessionUser(req.headers);
+  if (!user)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  let body: Body;
+  try {
+    body = (await req.json()) as Body;
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const { step, context, provider, modelId, projectId } = body;
+  const fn = STEP_FNS[step];
+  if (!fn) {
+    return NextResponse.json(
+      { error: `Unknown step: ${step}` },
+      { status: 400 },
+    );
+  }
+  if (!context?.trim()) {
+    return NextResponse.json({ error: "context is required" }, { status: 400 });
+  }
+
+  try {
+    const result = await fn({ context, provider, modelId });
+    // プロジェクトに紐付いていれば保存（所有権は saveStepResult 内で検証）
+    let saved = false;
+    if (projectId) {
+      saved = await saveStepResult(user.id, projectId, step, result);
+    }
+    return NextResponse.json({ result, saved });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Generation failed";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
