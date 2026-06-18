@@ -34,14 +34,19 @@ import {
 import type {
   ActorView,
   BackendView,
+  BrandView,
   DataModelView,
   JourneyView,
+  KpiMetricView,
   NavView,
   OouiView,
+  ScopeFeatureView,
   StepKey,
   UseCaseView,
   WireframeView,
 } from "@/lib/studio-types";
+
+type KpiData = { northStar: KpiMetricView | null; supporting: KpiMetricView[] };
 
 // ワイヤーフレームのセクション種別（API の wireframeSchema enum と一致させる）
 const SECTION_TYPES = [
@@ -62,13 +67,19 @@ const SECTION_TYPES = [
 const STEPS: { key: StepKey; label: string }[] = [
   { key: "actors", label: "アクター" },
   { key: "usecases", label: "ユースケース" },
-  { key: "ooui", label: "OOUI" },
+  { key: "ooui", label: "モデリング" },
   { key: "journey", label: "ジャーニー" },
   { key: "navigation", label: "ナビゲーション" },
   { key: "wireframe", label: "ワイヤー" },
   { key: "datamodel", label: "データ設計" },
   { key: "backend", label: "バックエンド" },
+  { key: "scope", label: "スコープ" },
+  { key: "kpi", label: "KPI" },
+  { key: "brand", label: "ブランド" },
 ];
+
+/** MVP スコープに含められる機能の上限（資料の「最初に作る10以下」） */
+const MVP_LIMIT = 10;
 
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -90,6 +101,10 @@ export default function ProjectDetailPage() {
   const [wireframe, setWireframe] = useState<WireframeView[] | null>(null);
   const [dataModel, setDataModel] = useState<DataModelView[] | null>(null);
   const [backend, setBackend] = useState<BackendView | null>(null);
+  const [scope, setScope] = useState<ScopeFeatureView[] | null>(null);
+  const [mvpStatement, setMvpStatement] = useState("");
+  const [kpi, setKpi] = useState<KpiData | null>(null);
+  const [brand, setBrand] = useState<BrandView | null>(null);
   const [diagramsOpen, setDiagramsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<StepKey>("actors");
 
@@ -158,7 +173,20 @@ export default function ProjectDetailPage() {
         setWireframe(w);
         setDataModel(dm);
         setBackend(d.backend ?? null);
+        const sc = d.scope?.length ? (d.scope as ScopeFeatureView[]) : null;
+        const k =
+          d.kpi && (d.kpi.northStar || d.kpi.supporting?.length)
+            ? (d.kpi as KpiData)
+            : null;
+        setScope(sc);
+        setMvpStatement(d.mvpStatement ?? "");
+        setKpi(k);
+        setBrand(d.brand ?? null);
         const last = [
+          d.brand && "brand",
+          k && "kpi",
+          sc && "scope",
+          d.backend && "backend",
           dm && "datamodel",
           w && "wireframe",
           n && "navigation",
@@ -191,6 +219,10 @@ export default function ProjectDetailPage() {
       nav && `## ナビゲーション\n${JSON.stringify(nav)}`,
       wireframe && `## ワイヤーフレーム\n${JSON.stringify(wireframe)}`,
       dataModel && `## データ設計\n${JSON.stringify(dataModel)}`,
+      scope &&
+        `## スコープ（確定機能）\n${JSON.stringify({ mvpStatement, features: scope })}`,
+      kpi && `## KPI\n${JSON.stringify(kpi)}`,
+      brand && `## ブランド\n${JSON.stringify(brand)}`,
     ]
       .filter(Boolean)
       .join("\n\n");
@@ -221,6 +253,12 @@ export default function ProjectDetailPage() {
       if (step === "wireframe") setWireframe(data.result.screens);
       if (step === "datamodel") setDataModel(data.result.entities);
       if (step === "backend") setBackend(data.result);
+      if (step === "scope") {
+        setScope(data.result.features);
+        setMvpStatement(data.result.mvpStatement ?? "");
+      }
+      if (step === "kpi") setKpi(data.result);
+      if (step === "brand") setBrand(data.result);
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラー");
     } finally {
@@ -255,12 +293,23 @@ export default function ProjectDetailPage() {
     const n = r.navigation as { items?: NavView[] } | undefined;
     const w = r.wireframe as { screens?: WireframeView[] } | undefined;
     const b = r.backend as BackendView | undefined;
+    const sc = r.scope as
+      | { features?: ScopeFeatureView[]; mvpStatement?: string }
+      | undefined;
+    const k = r.kpi as KpiData | undefined;
+    const br = r.brand as BrandView | undefined;
     if (a?.actors) setActors(a.actors);
     if (u?.useCases) setUseCases(u.useCases);
     if (o?.objects) setOoui(o.objects);
     if (n?.items) setNav(n.items);
     if (w?.screens) setWireframe(w.screens);
     if (b) setBackend(b);
+    if (sc?.features) {
+      setScope(sc.features);
+      if (sc.mvpStatement) setMvpStatement(sc.mvpStatement);
+    }
+    if (k) setKpi(k);
+    if (br) setBrand(br);
   }
 
   const hasData: Record<StepKey, boolean> = {
@@ -272,6 +321,9 @@ export default function ProjectDetailPage() {
     wireframe: !!wireframe,
     datamodel: !!dataModel?.length,
     backend: !!backend,
+    scope: !!scope?.length,
+    kpi: !!(kpi?.northStar || kpi?.supporting?.length),
+    brand: !!brand,
   };
 
   const screenFlow = useMemo(
@@ -357,7 +409,7 @@ export default function ProjectDetailPage() {
             onChange={(e) => setSourceText(e.target.value)}
           />
           <p className="text-xs text-muted-foreground">
-            各ステップの結果は自動で Neon に保存されます
+            各ステップの結果は自動で保存されます
           </p>
         </section>
 
@@ -387,7 +439,7 @@ export default function ProjectDetailPage() {
                 {loading === s.key ? (
                   <span className="text-primary">⏳</span>
                 ) : hasData[s.key] ? (
-                  <span className="text-green-600">✓</span>
+                  <span className="text-primary">✓</span>
                 ) : null}
               </TabsTrigger>
             ))}
@@ -603,11 +655,12 @@ export default function ProjectDetailPage() {
                       {ooui.map((o, i) => (
                         <div
                           key={i}
-                          className="flex items-start gap-2 rounded-md border p-2"
+                          className="overflow-hidden rounded-lg border"
                         >
-                          <div className="flex-1 space-y-1.5">
+                          {/* オブジェクト名（クラス図のヘッダ相当） */}
+                          <div className="flex items-center gap-2 border-b bg-muted/50 px-2 py-1.5">
                             <Input
-                              className="h-8 font-medium"
+                              className="h-8 border-transparent bg-transparent font-heading font-semibold shadow-none focus-visible:bg-background"
                               value={o.name}
                               onChange={(e) =>
                                 setOoui((cur) =>
@@ -617,9 +670,41 @@ export default function ProjectDetailPage() {
                                 )
                               }
                             />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label="削除"
+                              onClick={() =>
+                                setOoui((cur) =>
+                                  (cur ?? []).filter((_, j) => j !== i),
+                                )
+                              }
+                            >
+                              ✕
+                            </Button>
+                          </div>
+                          {/* プロパティ */}
+                          <div className="space-y-1 px-2 py-2">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-semibold tracking-wide text-muted-foreground">
+                                プロパティ
+                              </span>
+                              <span className="text-[0.7rem] text-muted-foreground/60">
+                                ({o.attributes?.length ?? 0})
+                              </span>
+                            </div>
+                            {o.attributes?.length ? (
+                              <div className="flex flex-wrap gap-1">
+                                {o.attributes.map((attr, k) => (
+                                  <Badge key={k} variant="secondary">
+                                    {attr}
+                                  </Badge>
+                                ))}
+                              </div>
+                            ) : null}
                             <Input
                               className="h-8"
-                              placeholder="属性（カンマ区切り）"
+                              placeholder="プロパティをカンマ区切りで（例: 名前, ステータス, 作成日）"
                               value={(o.attributes ?? []).join(", ")}
                               onChange={(e) =>
                                 setOoui((cur) =>
@@ -637,9 +722,33 @@ export default function ProjectDetailPage() {
                                 )
                               }
                             />
+                          </div>
+                          {/* アクション */}
+                          <div className="space-y-1 border-t px-2 py-2">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-semibold tracking-wide text-primary">
+                                アクション
+                              </span>
+                              <span className="text-[0.7rem] text-muted-foreground/60">
+                                ({o.actions?.length ?? 0})
+                              </span>
+                            </div>
+                            {o.actions?.length ? (
+                              <div className="flex flex-wrap gap-1">
+                                {o.actions.map((act, k) => (
+                                  <Badge
+                                    key={k}
+                                    variant="outline"
+                                    className="border-primary/40 text-primary"
+                                  >
+                                    {act}()
+                                  </Badge>
+                                ))}
+                              </div>
+                            ) : null}
                             <Input
                               className="h-8"
-                              placeholder="アクション（カンマ区切り）"
+                              placeholder="アクションをカンマ区切りで（例: 作成する, 更新する, 削除する）"
                               value={(o.actions ?? []).join(", ")}
                               onChange={(e) =>
                                 setOoui((cur) =>
@@ -658,18 +767,6 @@ export default function ProjectDetailPage() {
                               }
                             />
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label="削除"
-                            onClick={() =>
-                              setOoui((cur) =>
-                                (cur ?? []).filter((_, j) => j !== i),
-                              )
-                            }
-                          >
-                            ✕
-                          </Button>
                         </div>
                       ))}
                       <div className="flex flex-wrap gap-2">
@@ -1126,6 +1223,286 @@ export default function ProjectDetailPage() {
                   <Empty />
                 )}
               </TabsContent>
+
+              {/* スコープ確定: 100 → ≤10 の選定 */}
+              <TabsContent value="scope">
+                <GenerateButton />
+                {scope ? (
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        このMVPで検証する仮説・提供価値
+                      </p>
+                      <Textarea
+                        className="h-16"
+                        value={mvpStatement}
+                        onChange={(e) => setMvpStatement(e.target.value)}
+                      />
+                    </div>
+                    {(() => {
+                      const selected = scope.filter(
+                        (f) => f.includedInMvp,
+                      ).length;
+                      const over = selected > MVP_LIMIT;
+                      return (
+                        <div className="flex items-center justify-between rounded-lg bg-muted px-3 py-2 text-sm">
+                          <span>
+                            MVPに含む機能{" "}
+                            <span
+                              className={
+                                over
+                                  ? "font-bold text-destructive"
+                                  : "font-bold text-primary"
+                              }
+                            >
+                              {selected}
+                            </span>{" "}
+                            / 最初に作るのは {MVP_LIMIT} 以下
+                          </span>
+                          {over && (
+                            <span className="text-xs text-destructive">
+                              絞り込みましょう
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
+                    <ul className="space-y-2">
+                      {scope.map((f, i) => (
+                        <li
+                          key={i}
+                          className={`flex items-start gap-3 rounded-lg border p-3 transition-colors ${
+                            f.includedInMvp ? "border-primary/40 bg-primary/5" : ""
+                          }`}
+                        >
+                          <Button
+                            size="sm"
+                            variant={f.includedInMvp ? "default" : "outline"}
+                            className="mt-0.5 shrink-0"
+                            onClick={() =>
+                              setScope(
+                                (prev) =>
+                                  prev?.map((x, idx) =>
+                                    idx === i
+                                      ? { ...x, includedInMvp: !x.includedInMvp }
+                                      : x,
+                                  ) ?? prev,
+                              )
+                            }
+                          >
+                            {f.includedInMvp ? "✓ 含む" : "除外"}
+                          </Button>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-medium">{f.name}</span>
+                              <Badge variant="secondary">{f.priority}</Badge>
+                              <Badge variant="outline">影響 {f.impact}</Badge>
+                              <Badge variant="outline">工数 {f.effort}</Badge>
+                            </div>
+                            {f.description && (
+                              <p className="mt-1 text-sm text-muted-foreground">
+                                {f.description}
+                              </p>
+                            )}
+                            {f.rationale && (
+                              <p className="mt-1 text-xs text-muted-foreground/80">
+                                判断: {f.rationale}
+                              </p>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                    <Button
+                      variant="outline"
+                      disabled={loading !== null}
+                      onClick={() =>
+                        saveStep("scope", { mvpStatement, features: scope })
+                      }
+                    >
+                      スコープを保存
+                    </Button>
+                  </div>
+                ) : (
+                  <Empty />
+                )}
+              </TabsContent>
+
+              {/* KPI 設定 */}
+              <TabsContent value="kpi">
+                <GenerateButton />
+                {kpi?.northStar || kpi?.supporting.length ? (
+                  <div className="space-y-4">
+                    {kpi.northStar && (
+                      <div className="rounded-lg border border-primary/40 bg-primary/5 p-3">
+                        <p className="mb-2 text-xs font-semibold tracking-wide text-primary uppercase">
+                          ★ 北極星指標
+                        </p>
+                        <MetricEditor
+                          metric={kpi.northStar}
+                          onChange={(m) =>
+                            setKpi((prev) =>
+                              prev ? { ...prev, northStar: m } : prev,
+                            )
+                          }
+                        />
+                      </div>
+                    )}
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        補助KPI
+                      </p>
+                      {kpi.supporting.map((m, i) => (
+                        <div key={i} className="rounded-lg border p-3">
+                          <MetricEditor
+                            metric={m}
+                            onChange={(nm) =>
+                              setKpi((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      supporting: prev.supporting.map((x, idx) =>
+                                        idx === i ? nm : x,
+                                      ),
+                                    }
+                                  : prev,
+                              )
+                            }
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <Button
+                      variant="outline"
+                      disabled={loading !== null || !kpi.northStar}
+                      onClick={() =>
+                        kpi.northStar &&
+                        saveStep("kpi", {
+                          northStar: kpi.northStar,
+                          supporting: kpi.supporting,
+                        })
+                      }
+                    >
+                      KPIを保存
+                    </Button>
+                  </div>
+                ) : (
+                  <Empty />
+                )}
+              </TabsContent>
+
+              {/* ブランド設計 */}
+              <TabsContent value="brand">
+                <GenerateButton />
+                {brand ? (
+                  <div className="space-y-4">
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          ブランド名
+                        </p>
+                        <Input
+                          value={brand.brandName ?? ""}
+                          onChange={(e) =>
+                            setBrand((p) =>
+                              p ? { ...p, brandName: e.target.value } : p,
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          タグライン
+                        </p>
+                        <Input
+                          value={brand.tagline ?? ""}
+                          onChange={(e) =>
+                            setBrand((p) =>
+                              p ? { ...p, tagline: e.target.value } : p,
+                            )
+                          }
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        パレット
+                      </p>
+                      <div className="flex flex-wrap gap-3">
+                        {(
+                          [
+                            "primary",
+                            "secondary",
+                            "accent",
+                            "neutral",
+                            "background",
+                          ] as const
+                        ).map((key) => {
+                          const val = brand.palette?.[key];
+                          if (!val && key !== "primary") return null;
+                          return (
+                            <label key={key} className="flex items-center gap-2">
+                              <input
+                                type="color"
+                                value={val ?? "#000000"}
+                                onChange={(e) =>
+                                  setBrand((p) =>
+                                    p
+                                      ? {
+                                          ...p,
+                                          palette: {
+                                            primary:
+                                              p.palette?.primary ?? "#000000",
+                                            ...p.palette,
+                                            [key]: e.target.value,
+                                          },
+                                        }
+                                      : p,
+                                  )
+                                }
+                                className="h-9 w-9 cursor-pointer rounded-md border"
+                              />
+                              <span className="text-xs text-muted-foreground">
+                                {key}
+                                <br />
+                                {val}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    {brand.tone?.length ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {brand.tone.map((t) => (
+                          <Badge key={t} variant="secondary">
+                            {t}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : null}
+                    {brand.voice && (
+                      <p className="text-sm text-muted-foreground">
+                        ボイス: {brand.voice}
+                      </p>
+                    )}
+                    {brand.imageryKeywords?.length ? (
+                      <p className="text-xs text-muted-foreground">
+                        イメージ: {brand.imageryKeywords.join(" / ")}
+                      </p>
+                    ) : null}
+                    <Button
+                      variant="outline"
+                      disabled={loading !== null}
+                      onClick={() => saveStep("brand", brand)}
+                    >
+                      ブランドを保存
+                    </Button>
+                  </div>
+                ) : (
+                  <Empty />
+                )}
+              </TabsContent>
             </CardContent>
           </Card>
         </Tabs>
@@ -1148,7 +1525,7 @@ export default function ProjectDetailPage() {
             {classDiagram && (
               <MermaidBlock
                 code={classDiagram}
-                title="OOUIオブジェクト（クラス図）"
+                title="モデリング（クラス図）"
               />
             )}
           </div>
@@ -1163,5 +1540,46 @@ function Empty() {
     <p className="text-sm text-muted-foreground">
       まだ生成されていません。「AIで生成」を押してください。
     </p>
+  );
+}
+
+/** KPI 1 指標の編集フォーム */
+function MetricEditor({
+  metric,
+  onChange,
+}: {
+  metric: KpiMetricView;
+  onChange: (m: KpiMetricView) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <Input
+        className="font-medium"
+        placeholder="指標名"
+        value={metric.name}
+        onChange={(e) => onChange({ ...metric, name: e.target.value })}
+      />
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Input
+          placeholder="目標値"
+          value={metric.target ?? ""}
+          onChange={(e) => onChange({ ...metric, target: e.target.value })}
+        />
+        <Input
+          placeholder="単位"
+          value={metric.unit ?? ""}
+          onChange={(e) => onChange({ ...metric, unit: e.target.value })}
+        />
+      </div>
+      {metric.definition && (
+        <p className="text-xs text-muted-foreground">定義: {metric.definition}</p>
+      )}
+      {(metric.measurement || metric.cadence) && (
+        <p className="text-xs text-muted-foreground">
+          計測: {metric.measurement}
+          {metric.cadence ? `（${metric.cadence}）` : ""}
+        </p>
+      )}
+    </div>
   );
 }

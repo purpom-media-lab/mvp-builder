@@ -94,14 +94,17 @@ export default function MembersPage() {
     <div className="min-h-screen bg-background">
       <GlobalHeader back={{ href: "/studio", label: "プロジェクト" }} />
       <main className="mx-auto max-w-3xl px-6 py-8">
-        <h1 className="text-2xl font-bold">メンバー</h1>
+        <p className="pm-eyebrow">team · access control</p>
+        <h1 className="mt-2 font-heading text-3xl font-bold tracking-tight">
+          メンバー
+        </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           オープン登録は無効です。招待したメールアドレスのみが登録できます。
         </p>
 
         {/* 招待フォーム */}
-        <section className="mt-6 rounded-lg border p-4">
-          <h2 className="font-semibold">メンバーを招待</h2>
+        <section className="pm-panel mt-6 p-5">
+          <h2 className="font-heading font-bold">メンバーを招待</h2>
           <form onSubmit={invite} className="mt-3 flex gap-2">
             <Input
               type="email"
@@ -114,7 +117,7 @@ export default function MembersPage() {
               {busy ? "発行中…" : "招待を発行"}
             </Button>
           </form>
-          {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+          {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
           {inviteUrl && (
             <div className="mt-3 rounded-md bg-muted p-3 text-sm">
               <p className="mb-1 font-medium">招待リンク（本人に共有してください）</p>
@@ -132,7 +135,7 @@ export default function MembersPage() {
 
         {/* 招待一覧 */}
         <section className="mt-8">
-          <h2 className="font-semibold">招待</h2>
+          <h2 className="font-heading font-semibold">招待</h2>
           {invitations.length === 0 ? (
             <p className="mt-2 text-sm text-muted-foreground">招待はありません。</p>
           ) : (
@@ -172,7 +175,9 @@ export default function MembersPage() {
 
         {/* メンバー一覧 */}
         <section className="mt-8">
-          <h2 className="font-semibold">参加メンバー（{members.length}）</h2>
+          <h2 className="font-heading font-semibold">
+            参加メンバー（{members.length}）
+          </h2>
           <ul className="mt-3 divide-y rounded-lg border">
             {members.map((m) => (
               <li key={m.id} className="flex items-center gap-3 px-4 py-3">

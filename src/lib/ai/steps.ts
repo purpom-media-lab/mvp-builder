@@ -9,11 +9,14 @@ import type { LlmProvider } from "./models";
 import {
   actorsSchema,
   backendSpecSchema,
+  brandSchema,
   dataModelSchema,
   journeySchema,
+  kpiSchema,
   navigationSchema,
   oouiSchema,
   orchestratePlanSchema,
+  scopeSchema,
   useCasesSchema,
   wireframeSchema,
 } from "./schemas";
@@ -37,7 +40,7 @@ export function planOrchestration({
     modelId,
     temperature: 0.2,
     system:
-      "あなたはMVP Builderのオーケストレーターです。ユーザーの要望と現在の分析状態を踏まえ、最適なUIを再提案するために、どの分析工程(actors/usecases/ooui/navigation/wireframe/backend)を再実行すべきか、プロトタイプ(UI)を作り直すべきかを判断します。工程の依存順は actors→usecases→ooui→navigation→wireframe→backend。navigation はメインナビ(画面/メニュー構成)、wireframe は各画面のセクション構成(レイアウト)の設計です。画面構成・メニューの変更要望では navigation を、画面内のレイアウト・要素配置の変更要望では wireframe を選びます。要望に関係する最小限の工程だけ選んでください。UIの見た目・画面構成の変更を伴うなら regeneratePrototype を true にします。",
+      "あなたはMVP Builderのオーケストレーターです。ユーザーの要望と現在の分析状態を踏まえ、最適なUIを再提案するために、どの分析工程(actors/usecases/ooui/journey/navigation/wireframe/datamodel/backend/scope/kpi/brand)を再実行すべきか、プロトタイプ(UI)を作り直すべきかを判断します。工程の依存順は actors→usecases→ooui→journey→navigation→wireframe→datamodel→backend→scope→kpi→brand。navigation はメインナビ(画面/メニュー構成)、wireframe は各画面のセクション構成(レイアウト)の設計です。scope は機能候補をMVPに絞り込むスコープ確定、kpi は成功指標(KPI)設計、brand はブランド設計(配色・トーン等)です。画面構成・メニューの変更要望では navigation を、画面内のレイアウト・要素配置の変更要望では wireframe を、MVPで作る機能の取捨選択の要望では scope を、成功指標の要望では kpi を、世界観・配色・トーンの要望では brand を選びます。要望に関係する最小限の工程だけ選んでください。UIの見た目・画面構成の変更を伴うなら regeneratePrototype を true にします。",
     prompt: `## 現在の分析状態\n${context}\n\n## ユーザー要望\n${message}`,
   });
 }
@@ -134,6 +137,42 @@ export function generateBackendSpec({ context, provider, modelId }: StepArgs) {
     modelId,
     system:
       "あなたはソフトウェアアーキテクトです。このMVPに認証・ストレージ・DB・外部APIが必要かを判定し、理由を述べてください。",
+    prompt: context,
+  });
+}
+
+/** スコープ確定（機能候補をMVPで作るべき10個以下に絞り込む） */
+export function generateScope({ context, provider, modelId }: StepArgs) {
+  return generateStructured({
+    schema: scopeSchema,
+    provider,
+    modelId,
+    system:
+      "あなたは新規事業のプロダクトマネージャーです。これまでのユースケース/OOUI/ジャーニーから機能候補を洗い出し、各機能を影響度(impact 1-5)と実装工数(effort 1-5)で評価し、MVPで最初に作るべき機能を10個以下に絞り込みます。includedInMvp で MVPに含むか明示し、絞り込みの理由(rationale)を述べてください。mvpStatement に『このMVPで検証する仮説と提供価値』を1-2文で。",
+    prompt: context,
+  });
+}
+
+/** KPI設定（北極星指標と補助KPI） */
+export function generateKpi({ context, provider, modelId }: StepArgs) {
+  return generateStructured({
+    schema: kpiSchema,
+    provider,
+    modelId,
+    system:
+      "あなたはグロース/事業計画の専門家です。確定したMVPスコープに紐づく成功指標を設計します。北極星指標(northStar)を1つ、補助KPI(supporting)を3〜5個。各指標に定義/目標値(target)/単位(unit)/計測方法(measurement)/計測頻度(cadence)を日本語で。",
+    prompt: context,
+  });
+}
+
+/** ブランド設計（配色・トーン・タイポ等） */
+export function generateBrand({ context, provider, modelId }: StepArgs) {
+  return generateStructured({
+    schema: brandSchema,
+    provider,
+    modelId,
+    system:
+      "あなたはブランドデザイナーです。事業の世界観・ターゲット・価値から、プロダクトのブランドを設計します。配色(palette)は必ずHEXカラーコードで具体的に(primary必須、secondary/accent/neutral/background)。トーン(tone)を形容詞配列で、タイポ方向(typography.heading/body)、ロゴ方向(logoDirection)、イメージ語(imageryKeywords)、ボイス(voice)を日本語で提示。",
     prompt: context,
   });
 }

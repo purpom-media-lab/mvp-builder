@@ -27,12 +27,15 @@ export type OrchestrateResponse = {
 const STEP_LABEL: Record<StepKey, string> = {
   actors: "アクター",
   usecases: "ユースケース",
-  ooui: "OOUI",
+  ooui: "モデリング",
   journey: "ジャーニー",
   navigation: "ナビゲーション",
   wireframe: "ワイヤー",
   datamodel: "データ設計",
   backend: "バックエンド",
+  scope: "スコープ",
+  kpi: "KPI",
+  brand: "ブランド",
 };
 
 type Plan = {

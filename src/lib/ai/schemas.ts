@@ -162,6 +162,63 @@ export const backendSpecSchema = z.object({
   rationale: z.string().describe("判定理由"),
 });
 
+/** スコープ確定（機能候補を洗い出し、MVPで作るべき機能を10個以下に絞り込む） */
+export const scopeSchema = z.object({
+  mvpStatement: z
+    .string()
+    .describe("このMVPで検証する仮説と提供価値（1-2文）"),
+  features: z.array(
+    z.object({
+      name: z.string().describe("機能名"),
+      description: z.string().optional().describe("機能の概要"),
+      impact: z.number().int().min(1).max(5).describe("影響度（1-5）"),
+      effort: z.number().int().min(1).max(5).describe("実装工数（1-5）"),
+      priority: z
+        .enum(["must", "should", "could", "wont"])
+        .describe("優先度（MoSCoW）"),
+      includedInMvp: z.boolean().describe("MVPに含むか"),
+      rationale: z.string().optional().describe("絞り込みの理由"),
+    }),
+  ),
+});
+
+/** KPI設定（北極星指標と補助KPI） */
+const kpiMetric = z.object({
+  name: z.string().describe("指標名"),
+  definition: z.string().optional().describe("定義"),
+  target: z.string().optional().describe("目標値"),
+  unit: z.string().optional().describe("単位"),
+  cadence: z.string().optional().describe("計測頻度"),
+  measurement: z.string().optional().describe("計測方法"),
+});
+export const kpiSchema = z.object({
+  northStar: kpiMetric.describe("北極星指標（1つ）"),
+  supporting: z.array(kpiMetric).describe("補助KPI（3〜5個）"),
+});
+
+/** ブランド設計（配色はHEXカラーコード前提） */
+export const brandSchema = z.object({
+  brandName: z.string().optional().describe("ブランド名"),
+  tagline: z.string().optional().describe("タグライン"),
+  tone: z.array(z.string()).describe("トーン（形容詞配列）"),
+  palette: z.object({
+    primary: z.string().describe("主要色（HEX）"),
+    secondary: z.string().optional().describe("副色（HEX）"),
+    accent: z.string().optional().describe("アクセント色（HEX）"),
+    neutral: z.string().optional().describe("ニュートラル色（HEX）"),
+    background: z.string().optional().describe("背景色（HEX）"),
+  }),
+  typography: z
+    .object({
+      heading: z.string().optional().describe("見出しフォント方向"),
+      body: z.string().optional().describe("本文フォント方向"),
+    })
+    .optional(),
+  logoDirection: z.string().optional().describe("ロゴ方向"),
+  imageryKeywords: z.array(z.string()).optional().describe("イメージ語"),
+  voice: z.string().optional().describe("ボイス"),
+});
+
 /** チャット要望から「どの工程を再実行し、プロトタイプを作り直すか」を決める計画 */
 export const orchestratePlanSchema = z.object({
   steps: z
@@ -175,6 +232,9 @@ export const orchestratePlanSchema = z.object({
         "wireframe",
         "datamodel",
         "backend",
+        "scope",
+        "kpi",
+        "brand",
       ]),
     )
     .describe(
@@ -196,4 +256,7 @@ export type DataModelOutput = z.infer<typeof dataModelSchema>;
 export type NavigationOutput = z.infer<typeof navigationSchema>;
 export type WireframeOutput = z.infer<typeof wireframeSchema>;
 export type BackendSpecOutput = z.infer<typeof backendSpecSchema>;
+export type ScopeOutput = z.infer<typeof scopeSchema>;
+export type KpiOutput = z.infer<typeof kpiSchema>;
+export type BrandOutput = z.infer<typeof brandSchema>;
 export type OrchestratePlan = z.infer<typeof orchestratePlanSchema>;

@@ -3,10 +3,13 @@ import type { LlmProvider } from "@/lib/ai/catalog";
 import {
   generateActors,
   generateBackendSpec,
+  generateBrand,
   generateDataModel,
   generateJourney,
+  generateKpi,
   generateNavigation,
   generateOoui,
+  generateScope,
   generateUseCases,
   generateWireframes,
 } from "@/lib/ai/steps";
@@ -25,6 +28,9 @@ const STEP_FNS = {
   wireframe: generateWireframes,
   datamodel: generateDataModel,
   backend: generateBackendSpec,
+  scope: generateScope,
+  kpi: generateKpi,
+  brand: generateBrand,
 } as const;
 
 interface Body {

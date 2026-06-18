@@ -129,14 +129,17 @@ export default function ProjectListPage() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="pm-sky relative isolate min-h-screen">
       <GlobalHeader />
       <main className="mx-auto max-w-5xl px-6 py-10">
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-6 flex items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">プロジェクト</h1>
-            <p className="text-sm text-muted-foreground">
-              要件 → OOUI分析 → 設計 → 動くMVP生成
+            <p className="pm-eyebrow">projects</p>
+            <h1 className="mt-2 font-heading text-3xl font-bold tracking-tight">
+              プロジェクト
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              要件 → 可視化 → スコープ確定 → 動くMVP
             </p>
           </div>
           <Button
@@ -166,7 +169,7 @@ export default function ProjectListPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {projects.map((p) => (
               <Link key={p.id} href={`/studio/${p.id}`}>
-                <Card className="h-full gap-3 transition-shadow hover:shadow-md">
+                <Card className="h-full gap-3 ring-border transition-colors hover:ring-primary/50">
                   <CardHeader>
                     <CardTitle className="truncate">{p.name}</CardTitle>
                   </CardHeader>

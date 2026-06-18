@@ -16,12 +16,18 @@ export default async function InvitePage({
   if (!invitation) {
     return (
       <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6 text-center">
-        <h1 className="text-2xl font-bold">招待が無効です</h1>
-        <p className="mt-2 text-sm text-gray-500">
+        <p className="pm-eyebrow mx-auto">invite · expired</p>
+        <h1 className="mt-3 font-heading text-2xl font-semibold tracking-tight">
+          招待が無効です
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
           この招待リンクは無効、または期限切れです。発行者に再発行を依頼してください。
         </p>
-        <Link href="/sign-in" className="mt-6 text-blue-600 underline">
-          サインインへ
+        <Link
+          href="/sign-in"
+          className="mt-6 font-mono text-sm text-primary underline-offset-4 hover:underline"
+        >
+          サインインへ →
         </Link>
       </main>
     );

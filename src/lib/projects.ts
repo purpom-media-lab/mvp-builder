@@ -8,12 +8,15 @@ import { db } from "@/lib/db";
 import {
   actors,
   backendSpecs,
+  brandDesign,
   dataModelEntities,
   journeys,
+  kpiMetrics,
   navigationItems,
   oouiObjects,
   projects,
   prototypes,
+  scopeItems,
   sourceDocuments,
   useCases,
   wireframes,
@@ -21,10 +24,13 @@ import {
 import type {
   ActorsOutput,
   BackendSpecOutput,
+  BrandOutput,
   DataModelOutput,
   JourneyOutput,
+  KpiOutput,
   NavigationOutput,
   OouiOutput,
+  ScopeOutput,
   UseCasesOutput,
   WireframeOutput,
 } from "@/lib/ai/schemas";
@@ -37,7 +43,10 @@ export type StepKey =
   | "navigation"
   | "wireframe"
   | "datamodel"
-  | "backend";
+  | "backend"
+  | "scope"
+  | "kpi"
+  | "brand";
 
 /** 所有権チェック（無ければ null） */
 async function getOwnedProject(ownerId: string, projectId: string) {
@@ -109,6 +118,9 @@ export async function getProjectWithArtifacts(
     wireframeRows,
     dataModelRows,
     backendRows,
+    scopeRows,
+    kpiRows,
+    brandRows,
     sourceRows,
   ] = await Promise.all([
     db.select().from(actors).where(eq(actors.projectId, projectId)),
@@ -128,6 +140,17 @@ export async function getProjectWithArtifacts(
     db.select().from(backendSpecs).where(eq(backendSpecs.projectId, projectId)),
     db
       .select()
+      .from(scopeItems)
+      .where(eq(scopeItems.projectId, projectId))
+      .orderBy(scopeItems.sortOrder),
+    db
+      .select()
+      .from(kpiMetrics)
+      .where(eq(kpiMetrics.projectId, projectId))
+      .orderBy(kpiMetrics.sortOrder),
+    db.select().from(brandDesign).where(eq(brandDesign.projectId, projectId)),
+    db
+      .select()
       .from(sourceDocuments)
       .where(eq(sourceDocuments.projectId, projectId)),
   ]);
@@ -143,6 +166,13 @@ export async function getProjectWithArtifacts(
     wireframes: wireframeRows,
     dataModel: dataModelRows,
     backend: backendRows[0] ?? null,
+    scope: scopeRows,
+    mvpStatement: project.mvpStatement ?? null,
+    kpi: {
+      northStar: kpiRows.find((k) => k.kind === "north_star") ?? null,
+      supporting: kpiRows.filter((k) => k.kind === "supporting"),
+    },
+    brand: brandRows[0] ?? null,
   };
 }
 
@@ -159,7 +189,10 @@ export async function saveStepResult(
     | NavigationOutput
     | WireframeOutput
     | DataModelOutput
-    | BackendSpecOutput,
+    | BackendSpecOutput
+    | ScopeOutput
+    | KpiOutput
+    | BrandOutput,
 ): Promise<boolean> {
   const owned = await getOwnedProject(ownerId, projectId);
   if (!owned) return false;
@@ -275,6 +308,69 @@ export async function saveStepResult(
       needsDb: r.needsDb,
       externalApis: r.externalApis,
       rationale: r.rationale,
+    });
+  } else if (step === "scope") {
+    const r = result as ScopeOutput;
+    await db.delete(scopeItems).where(eq(scopeItems.projectId, projectId));
+    if (r.features.length) {
+      await db.insert(scopeItems).values(
+        r.features.map((f, i) => ({
+          projectId,
+          name: f.name,
+          description: f.description ?? null,
+          impact: f.impact,
+          effort: f.effort,
+          priority: f.priority,
+          includedInMvp: f.includedInMvp,
+          rationale: f.rationale ?? null,
+          sortOrder: i,
+        })),
+      );
+    }
+    await db
+      .update(projects)
+      .set({ mvpStatement: r.mvpStatement })
+      .where(eq(projects.id, projectId));
+  } else if (step === "kpi") {
+    const r = result as KpiOutput;
+    await db.delete(kpiMetrics).where(eq(kpiMetrics.projectId, projectId));
+    await db.insert(kpiMetrics).values([
+      {
+        projectId,
+        kind: "north_star",
+        name: r.northStar.name,
+        definition: r.northStar.definition ?? null,
+        target: r.northStar.target ?? null,
+        unit: r.northStar.unit ?? null,
+        cadence: r.northStar.cadence ?? null,
+        measurement: r.northStar.measurement ?? null,
+        sortOrder: 0,
+      },
+      ...r.supporting.map((m, i) => ({
+        projectId,
+        kind: "supporting",
+        name: m.name,
+        definition: m.definition ?? null,
+        target: m.target ?? null,
+        unit: m.unit ?? null,
+        cadence: m.cadence ?? null,
+        measurement: m.measurement ?? null,
+        sortOrder: i,
+      })),
+    ]);
+  } else if (step === "brand") {
+    const r = result as BrandOutput;
+    await db.delete(brandDesign).where(eq(brandDesign.projectId, projectId));
+    await db.insert(brandDesign).values({
+      projectId,
+      brandName: r.brandName ?? null,
+      tagline: r.tagline ?? null,
+      tone: r.tone,
+      palette: r.palette,
+      typography: r.typography ?? null,
+      logoDirection: r.logoDirection ?? null,
+      imageryKeywords: r.imageryKeywords ?? null,
+      voice: r.voice ?? null,
     });
   }
 

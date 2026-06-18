@@ -1,5 +1,6 @@
 "use client";
 
+import { Compass } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { signIn } from "@/lib/auth/client";
@@ -25,36 +26,54 @@ export default function SignInPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
-      <h1 className="text-2xl font-bold">サインイン</h1>
-      <p className="mt-1 text-sm text-gray-500">MVP Builder</p>
+    <main className="pm-sky relative isolate flex min-h-screen items-center justify-center px-6">
+      <div className="pm-stars pointer-events-none absolute inset-0 -z-10" />
 
-      <form onSubmit={handleSubmit} className="mt-6 space-y-3">
-        <input
-          type="email"
-          required
-          placeholder="メールアドレス"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-md border border-gray-300 px-3 py-2"
-        />
-        <input
-          type="password"
-          required
-          placeholder="パスワード"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-md border border-gray-300 px-3 py-2"
-        />
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-md bg-black px-4 py-2.5 font-semibold text-white hover:bg-gray-800 disabled:opacity-50"
-        >
-          {loading ? "サインイン中…" : "サインイン"}
-        </button>
-      </form>
+      <div className="pm-panel w-full max-w-sm p-7">
+        <div className="flex items-center gap-2.5">
+          <span className="pm-compass">
+            <Compass className="h-4 w-4" />
+          </span>
+          <span className="font-heading text-sm font-bold tracking-tight">
+            MVP&nbsp;Builder
+          </span>
+        </div>
+        <h1 className="mt-5 font-heading text-2xl font-bold tracking-tight">
+          サインイン
+        </h1>
+        <p className="pm-eyebrow mt-3">members only · invite required</p>
+
+        <form onSubmit={handleSubmit} className="mt-6 space-y-3">
+          <input
+            type="email"
+            required
+            placeholder="メールアドレス"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+          />
+          <input
+            type="password"
+            required
+            placeholder="パスワード"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+          />
+          {error && (
+            <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {error}
+            </p>
+          )}
+          <button
+            type="submit"
+            disabled={loading}
+            className="h-10 w-full rounded-md bg-primary font-medium text-primary-foreground transition-all hover:opacity-90 active:translate-y-px disabled:opacity-50"
+          >
+            {loading ? "サインイン中…" : "サインイン →"}
+          </button>
+        </form>
+      </div>
     </main>
   );
 }

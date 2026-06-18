@@ -30,6 +30,7 @@ export const projects = pgTable("projects", {
   ownerId: text("owner_id").notNull(), // Better Auth user id
   name: text("name").notNull(),
   summary: text("summary"),
+  mvpStatement: text("mvp_statement"), // スコープ確定で生成するMVPの仮説と提供価値
   status: projectStatus("status").notNull().default("draft"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -155,6 +156,64 @@ export const backendSpecs = pgTable("backend_specs", {
   needsDb: boolean("needs_db").default(false),
   externalApis: jsonb("external_apis").$type<string[]>(),
   rationale: text("rationale"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+/** スコープ確定（機能候補をMVPで作るべき機能に絞り込む） */
+export const scopeItems = pgTable("scope_items", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  impact: integer("impact").notNull(),
+  effort: integer("effort").notNull(),
+  priority: text("priority").notNull(), // must | should | could | wont
+  includedInMvp: boolean("included_in_mvp").notNull().default(false),
+  rationale: text("rationale"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+/** KPI設定（北極星指標 / 補助KPI） */
+export const kpiMetrics = pgTable("kpi_metrics", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(), // north_star | supporting
+  name: text("name").notNull(),
+  definition: text("definition"),
+  target: text("target"),
+  unit: text("unit"),
+  cadence: text("cadence"),
+  measurement: text("measurement"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+/** ブランド設計（1プロジェクト1行） */
+export const brandDesign = pgTable("brand_design", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  brandName: text("brand_name"),
+  tagline: text("tagline"),
+  tone: jsonb("tone").$type<string[]>(),
+  palette:
+    jsonb("palette").$type<{
+      primary: string;
+      secondary?: string;
+      accent?: string;
+      neutral?: string;
+      background?: string;
+    }>(),
+  typography: jsonb("typography").$type<{ heading?: string; body?: string }>(),
+  logoDirection: text("logo_direction"),
+  imageryKeywords: jsonb("imagery_keywords").$type<string[]>(),
+  voice: text("voice"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

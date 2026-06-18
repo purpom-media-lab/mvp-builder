@@ -4,7 +4,7 @@
  * 全画面共通のグローバルヘッダー（ナビゲーション）。
  * ロゴ（→ プロジェクト一覧）、任意の戻りリンク、ログインユーザー＋サインアウト。
  */
-import { MoonIcon, SunIcon } from "lucide-react";
+import { Compass, MoonIcon, SunIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -25,10 +25,15 @@ export function GlobalHeader({
   const { resolvedTheme, setTheme } = useTheme();
 
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b bg-background/95 px-6 py-2.5 backdrop-blur">
-      <div className="flex items-center gap-4">
-        <Link href="/studio" className="text-lg font-bold tracking-tight">
-          MVP Builder
+    <header className="sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-border bg-background/80 px-6 py-2.5 backdrop-blur-md">
+      <div className="flex items-center gap-5">
+        <Link href="/studio" className="group flex items-center gap-2.5">
+          <span className="pm-compass">
+            <Compass className="h-4 w-4 transition-transform duration-500 group-hover:rotate-45" />
+          </span>
+          <span className="font-heading text-base font-bold tracking-tight">
+            MVP&nbsp;Builder
+          </span>
         </Link>
         {back && (
           <Link
@@ -60,8 +65,8 @@ export function GlobalHeader({
           <MoonIcon className="absolute h-4 w-4 scale-0 transition-transform dark:scale-100" />
         </Button>
         {data?.user && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span className="hidden sm:inline">{data.user.email}</span>
+          <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
+            <span className="hidden text-xs sm:inline">{data.user.email}</span>
             <Button
               variant="outline"
               size="sm"

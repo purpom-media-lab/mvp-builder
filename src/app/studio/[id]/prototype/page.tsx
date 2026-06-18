@@ -26,8 +26,11 @@ import {
 } from "@/components/ui/resizable";
 import type {
   ActorView,
+  BrandView,
+  KpiMetricView,
   NavView,
   OouiView,
+  ScopeFeatureView,
   UseCaseView,
 } from "@/lib/studio-types";
 
@@ -45,6 +48,13 @@ export default function PrototypePage() {
   const [useCases, setUseCases] = useState<UseCaseView[]>([]);
   const [ooui, setOoui] = useState<OouiView[]>([]);
   const [nav, setNav] = useState<NavView[]>([]);
+  const [scope, setScope] = useState<ScopeFeatureView[]>([]);
+  const [mvpStatement, setMvpStatement] = useState("");
+  const [kpi, setKpi] = useState<{
+    northStar: KpiMetricView | null;
+    supporting: KpiMetricView[];
+  } | null>(null);
+  const [brand, setBrand] = useState<BrandView | null>(null);
 
   const [engine, setEngine] = useState<"v0" | "aws">("aws");
   const [instruction, setInstruction] = useState("");
@@ -78,6 +88,10 @@ export default function PrototypePage() {
         setUseCases(d.useCases ?? []);
         setOoui(d.ooui ?? []);
         setNav(d.navigation ?? []);
+        setScope(d.scope ?? []);
+        setMvpStatement(d.mvpStatement ?? "");
+        setKpi(d.kpi ?? null);
+        setBrand(d.brand ?? null);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "エラー");
       }
@@ -127,6 +141,26 @@ export default function PrototypePage() {
             screenType: n.screenType,
             parent: n.parent,
           })),
+          mvpStatement,
+          // スコープ確定済みなら MVP に含む機能だけを実装対象に渡す
+          scope: scope
+            .filter((f) => f.includedInMvp)
+            .map((f) => ({ name: f.name, description: f.description })),
+          kpis: kpi
+            ? [kpi.northStar, ...kpi.supporting]
+                .filter((m): m is KpiMetricView => !!m)
+                .map((m) => ({ name: m.name, target: m.target }))
+            : undefined,
+          brand: brand
+            ? {
+                brandName: brand.brandName,
+                tagline: brand.tagline,
+                tone: brand.tone,
+                palette: brand.palette,
+                typography: brand.typography,
+                logoDirection: brand.logoDirection,
+              }
+            : undefined,
         }),
       });
       const data = await res.json();
@@ -221,7 +255,7 @@ export default function PrototypePage() {
       <GlobalHeader
         back={{ href: `/studio/${id}`, label: "分析に戻る" }}
         center={
-          <span className="text-sm font-medium text-gray-700">
+          <span className="text-sm font-medium text-foreground">
             {name || "…"} / プロトタイプ
           </span>
         }
@@ -243,31 +277,39 @@ export default function PrototypePage() {
           )}
 
           <div className="space-y-2">
-            <div className="inline-flex rounded-md border p-0.5 text-sm">
-              {(["v0", "aws"] as const).map((e) => (
-                <button
-                  key={e}
-                  onClick={() => setEngine(e)}
-                  className={`rounded px-3 py-1.5 font-medium ${
-                    engine === e
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  {e === "v0" ? "v0" : "AWS（Claude→HTML）"}
-                </button>
-              ))}
-            </div>
+            <p className="text-xs font-medium text-muted-foreground">
+              ① まずアプリ内で高速プレビュー → ② 良ければ v0 で本格化
+            </p>
             <Button
-              onClick={() => generatePrototype()}
+              onClick={() => {
+                setEngine("aws");
+                generatePrototype({ engine: "aws" });
+              }}
               disabled={loading !== null}
               className="w-full"
               size="lg"
             >
-              {loading === "prototype"
-                ? `生成中…（${engine === "v0" ? "v0" : "AWS"}）`
-                : `プロトタイプ生成（${engine === "v0" ? "v0" : "AWS"}）`}
+              {loading === "prototype" && engine === "aws"
+                ? "プレビュー生成中…"
+                : html || demoUrl
+                  ? "プレビューを再生成（アプリ内）"
+                  : "① プレビューを生成（アプリ内・高速）"}
             </Button>
+            {(html || demoUrl) && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEngine("v0");
+                  generatePrototype({ engine: "v0" });
+                }}
+                disabled={loading !== null}
+                className="w-full"
+              >
+                {loading === "prototype" && engine === "v0"
+                  ? "v0 で生成中…"
+                  : "② v0 で本格プロトタイプ化 →"}
+              </Button>
+            )}
           </div>
 
           {html && (
@@ -335,7 +377,7 @@ export default function PrototypePage() {
                     引き継ぎ完了
                   </p>
                 ) : publish.status === "not-configured" ? (
-                  <p className="font-medium text-amber-600">
+                  <p className="font-medium text-amber-500">
                     未連携（トークン未設定）
                   </p>
                 ) : (

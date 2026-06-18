@@ -8,7 +8,10 @@ export type StepKey =
   | "navigation"
   | "wireframe"
   | "datamodel"
-  | "backend";
+  | "backend"
+  | "scope"
+  | "kpi"
+  | "brand";
 
 export type WireframeSection = {
   type: string;
@@ -64,4 +67,37 @@ export type BackendView = {
   needsStorage: boolean;
   needsDb: boolean;
   rationale?: string | null;
+};
+export type ScopeFeatureView = {
+  name: string;
+  description?: string | null;
+  impact: number;
+  effort: number;
+  priority: string; // must | should | could | wont
+  includedInMvp: boolean;
+  rationale?: string | null;
+};
+export type KpiMetricView = {
+  name: string;
+  definition?: string | null;
+  target?: string | null;
+  unit?: string | null;
+  cadence?: string | null;
+  measurement?: string | null;
+};
+export type BrandView = {
+  brandName?: string | null;
+  tagline?: string | null;
+  tone?: string[] | null;
+  palette?: {
+    primary: string;
+    secondary?: string;
+    accent?: string;
+    neutral?: string;
+    background?: string;
+  } | null;
+  typography?: { heading?: string; body?: string } | null;
+  logoDirection?: string | null;
+  imageryKeywords?: string[] | null;
+  voice?: string | null;
 };

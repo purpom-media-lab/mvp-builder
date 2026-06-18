@@ -122,6 +122,27 @@ export interface PrototypeContext {
     parent?: string | null;
     icon?: string | null;
   }[];
+  /** このMVPで検証する仮説・提供価値（スコープ確定の宣言） */
+  mvpStatement?: string | null;
+  /** MVPに含む機能（これらだけを実装する。スコープ確定済みの includedInMvp 機能） */
+  scope?: { name: string; description?: string | null }[];
+  /** ダッシュボードに表示する主要KPI */
+  kpis?: { name: string; target?: string | null }[];
+  /** ブランド設計（生成UIの世界観に反映する） */
+  brand?: {
+    brandName?: string | null;
+    tagline?: string | null;
+    tone?: string[] | null;
+    palette?: {
+      primary: string;
+      secondary?: string;
+      accent?: string;
+      neutral?: string;
+      background?: string;
+    } | null;
+    typography?: { heading?: string; body?: string } | null;
+    logoDirection?: string | null;
+  } | null;
   requirement?: string;
 }
 
@@ -167,6 +188,57 @@ export function buildPrototypePrompt(ctx: PrototypeContext): string {
           return head + sub.join("");
         }),
     );
+  }
+  if (ctx.mvpStatement) {
+    lines.push("", "## このMVPで検証する仮説・提供価値", ctx.mvpStatement);
+  }
+  if (ctx.scope?.length) {
+    lines.push(
+      "",
+      "## MVPに含む機能（これらだけを実装すること。スコープ外の機能は作らない）",
+      ...ctx.scope.map(
+        (f) => `- ${f.name}${f.description ? `：${f.description}` : ""}`,
+      ),
+    );
+  }
+  if (ctx.kpis?.length) {
+    lines.push(
+      "",
+      "## ダッシュボードに表示する主要KPI（実データ風のモック値で）",
+      ...ctx.kpis.map(
+        (k) => `- ${k.name}${k.target ? `（目標: ${k.target}）` : ""}`,
+      ),
+    );
+  }
+  if (ctx.brand) {
+    const b = ctx.brand;
+    const brandLines: string[] = [
+      "",
+      "## ブランド（このブランドの世界観・配色でUIをデザインすること）",
+    ];
+    if (b.brandName) brandLines.push(`- ブランド名: ${b.brandName}`);
+    if (b.tagline) brandLines.push(`- タグライン: ${b.tagline}`);
+    if (b.tone?.length) brandLines.push(`- トーン: ${b.tone.join(" / ")}`);
+    if (b.palette) {
+      const p = b.palette;
+      const swatches = [
+        `Primary=${p.primary}`,
+        p.secondary && `Secondary=${p.secondary}`,
+        p.accent && `Accent=${p.accent}`,
+        p.neutral && `Neutral=${p.neutral}`,
+        p.background && `Background=${p.background}`,
+      ].filter(Boolean);
+      brandLines.push(
+        `- 配色（このHEXを基調に。Primaryをブランドカラーとしてボタン/アクセントに使う）: ${swatches.join(", ")}`,
+      );
+    }
+    if (b.typography?.heading || b.typography?.body) {
+      brandLines.push(
+        `- タイポ: 見出し=${b.typography.heading ?? "—"} / 本文=${b.typography.body ?? "—"}`,
+      );
+    }
+    if (b.logoDirection) brandLines.push(`- ロゴ方向: ${b.logoDirection}`);
+    lines.push(...brandLines);
   }
   if (ctx.requirement) {
     lines.push("", "## 追加の要望", ctx.requirement);

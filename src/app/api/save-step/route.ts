@@ -8,8 +8,11 @@ import { saveStepResult, type StepKey } from "@/lib/projects";
 import type {
   ActorsOutput,
   BackendSpecOutput,
+  BrandOutput,
+  KpiOutput,
   NavigationOutput,
   OouiOutput,
+  ScopeOutput,
   UseCasesOutput,
 } from "@/lib/ai/schemas";
 
@@ -21,7 +24,10 @@ interface Body {
     | UseCasesOutput
     | OouiOutput
     | NavigationOutput
-    | BackendSpecOutput;
+    | BackendSpecOutput
+    | ScopeOutput
+    | KpiOutput
+    | BrandOutput;
 }
 
 export async function POST(req: Request) {

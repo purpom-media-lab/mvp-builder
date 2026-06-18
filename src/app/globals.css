@@ -9,7 +9,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-geist-sans);
+  --font-heading: var(--font-plus-jakarta);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -42,79 +42,90 @@
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-xl: calc(var(--radius) * 1.3);
+  --radius-2xl: calc(var(--radius) * 1.7);
+  --radius-3xl: calc(var(--radius) * 2.1);
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* ============================================================
+   Purpom Media Lab — "冒険の一歩目"
+   Deep indigo / blue-violet on light. Adventure (compass,
+   constellation, ocean) motifs. Light-first, dark variant.
+   ============================================================ */
+
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* paper — near-white with a faint lavender cast */
+  --background: #fbfaff;
+  --foreground: #1a1340;
+  --card: #ffffff;
+  --card-foreground: #1a1340;
+  --popover: #ffffff;
+  --popover-foreground: #1a1340;
+  /* deep indigo / blue-violet (Purpom) */
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+  --secondary: #eeedfb;
+  --secondary-foreground: #322b6b;
+  --muted: #f2f1fb;
+  --muted-foreground: #6b6791;
+  /* soft pink accent (the little crew) */
+  --accent: #f8e6f2;
+  --accent-foreground: #8a2d6b;
+  --destructive: #dc2626;
+  --border: #e6e4f4;
+  --input: #e1def2;
+  --ring: #4f46e5;
+  --chart-1: #4f46e5;
+  --chart-2: #7c6df0;
+  --chart-3: #d976c0;
+  --chart-4: #4f8ff0;
+  --chart-5: #9b6ce8;
+  --radius: 0.85rem;
+  --sidebar: #f7f6fe;
+  --sidebar-foreground: #1a1340;
+  --sidebar-primary: #4f46e5;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eeedfb;
+  --sidebar-accent-foreground: #322b6b;
+  --sidebar-border: #e6e4f4;
+  --sidebar-ring: #4f46e5;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* deep indigo night sky */
+  --background: #181231;
+  --foreground: #eceaf8;
+  --card: #221b45;
+  --card-foreground: #eceaf8;
+  --popover: #221b45;
+  --popover-foreground: #eceaf8;
+  /* brighter indigo for contrast on night */
+  --primary: #8b82f5;
+  --primary-foreground: #191234;
+  --secondary: #2c2552;
+  --secondary-foreground: #eceaf8;
+  --muted: #271f4a;
+  --muted-foreground: #a9a3c9;
+  --accent: #4a2e55;
+  --accent-foreground: #f3d9ec;
+  --destructive: #f87171;
+  --border: rgba(255, 255, 255, 0.12);
+  --input: rgba(255, 255, 255, 0.15);
+  --ring: #8b82f5;
+  --chart-1: #8b82f5;
+  --chart-2: #a99bf7;
+  --chart-3: #e29ad2;
+  --chart-4: #6fa8f2;
+  --chart-5: #b39af0;
+  --sidebar: #1d1640;
+  --sidebar-foreground: #eceaf8;
+  --sidebar-primary: #8b82f5;
+  --sidebar-primary-foreground: #191234;
+  --sidebar-accent: #2c2552;
+  --sidebar-accent-foreground: #f3d9ec;
+  --sidebar-border: rgba(255, 255, 255, 0.12);
+  --sidebar-ring: #8b82f5;
 }
 
 @layer base {
@@ -126,5 +137,86 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+/* ============================================================
+   Purpom motifs (.pm-*)
+   ============================================================ */
+
+/* soft "sky" backdrop: lavender-to-white wash + faint star field */
+.pm-sky {
+  background-image:
+    radial-gradient(
+      1100px 520px at 78% -8%,
+      color-mix(in oklch, var(--primary) 16%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      720px 420px at 8% 4%,
+      color-mix(in oklch, var(--accent) 26%, transparent),
+      transparent 55%
+    );
+}
+.pm-stars {
+  background-image:
+    radial-gradient(1.4px 1.4px at 20% 28%, color-mix(in oklch, var(--primary) 55%, transparent) 50%, transparent),
+    radial-gradient(1.4px 1.4px at 67% 16%, color-mix(in oklch, var(--primary) 45%, transparent) 50%, transparent),
+    radial-gradient(1.6px 1.6px at 83% 42%, color-mix(in oklch, var(--accent) 60%, transparent) 50%, transparent),
+    radial-gradient(1.2px 1.2px at 42% 62%, color-mix(in oklch, var(--primary) 40%, transparent) 50%, transparent),
+    radial-gradient(1.5px 1.5px at 12% 74%, color-mix(in oklch, var(--primary) 45%, transparent) 50%, transparent);
+  background-repeat: no-repeat;
+}
+
+/* eyebrow / section tag */
+.pm-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.6875rem;
+  line-height: 1;
+  color: var(--primary);
+}
+.pm-eyebrow::before {
+  content: "";
+  width: 1.1rem;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.6;
+}
+
+/* rounded card / panel with soft elevation */
+.pm-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2xl);
+  background: var(--card);
+  box-shadow:
+    0 1px 2px oklch(0.5 0.1 283 / 0.04),
+    0 12px 32px -16px oklch(0.47 0.2 280 / 0.18);
+}
+
+/* compass mark used in the wordmark */
+.pm-compass {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 9999px;
+  color: var(--primary-foreground);
+  background:
+    radial-gradient(circle at 50% 50%, var(--primary), color-mix(in oklch, var(--primary) 70%, black));
+  box-shadow: 0 4px 14px -4px color-mix(in oklch, var(--primary) 60%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
   }
 }

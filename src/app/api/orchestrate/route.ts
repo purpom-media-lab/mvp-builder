@@ -10,10 +10,13 @@ import type { LlmProvider } from "@/lib/ai/catalog";
 import {
   generateActors,
   generateBackendSpec,
+  generateBrand,
   generateDataModel,
   generateJourney,
+  generateKpi,
   generateNavigation,
   generateOoui,
+  generateScope,
   generateUseCases,
   generateWireframes,
   planOrchestration,
@@ -37,6 +40,9 @@ const STEP_FNS = {
   wireframe: generateWireframes,
   datamodel: generateDataModel,
   backend: generateBackendSpec,
+  scope: generateScope,
+  kpi: generateKpi,
+  brand: generateBrand,
 } as const;
 
 const STEP_ORDER: StepKey[] = [
@@ -48,6 +54,9 @@ const STEP_ORDER: StepKey[] = [
   "wireframe",
   "datamodel",
   "backend",
+  "scope",
+  "kpi",
+  "brand",
 ];
 
 type Artifacts = NonNullable<
@@ -67,6 +76,11 @@ function buildContext(a: Artifacts): string {
     a.wireframes.length &&
       `## ワイヤーフレーム\n${JSON.stringify(a.wireframes)}`,
     a.dataModel.length && `## データ設計\n${JSON.stringify(a.dataModel)}`,
+    a.scope.length && `## スコープ\n${JSON.stringify(a.scope)}`,
+    a.mvpStatement && `## MVPステートメント\n${a.mvpStatement}`,
+    (a.kpi.northStar || a.kpi.supporting.length) &&
+      `## KPI\n${JSON.stringify(a.kpi)}`,
+    a.brand && `## ブランド\n${JSON.stringify(a.brand)}`,
   ]
     .filter(Boolean)
     .join("\n\n");

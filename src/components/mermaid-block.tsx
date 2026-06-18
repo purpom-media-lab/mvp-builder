@@ -119,8 +119,10 @@ export function MermaidBlock({ code, title }: { code: string; title?: string }) 
   const tab = (key: "diagram" | "code", label: string) => (
     <button
       onClick={() => setView(key)}
-      className={`rounded px-2.5 py-1 text-xs font-medium ${
-        view === key ? "bg-white shadow text-black" : "text-gray-500"
+      className={`rounded px-2.5 py-1 font-mono text-xs font-medium transition-colors ${
+        view === key
+          ? "bg-background text-foreground shadow-sm"
+          : "text-muted-foreground hover:text-foreground"
       }`}
     >
       {label}
@@ -128,11 +130,13 @@ export function MermaidBlock({ code, title }: { code: string; title?: string }) 
   );
 
   return (
-    <div className="rounded-md border">
-      <div className="flex items-center justify-between border-b bg-gray-50 px-3 py-1.5">
-        <span className="text-sm font-medium text-gray-600">{title}</span>
+    <div className="overflow-hidden rounded-md border border-border">
+      <div className="flex items-center justify-between border-b border-border bg-muted/60 px-3 py-1.5">
+        <span className="font-mono text-xs font-medium tracking-wide text-muted-foreground">
+          {title}
+        </span>
         <div className="flex items-center gap-2">
-          <div className="flex gap-0.5 rounded-md bg-gray-200 p-0.5">
+          <div className="flex gap-0.5 rounded-md bg-muted p-0.5">
             {tab("diagram", "図")}
             {tab("code", "コード")}
           </div>
@@ -140,13 +144,13 @@ export function MermaidBlock({ code, title }: { code: string; title?: string }) 
             <>
               <button
                 onClick={downloadSvg}
-                className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-200"
+                className="rounded px-2 py-1 font-mono text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
               >
                 SVG
               </button>
               <button
                 onClick={downloadPng}
-                className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-200"
+                className="rounded px-2 py-1 font-mono text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
               >
                 PNG
               </button>
@@ -154,7 +158,7 @@ export function MermaidBlock({ code, title }: { code: string; title?: string }) 
           )}
           <button
             onClick={copy}
-            className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-200"
+            className="rounded px-2 py-1 font-mono text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             {copied ? "コピー済" : "コピー"}
           </button>
@@ -162,7 +166,7 @@ export function MermaidBlock({ code, title }: { code: string; title?: string }) 
       </div>
       {view === "diagram" ? (
         err ? (
-          <pre className="overflow-auto p-3 text-xs text-red-600">{err}</pre>
+          <pre className="overflow-auto p-3 text-xs text-destructive">{err}</pre>
         ) : (
           // biome-ignore lint/security/noDangerouslySetInnerHtml: mermaid が生成する SVG
           <div
@@ -171,7 +175,7 @@ export function MermaidBlock({ code, title }: { code: string; title?: string }) 
           />
         )
       ) : (
-        <pre className="overflow-auto bg-gray-50 p-3 text-xs leading-relaxed">
+        <pre className="overflow-auto bg-muted/50 p-3 text-xs leading-relaxed">
           {code}
         </pre>
       )}
