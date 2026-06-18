@@ -223,18 +223,30 @@ export const kpiSchema = z.object({
   growthPlan: growthPlanSchema.describe("KPIを伸ばすためのグロース計画"),
 });
 
+/** 配色（すべて HEX カラーコード） */
+const paletteShape = z.object({
+  primary: z.string().describe("主要色（HEX）"),
+  secondary: z.string().optional().describe("副色（HEX）"),
+  accent: z.string().optional().describe("アクセント色（HEX）"),
+  neutral: z.string().optional().describe("ニュートラル色（HEX）"),
+  background: z.string().optional().describe("背景色（HEX）"),
+});
+
 /** ブランド設計（配色はHEXカラーコード前提） */
 export const brandSchema = z.object({
   brandName: z.string().optional().describe("ブランド名"),
   tagline: z.string().optional().describe("タグライン"),
   tone: z.array(z.string()).describe("トーン（形容詞配列）"),
-  palette: z.object({
-    primary: z.string().describe("主要色（HEX）"),
-    secondary: z.string().optional().describe("副色（HEX）"),
-    accent: z.string().optional().describe("アクセント色（HEX）"),
-    neutral: z.string().optional().describe("ニュートラル色（HEX）"),
-    background: z.string().optional().describe("背景色（HEX）"),
-  }),
+  // 配色は複数案を提示し、palette は推奨（既定）案を入れる
+  palette: paletteShape.describe("推奨する配色（paletteOptions のうち最も推奨する案）"),
+  paletteOptions: z
+    .array(
+      paletteShape.extend({
+        name: z.string().describe("配色コンセプト名（例: 信頼のネイビー）"),
+      }),
+    )
+    .min(2)
+    .describe("配色の複数案（3案。それぞれ異なる方向性・コンセプト名つき）"),
   typography: z
     .object({
       heading: z.string().optional().describe("見出しフォント方向"),

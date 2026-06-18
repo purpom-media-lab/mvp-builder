@@ -297,167 +297,18 @@ export default function PrototypePage() {
       />
 
       <ResizablePanelGroup className="flex-1">
-        {/* 左ペイン: 操作 */}
+        {/* 左ペイン: AI相談チャットのみ */}
         <ResizablePanel
           defaultSize="30%"
           minSize="22%"
-          maxSize="48%"
-          className="space-y-4 overflow-auto p-4"
+          maxSize="46%"
+          className="flex flex-col gap-3 overflow-auto p-4"
         >
           {error && (
             <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {error}
             </div>
           )}
-
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground">
-              ① アプリ内でプレビュー → ② 納得したらホスティング／本格化
-            </p>
-            <Button
-              onClick={() => {
-                setEngine("aws");
-                generatePrototype({ engine: "aws" });
-              }}
-              disabled={loading !== null}
-              className="w-full"
-              size="lg"
-            >
-              {loading === "prototype" && engine === "aws"
-                ? "プレビュー生成中…"
-                : html
-                  ? "プレビューを再生成（アプリ内）"
-                  : "① プレビューを生成（アプリ内・高速）"}
-            </Button>
-
-            {html && (
-              <div className="space-y-2 rounded-lg border bg-muted/30 p-2">
-                <p className="text-xs font-medium text-muted-foreground">
-                  ② プレビューに納得したら公開
-                </p>
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={hostPrototype}
-                  disabled={loading !== null}
-                >
-                  {loading === "host"
-                    ? "ホスティング中…"
-                    : "このプレビューをホスティング（共有URL発行）"}
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => {
-                    setEngine("v0");
-                    generatePrototype({ engine: "v0" });
-                  }}
-                  disabled={loading !== null}
-                >
-                  {loading === "prototype" && engine === "v0"
-                    ? "v0 で生成中…"
-                    : "v0 で本格プロトタイプ化 →"}
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {html && (
-            <div className="flex gap-2">
-              <Input
-                placeholder="修正指示（例: サイドバーを青く）"
-                value={instruction}
-                onChange={(e) => setInstruction(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") updatePrototype();
-                }}
-                disabled={loading !== null}
-              />
-              <Button
-                onClick={updatePrototype}
-                disabled={loading !== null || !instruction.trim()}
-              >
-                {loading === "prototype" ? "更新中…" : "更新"}
-              </Button>
-            </div>
-          )}
-
-          {(shareUrl || shareError) && (
-            <div className="rounded-md border bg-muted/40 p-3 text-sm">
-              {shareUrl ? (
-                <>
-                  <p className="font-medium text-muted-foreground">共有URL</p>
-                  <a
-                    href={shareUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="break-all text-primary underline"
-                  >
-                    {shareUrl}
-                  </a>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    CloudFront 配信開始まで数分かかる場合あり
-                  </p>
-                </>
-              ) : (
-                <p className="text-muted-foreground">
-                  共有URL未発行（{shareError}）
-                </p>
-              )}
-            </div>
-          )}
-
-          <div className="space-y-2 border-t pt-4">
-            <Button
-              onClick={publishHandoff}
-              disabled={loading !== null}
-              variant="outline"
-              className="w-full"
-            >
-              {loading === "publish" ? "引き継ぎ中…" : "公開・引き継ぎ"}
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              GitHub リポジトリ作成と Vercel デプロイへ引き継ぎます。
-            </p>
-
-            {publish && (
-              <div className="rounded-md border bg-muted/40 p-3 text-sm">
-                {publish.status === "published" ? (
-                  <p className="font-medium text-muted-foreground">
-                    引き継ぎ完了
-                  </p>
-                ) : publish.status === "not-configured" ? (
-                  <p className="font-medium text-amber-500">
-                    未連携（トークン未設定）
-                  </p>
-                ) : (
-                  <p className="font-medium text-destructive">引き継ぎ失敗</p>
-                )}
-                <p className="mt-1 text-muted-foreground">{publish.message}</p>
-                {publish.githubRepoUrl && (
-                  <a
-                    href={publish.githubRepoUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-1 block break-all text-primary underline"
-                  >
-                    GitHub: {publish.githubRepoUrl}
-                  </a>
-                )}
-                {publish.deploymentUrl && (
-                  <a
-                    href={publish.deploymentUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-1 block break-all text-primary underline"
-                  >
-                    Vercel: {publish.deploymentUrl}
-                  </a>
-                )}
-              </div>
-            )}
-          </div>
-
           {id && (
             <AiConsultPanel
               projectId={id}
@@ -471,29 +322,175 @@ export default function PrototypePage() {
 
         <ResizableHandle withHandle />
 
-        {/* 右ペイン: プレビュー */}
+        {/* 右ペイン: アクションツールバー + プレビュー */}
         <ResizablePanel
           defaultSize="70%"
-          className="overflow-hidden bg-muted/40 p-3"
+          className="flex flex-col overflow-hidden"
         >
-          {demoUrl ? (
-            <iframe
-              src={demoUrl}
-              className="h-full w-full rounded-md border bg-white"
-              title="prototype preview"
-            />
-          ) : html ? (
-            <iframe
-              srcDoc={html}
-              className="h-full w-full rounded-md border bg-white"
-              title="prototype preview (aws)"
-              sandbox="allow-scripts"
-            />
-          ) : (
-            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-              左の「プロトタイプ生成」を押すと、ここにプレビューが表示されます
+          {/* アクションツールバー */}
+          <div className="flex flex-wrap items-center gap-2 border-b bg-background px-3 py-2">
+            <Button
+              size="sm"
+              onClick={() => {
+                setEngine("aws");
+                generatePrototype({ engine: "aws" });
+              }}
+              disabled={loading !== null}
+            >
+              {loading === "prototype" && engine === "aws"
+                ? "プレビュー生成中…"
+                : html
+                  ? "プレビュー再生成"
+                  : "プレビューを生成"}
+            </Button>
+
+            {(html || demoUrl) && (
+              <>
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    className="h-8 w-44"
+                    placeholder="修正指示（例: サイドバーを青く）"
+                    value={instruction}
+                    onChange={(e) => setInstruction(e.target.value)}
+                    onKeyDown={(e) => {
+                      // IME 変換確定の Enter では実行しない（日本語入力対策）
+                      if (e.key === "Enter" && !e.nativeEvent.isComposing)
+                        updatePrototype();
+                    }}
+                    disabled={loading !== null}
+                  />
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={updatePrototype}
+                    disabled={loading !== null || !instruction.trim()}
+                  >
+                    {loading === "prototype" ? "更新中…" : "更新"}
+                  </Button>
+                </div>
+
+                <span className="mx-1 h-5 w-px bg-border" />
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={hostPrototype}
+                  disabled={loading !== null}
+                >
+                  {loading === "host" ? "ホスティング中…" : "ホスティング"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setEngine("v0");
+                    generatePrototype({ engine: "v0" });
+                  }}
+                  disabled={loading !== null}
+                >
+                  {loading === "prototype" && engine === "v0"
+                    ? "v0生成中…"
+                    : "v0で本格化"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={publishHandoff}
+                  disabled={loading !== null}
+                >
+                  {loading === "publish" ? "引き継ぎ中…" : "公開・引き継ぎ"}
+                </Button>
+              </>
+            )}
+          </div>
+
+          {/* 結果ストリップ（共有URL / 引き継ぎ） */}
+          {(shareUrl || shareError || publish) && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b bg-muted/40 px-3 py-2 text-xs">
+              {shareUrl ? (
+                <span>
+                  共有URL:{" "}
+                  <a
+                    href={shareUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="break-all text-primary underline"
+                  >
+                    {shareUrl}
+                  </a>
+                </span>
+              ) : shareError ? (
+                <span className="text-muted-foreground">
+                  共有URL未発行（{shareError}）
+                </span>
+              ) : null}
+              {publish && (
+                <span
+                  className={
+                    publish.status === "published"
+                      ? "text-muted-foreground"
+                      : publish.status === "not-configured"
+                        ? "text-amber-500"
+                        : "text-destructive"
+                  }
+                >
+                  {publish.status === "published"
+                    ? "引き継ぎ完了"
+                    : publish.status === "not-configured"
+                      ? "未連携（トークン未設定）"
+                      : "引き継ぎ失敗"}
+                  {publish.githubRepoUrl && (
+                    <>
+                      {" · "}
+                      <a
+                        href={publish.githubRepoUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-primary underline"
+                      >
+                        GitHub
+                      </a>
+                    </>
+                  )}
+                  {publish.deploymentUrl && (
+                    <>
+                      {" · "}
+                      <a
+                        href={publish.deploymentUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-primary underline"
+                      >
+                        Vercel
+                      </a>
+                    </>
+                  )}
+                </span>
+              )}
             </div>
           )}
+
+          {/* プレビュー */}
+          <div className="flex-1 overflow-hidden bg-muted/40 p-3">
+            {demoUrl ? (
+              <iframe
+                src={demoUrl}
+                className="h-full w-full rounded-md border bg-white"
+                title="prototype preview"
+              />
+            ) : html ? (
+              <iframe
+                srcDoc={html}
+                className="h-full w-full rounded-md border bg-white"
+                title="prototype preview (aws)"
+                sandbox="allow-scripts"
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                上の「プレビューを生成」を押すと、ここにプレビューが表示されます
+              </div>
+            )}
+          </div>
         </ResizablePanel>
       </ResizablePanelGroup>
     </div>

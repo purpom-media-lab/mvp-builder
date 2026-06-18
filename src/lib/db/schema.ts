@@ -43,6 +43,8 @@ export const projects = pgTable("projects", {
     }[];
     milestones?: { period: string; target: string }[];
   }>(),
+  // 提案資料の slideData（figma-slide-gen 互換のスライド配列）
+  deck: jsonb("deck").$type<unknown[]>(),
   status: projectStatus("status").notNull().default("draft"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -222,6 +224,18 @@ export const brandDesign = pgTable("brand_design", {
       neutral?: string;
       background?: string;
     }>(),
+  // 配色の複数案（AIが提示する 3 案。UI で選択して palette に反映する）
+  paletteOptions:
+    jsonb("palette_options").$type<
+      {
+        name: string;
+        primary: string;
+        secondary?: string;
+        accent?: string;
+        neutral?: string;
+        background?: string;
+      }[]
+    >(),
   typography: jsonb("typography").$type<{ heading?: string; body?: string }>(),
   logoDirection: text("logo_direction"),
   imageryKeywords: jsonb("imagery_keywords").$type<string[]>(),

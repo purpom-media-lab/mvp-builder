@@ -172,7 +172,7 @@ export function generateBrand({ context, provider, modelId }: StepArgs) {
     provider,
     modelId,
     system:
-      "あなたはブランドデザイナーです。事業の世界観・ターゲット・価値から、プロダクトのブランドを設計します。配色(palette)は必ずHEXカラーコードで具体的に(primary必須、secondary/accent/neutral/background)。トーン(tone)を形容詞配列で、タイポ方向(typography.heading/body)、ロゴ方向(logoDirection)、イメージ語(imageryKeywords)、ボイス(voice)を日本語で提示。",
+      "あなたはブランドデザイナーです。事業の世界観・ターゲット・価値から、プロダクトのブランドを設計します。配色は必ずHEXカラーコードで具体的に(primary必須、secondary/accent/neutral/background)。\n【重要】配色は1案でなく『複数案(paletteOptions)を3つ』提示してください。各案は方向性が異なり(例: 信頼感のネイビー系 / 先進的なバイオレット系 / 親しみのあるコーラル系)、それぞれにコンセプト名(name)を付けます。palette には3案のうち最も推奨する案を入れます。\nトーン(tone)を形容詞配列で、タイポ方向(typography.heading/body)、ロゴ方向(logoDirection)、イメージ語(imageryKeywords)、ボイス(voice)を日本語で提示。",
     prompt: context,
   });
 }

@@ -107,6 +107,16 @@ export type BrandView = {
     neutral?: string;
     background?: string;
   } | null;
+  paletteOptions?:
+    | {
+        name: string;
+        primary: string;
+        secondary?: string;
+        accent?: string;
+        neutral?: string;
+        background?: string;
+      }[]
+    | null;
   typography?: { heading?: string; body?: string } | null;
   logoDirection?: string | null;
   imageryKeywords?: string[] | null;

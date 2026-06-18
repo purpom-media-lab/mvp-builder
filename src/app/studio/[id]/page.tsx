@@ -398,6 +398,12 @@ export default function ProjectDetailPage() {
           <div className="flex items-center gap-3">
             <ModelSelector value={model} onChange={setModel} />
             <Link
+              href={`/studio/${id}/deck`}
+              className={buttonVariants({ size: "sm", variant: "outline" })}
+            >
+              資料 →
+            </Link>
+            <Link
               href={`/studio/${id}/prototype`}
               className={buttonVariants({ size: "sm" })}
             >
@@ -1555,9 +1561,70 @@ export default function ProjectDetailPage() {
                         />
                       </div>
                     </div>
+                    {brand.paletteOptions?.length ? (
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          配色案（クリックで採用）
+                        </p>
+                        <div className="grid gap-2 sm:grid-cols-3">
+                          {brand.paletteOptions.map((opt, i) => {
+                            const active = brand.palette?.primary === opt.primary;
+                            return (
+                              <button
+                                key={i}
+                                type="button"
+                                onClick={() =>
+                                  setBrand((p) =>
+                                    p
+                                      ? {
+                                          ...p,
+                                          palette: {
+                                            primary: opt.primary,
+                                            secondary: opt.secondary,
+                                            accent: opt.accent,
+                                            neutral: opt.neutral,
+                                            background: opt.background,
+                                          },
+                                        }
+                                      : p,
+                                  )
+                                }
+                                className={`rounded-lg border p-2 text-left transition-colors ${
+                                  active
+                                    ? "border-primary ring-1 ring-primary"
+                                    : "hover:border-primary/40"
+                                }`}
+                              >
+                                <div className="flex gap-1">
+                                  {[
+                                    opt.primary,
+                                    opt.secondary,
+                                    opt.accent,
+                                    opt.neutral,
+                                    opt.background,
+                                  ]
+                                    .filter(Boolean)
+                                    .map((c, j) => (
+                                      <span
+                                        key={j}
+                                        className="h-6 flex-1 rounded"
+                                        style={{ backgroundColor: c as string }}
+                                      />
+                                    ))}
+                                </div>
+                                <p className="mt-1.5 truncate text-xs font-medium">
+                                  {opt.name}
+                                </p>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
+
                     <div className="space-y-1.5">
                       <p className="text-xs font-medium text-muted-foreground">
-                        パレット
+                        パレット（採用中）
                       </p>
                       <div className="flex flex-wrap gap-3">
                         {(

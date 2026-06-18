@@ -177,7 +177,23 @@ export async function getProjectWithArtifacts(
     },
     brand: brandRows[0] ?? null,
     prototype: prototypeRows[0] ?? null,
+    deck: project.deck ?? null,
   };
+}
+
+/** 提案資料（slideData 配列）を保存する。所有権が無ければ false。 */
+export async function saveDeck(
+  ownerId: string,
+  projectId: string,
+  deck: unknown[],
+) {
+  const owned = await getOwnedProject(ownerId, projectId);
+  if (!owned) return false;
+  await db
+    .update(projects)
+    .set({ deck, updatedAt: new Date() })
+    .where(eq(projects.id, projectId));
+  return true;
 }
 
 /** 工程の生成結果を保存（同種は洗い替え）。所有権が無ければ false。 */
@@ -376,6 +392,7 @@ export async function saveStepResult(
       tagline: r.tagline ?? null,
       tone: r.tone,
       palette: r.palette,
+      paletteOptions: r.paletteOptions ?? null,
       typography: r.typography ?? null,
       logoDirection: r.logoDirection ?? null,
       imageryKeywords: r.imageryKeywords ?? null,
