@@ -41,21 +41,35 @@ export function JtbdChat({
     [],
   );
 
-  const { messages, sendMessage, status, stop } = useChat({ transport });
+  const { messages, sendMessage, status, stop, setMessages } = useChat({
+    transport,
+  });
   const [input, setInput] = useState("");
   const [saved, setSaved] = useState(false);
   const savedRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // 初回に AI からヒアリングを始めてもらう
+  // 保存済み履歴があれば復元、無ければ AI からヒアリングを開始
   const startedRef = useRef(false);
   useEffect(() => {
-    if (startedRef.current) return;
+    if (startedRef.current || !projectId) return;
     startedRef.current = true;
-    void sendMessage({
-      text: "プロダクトの要望をジョブ理論で深掘りしたいです。最初の質問をお願いします。",
-    });
-  }, [sendMessage]);
+    (async () => {
+      const res = await fetch(
+        `/api/chat/history?projectId=${projectId}&scope=jtbd`,
+      );
+      if (res.ok) {
+        const d = await res.json();
+        if (Array.isArray(d.messages) && d.messages.length) {
+          setMessages(d.messages);
+          return; // 履歴があれば自動開始しない
+        }
+      }
+      void sendMessage({
+        text: "プロダクトの要望をジョブ理論で深掘りしたいです。最初の質問をお願いします。",
+      });
+    })();
+  }, [projectId, sendMessage, setMessages]);
 
   // saveRequirement ツールの成功を検出
   useEffect(() => {

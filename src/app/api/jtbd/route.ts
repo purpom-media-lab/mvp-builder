@@ -8,7 +8,11 @@ import { z } from "zod";
 import type { LlmProvider } from "@/lib/ai/catalog";
 import { resolveModel } from "@/lib/ai/models";
 import { getSessionUser } from "@/lib/auth/session";
-import { getProjectWithArtifacts, saveRequirement } from "@/lib/projects";
+import {
+  getProjectWithArtifacts,
+  saveChatThread,
+  saveRequirement,
+} from "@/lib/projects";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -73,5 +77,10 @@ ${p.sourceText ? `- 既存の入力資料:\n${p.sourceText.slice(0, 1500)}` : "-
     },
   });
 
-  return result.toUIMessageStreamResponse();
+  return result.toUIMessageStreamResponse({
+    originalMessages: messages,
+    onFinish: ({ messages: finalMessages }) => {
+      void saveChatThread(projectId, "jtbd", finalMessages);
+    },
+  });
 }

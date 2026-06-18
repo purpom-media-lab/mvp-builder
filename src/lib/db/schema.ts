@@ -183,10 +183,11 @@ export const scopeItems = pgTable("scope_items", {
   description: text("description"),
   impact: integer("impact").notNull(),
   effort: integer("effort").notNull(),
-  // コストの3区分: 初期 / 検証 / 運用
+  // 判断軸: 初期開発 / 運用 / 顧客の学習コスト
   initialCost: text("initial_cost"),
-  validationCost: text("validation_cost"),
   operationCost: text("operation_cost"),
+  learningCost: text("learning_cost"),
+  validationCost: text("validation_cost"), // 旧: 検証コスト（後方互換のため残置・未使用）
   operationTime: text("operation_time"), // 旧: 実運用時間（後方互換のため残置・未使用）
   priority: text("priority").notNull(), // must | should | could | wont
   includedInMvp: boolean("included_in_mvp").notNull().default(false),
@@ -246,6 +247,17 @@ export const brandDesign = pgTable("brand_design", {
   imageryKeywords: jsonb("imagery_keywords").$type<string[]>(),
   voice: text("voice"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+/** チャット会話履歴（プロジェクト×スコープ ごとに1スレッド） */
+export const chatMessages = pgTable("chat_messages", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  scope: text("scope").notNull(), // 'analysis' | 'jtbd'
+  messages: jsonb("messages").$type<unknown[]>(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 /** モック生成（v0）→ 公開 */

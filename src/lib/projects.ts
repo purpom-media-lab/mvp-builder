@@ -9,6 +9,7 @@ import {
   actors,
   backendSpecs,
   brandDesign,
+  chatMessages,
   dataModelEntities,
   journeys,
   kpiMetrics,
@@ -212,6 +213,43 @@ export async function saveRequirement(
   return true;
 }
 
+/** チャット会話履歴を保存（projectId × scope ごとに1スレッドを洗い替え）。 */
+export async function saveChatThread(
+  projectId: string,
+  scope: string,
+  messages: unknown[],
+) {
+  await db
+    .delete(chatMessages)
+    .where(
+      and(
+        eq(chatMessages.projectId, projectId),
+        eq(chatMessages.scope, scope),
+      ),
+    );
+  await db.insert(chatMessages).values({ projectId, scope, messages });
+}
+
+/** チャット会話履歴を読み込む。所有権が無ければ null。 */
+export async function loadChatThread(
+  ownerId: string,
+  projectId: string,
+  scope: string,
+) {
+  const owned = await getOwnedProject(ownerId, projectId);
+  if (!owned) return null;
+  const [row] = await db
+    .select()
+    .from(chatMessages)
+    .where(
+      and(
+        eq(chatMessages.projectId, projectId),
+        eq(chatMessages.scope, scope),
+      ),
+    );
+  return (row?.messages as unknown[] | undefined) ?? [];
+}
+
 /** 提案資料（slideData 配列）を保存する。所有権が無ければ false。 */
 export async function saveDeck(
   ownerId: string,
@@ -373,8 +411,8 @@ export async function saveStepResult(
           impact: f.impact,
           effort: f.effort,
           initialCost: f.initialCost ?? null,
-          validationCost: f.validationCost ?? null,
           operationCost: f.operationCost ?? null,
+          learningCost: f.learningCost ?? null,
           priority: f.priority,
           includedInMvp: f.includedInMvp,
           rationale: f.rationale ?? null,

@@ -79,10 +79,37 @@ export function AiConsultPanel({
     [],
   );
 
-  const { messages, sendMessage, status, stop } = useChat({ transport });
+  const { messages, sendMessage, status, stop, setMessages } = useChat({
+    transport,
+  });
   const [input, setInput] = useState("");
   const appliedRef = useRef<Set<string>>(new Set());
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // 保存済みの会話履歴を復元
+  const loadedRef = useRef(false);
+  useEffect(() => {
+    if (loadedRef.current || !projectId) return;
+    loadedRef.current = true;
+    (async () => {
+      const res = await fetch(
+        `/api/chat/history?projectId=${projectId}&scope=analysis`,
+      );
+      if (!res.ok) return;
+      const d = await res.json();
+      if (Array.isArray(d.messages) && d.messages.length) {
+        // 過去のツール実行は適用済み扱いにし、再反映を防ぐ
+        for (const m of d.messages) {
+          for (const part of m.parts ?? []) {
+            if (part?.type === "tool-runAnalysis" && part.toolCallId) {
+              appliedRef.current.add(part.toolCallId);
+            }
+          }
+        }
+        setMessages(d.messages);
+      }
+    })();
+  }, [projectId, setMessages]);
 
   // ツール実行結果(runAnalysis の output)を親に反映（1回だけ）
   useEffect(() => {

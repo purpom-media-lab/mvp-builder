@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { GlobalHeader } from "@/components/global-header";
+import { PageLoading } from "@/components/spinner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -72,12 +73,17 @@ export default function ProjectListPage() {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loadingList, setLoadingList] = useState(true);
 
   const refresh = useCallback(async () => {
-    const res = await fetch("/api/projects");
-    if (res.ok) {
-      const d = await res.json();
-      setProjects(d.projects ?? []);
+    try {
+      const res = await fetch("/api/projects");
+      if (res.ok) {
+        const d = await res.json();
+        setProjects(d.projects ?? []);
+      }
+    } finally {
+      setLoadingList(false);
     }
   }, []);
   useEffect(() => {
@@ -158,7 +164,9 @@ export default function ProjectListPage() {
           </Button>
         </div>
 
-        {projects.length === 0 ? (
+        {loadingList ? (
+          <PageLoading label="プロジェクトを読み込み中…" />
+        ) : projects.length === 0 ? (
           <Card className="border-dashed">
             <CardContent className="py-12 text-center text-sm text-muted-foreground">
               まだプロジェクトがありません。「＋

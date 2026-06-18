@@ -162,19 +162,51 @@ export function analysisToFlowchart(
   return lines.join("\n");
 }
 
+/** period 文字列（「1ヶ月後」「3週間」「Q2」等）から概算の所要日数を推定する */
+function periodToDays(period: string): number {
+  const p = period ?? "";
+  const num = (re: RegExp) => {
+    const m = re.exec(p);
+    return m ? Number(m[1]) : null;
+  };
+  const months = num(/(\d+)\s*(?:ヶ月|カ月|か月|ヵ月|month)/i);
+  if (months) return months * 30;
+  const weeks = num(/(\d+)\s*(?:週|week)/i);
+  if (weeks) return weeks * 7;
+  const days = num(/(\d+)\s*(?:日|day)/i);
+  if (days) return days;
+  if (/年|year/i.test(p)) return 365;
+  if (/Q[1-4]|四半期|quarter/i.test(p)) return 90;
+  return 30; // 既定 1ヶ月
+}
+
 /**
- * グロース計画のマイルストーンを mermaid timeline（スケジュール）に変換する。
- * period を時間軸、target をイベントとして並べる。
+ * グロース計画のマイルストーンを mermaid gantt（ガントチャート）に変換する。
+ * period から期間を推定し、各マイルストーンを順次（after 連結）で並べる。
  */
 export function growthToSchedule(
   milestones?: { period: string; target: string }[] | null,
 ): string | null {
   if (!milestones?.length) return null;
+  // タスク名は ":" / "," を含められない（gantt 構文の区切り）
   const esc = (s: string) =>
-    (s ?? "").replace(/:/g, "：").replace(/\n/g, " ").trim();
-  const lines = ["timeline", "  title グロース・スケジュール"];
-  for (const m of milestones) {
-    lines.push(`  ${esc(m.period) || "—"} : ${esc(m.target) || " "}`);
-  }
+    (s ?? "").replace(/[:,]/g, "・").replace(/\n/g, " ").trim();
+  const lines = [
+    "gantt",
+    "  title グロース・スケジュール",
+    "  dateFormat YYYY-MM-DD",
+    "  axisFormat %m/%d",
+    "  section スケジュール",
+  ];
+  let prevId = "";
+  milestones.forEach((m, i) => {
+    const id = `m${i}`;
+    const dur = periodToDays(m.period);
+    const label =
+      esc([m.period, m.target].filter(Boolean).join(" ")) || `工程${i + 1}`;
+    const when = i === 0 ? "2026-01-01" : `after ${prevId}`;
+    lines.push(`  ${label} :${id}, ${when}, ${dur}d`);
+    prevId = id;
+  });
   return lines.join("\n");
 }

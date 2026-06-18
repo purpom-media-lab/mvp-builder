@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { GlobalHeader } from "@/components/global-header";
+import { PageLoading } from "@/components/spinner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,17 +41,22 @@ export default function MembersPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [loadingMembers, setLoadingMembers] = useState(true);
 
   useEffect(() => {
     if (!isPending && !session?.user) router.replace("/sign-in");
   }, [isPending, session, router]);
 
   const refresh = useCallback(async () => {
-    const res = await fetch("/api/invitations");
-    if (res.ok) {
-      const d = await res.json();
-      setMembers(d.members ?? []);
-      setInvitations(d.invitations ?? []);
+    try {
+      const res = await fetch("/api/invitations");
+      if (res.ok) {
+        const d = await res.json();
+        setMembers(d.members ?? []);
+        setInvitations(d.invitations ?? []);
+      }
+    } finally {
+      setLoadingMembers(false);
     }
   }, []);
   useEffect(() => {
@@ -133,6 +139,10 @@ export default function MembersPage() {
           )}
         </section>
 
+        {loadingMembers ? (
+          <PageLoading label="読み込み中…" />
+        ) : (
+          <>
         {/* 招待一覧 */}
         <section className="mt-8">
           <h2 className="font-heading font-semibold">招待</h2>
@@ -194,6 +204,8 @@ export default function MembersPage() {
             ))}
           </ul>
         </section>
+          </>
+        )}
       </main>
     </div>
   );

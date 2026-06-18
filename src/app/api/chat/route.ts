@@ -24,6 +24,7 @@ import { resolveModel } from "@/lib/ai/models";
 import { getSessionUser } from "@/lib/auth/session";
 import {
   getProjectWithArtifacts,
+  saveChatThread,
   saveStepResult,
   type StepKey,
 } from "@/lib/projects";
@@ -168,5 +169,10 @@ ${context}`,
     },
   });
 
-  return result.toUIMessageStreamResponse();
+  return result.toUIMessageStreamResponse({
+    originalMessages: messages,
+    onFinish: ({ messages: finalMessages }) => {
+      void saveChatThread(projectId, "analysis", finalMessages);
+    },
+  });
 }

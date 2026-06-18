@@ -75,8 +75,8 @@ export type ScopeFeatureView = {
   impact: number;
   effort: number;
   initialCost?: string | null;
-  validationCost?: string | null;
   operationCost?: string | null;
+  learningCost?: string | null;
   priority: string; // must | should | could | wont
   includedInMvp: boolean;
   rationale?: string | null;

@@ -175,13 +175,15 @@ export const scopeSchema = z.object({
       effort: z.number().int().min(1).max(5).describe("実装工数（1-5）"),
       initialCost: z
         .string()
-        .describe("初期コスト（構築の参考金額。例: 30〜50万円）"),
-      validationCost: z
-        .string()
-        .describe("検証コスト（仮説検証にかかる参考金額・工数。例: 10万円 / 2週間）"),
+        .describe("初期開発コスト（構築の参考金額。例: 30〜50万円）"),
       operationCost: z
         .string()
         .describe("運用コスト（継続運用の参考金額・時間。例: 月3万円 + 月5時間）"),
+      learningCost: z
+        .string()
+        .describe(
+          "顧客の学習コスト（ユーザーが使い方を習得する負担。例: 低/中/高・習得目安）",
+        ),
       priority: z
         .enum(["must", "should", "could", "wont"])
         .describe("優先度（MoSCoW）"),

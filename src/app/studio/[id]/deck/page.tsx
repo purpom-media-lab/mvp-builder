@@ -14,6 +14,7 @@ import {
   ModelSelector,
 } from "@/components/model-selector";
 import { SlideDeck } from "@/components/slide-deck";
+import { PageLoading } from "@/components/spinner";
 import { Button } from "@/components/ui/button";
 import type { DeckTheme, SlideData } from "@/lib/slides/types";
 
@@ -30,6 +31,7 @@ export default function DeckPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [loadingProject, setLoadingProject] = useState(true);
 
   useEffect(() => {
     if (!id) return;
@@ -50,6 +52,8 @@ export default function DeckPage() {
         }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "エラー");
+      } finally {
+        if (!cancelled) setLoadingProject(false);
       }
     })();
     return () => {
@@ -143,7 +147,9 @@ export default function DeckPage() {
             )}
           </div>
 
-          {deck ? (
+          {loadingProject ? (
+            <PageLoading label="読み込み中…" />
+          ) : deck ? (
             <SlideDeck slides={deck} theme={theme} />
           ) : (
             <div className="flex h-64 items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">

@@ -17,6 +17,7 @@ import {
   type ModelSelection,
   ModelSelector,
 } from "@/components/model-selector";
+import { LoadingOverlay } from "@/components/spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -72,6 +73,7 @@ export default function PrototypePage() {
 
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadingProject, setLoadingProject] = useState(true);
 
   useEffect(() => {
     if (!id) return;
@@ -100,6 +102,8 @@ export default function PrototypePage() {
         }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "エラー");
+      } finally {
+        if (!cancelled) setLoadingProject(false);
       }
     })();
     return () => {
@@ -285,7 +289,8 @@ export default function PrototypePage() {
   }
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="relative flex h-screen flex-col">
+      {loadingProject && <LoadingOverlay label="読み込み中…" />}
       <GlobalHeader
         back={{ href: `/studio/${id}`, label: "分析に戻る" }}
         center={

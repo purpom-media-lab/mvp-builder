@@ -149,7 +149,7 @@ export function generateScope({ context, provider, modelId }: StepArgs) {
     provider,
     modelId,
     system:
-      "あなたは新規事業のプロダクトマネージャーです。これまでのユースケース/OOUI/ジャーニーから機能候補を洗い出し、各機能を影響度(impact 1-5)と実装工数(effort 1-5)で評価し、MVPで最初に作るべき機能を10個以下に絞り込みます。さらに各機能の『工数』を具体的に: initialCost=初期費用の参考金額（日本円。例: 30〜50万円）、operationTime=実運用時にかかる時間の目安（例: 1件あたり約3分 / 月5時間）として見積もってください。includedInMvp で MVPに含むか明示し、絞り込みの理由(rationale)を述べてください。mvpStatement に『このMVPで検証する仮説と提供価値』を1-2文で。",
+      "あなたは新規事業のプロダクトマネージャーです。これまでのユースケース/OOUI/ジャーニーから機能候補を洗い出し、各機能を影響度(impact 1-5)と実装工数(effort 1-5)で評価し、MVPで最初に作るべき機能を10個以下に絞り込みます。さらに各機能を3つの判断軸で見積もってください: initialCost=初期開発コスト（日本円。例: 30〜50万円）、operationCost=運用コスト（継続運用の金額・時間。例: 月3万円+月5時間）、learningCost=顧客の学習コスト（ユーザーが使い方を習得する負担。例: 低/中/高）。includedInMvp で MVPに含むか明示し、絞り込みの理由(rationale)を述べてください。mvpStatement に『このMVPで検証する仮説と提供価値』を1-2文で。",
     prompt: context,
   });
 }
@@ -173,7 +173,7 @@ export function generateGrowth({ context, provider, modelId }: StepArgs) {
     provider,
     modelId,
     system:
-      "あなたはグロース戦略の専門家です。確定したKPIを伸ばすためのグロース計画を設計します。model=どうやって成長を生むか（グロースモデル/ループ）、levers=主要なグロースレバー、experiments=優先度順の施策/実験(3〜5個、仮説hypothesis・動かす指標metric・工数effortを付与)、milestones=時期(period)ごとの目標(target)を時系列で（スケジュールとして読めるよう period は『1ヶ月後/Q1』等で順序立てる）。KPIと一貫させ、すべて日本語で。",
+      "あなたはグロース戦略の専門家です。確定したKPIを伸ばすためのグロース計画を設計します。model=どうやって成長を生むか（グロースモデル/ループ）、levers=主要なグロースレバー、experiments=優先度順の施策/実験(3〜5個、仮説hypothesis・動かす指標metric・工数effortを付与)、milestones=【四半期ごとにざっくり】。period は『Q1』『Q2』…のように四半期で、target にその四半期の到達目標を、3〜4四半期分・時系列で。細かい月次にはせず四半期単位の大枠でよい。KPIと一貫させ、すべて日本語で。",
     prompt: context,
   });
 }

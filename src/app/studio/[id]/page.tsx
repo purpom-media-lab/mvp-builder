@@ -20,6 +20,7 @@ import {
   ModelSelector,
 } from "@/components/model-selector";
 import { Modal } from "@/components/modal";
+import { LoadingOverlay } from "@/components/spinner";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -395,7 +396,8 @@ export default function ProjectDetailPage() {
   );
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="relative min-h-screen bg-background">
+      {loading === "load" && <LoadingOverlay label="プロジェクトを読み込み中…" />}
       <GlobalHeader
         back={{ href: "/studio", label: "プロジェクト一覧" }}
         center={
@@ -473,33 +475,45 @@ export default function ProjectDetailPage() {
           value={activeTab}
           onValueChange={(v) => setActiveTab(v as StepKey)}
         >
-          {/* カテゴリ選択（分析 / 設計 / MVP定義） */}
-          <div className="mb-3 flex flex-wrap gap-1.5">
+          {/* カテゴリ進捗（分析 / 設計 / MVP定義）。完了状況をプログレスで可視化 */}
+          <div className="mb-3 grid grid-cols-3 gap-2">
             {CATEGORIES.map((c) => {
               const isActive = c.key === activeCategory.key;
+              const total = c.steps.length;
               const done = c.steps.filter((k) => hasData[k]).length;
+              const complete = done === total;
+              const pct = Math.round((done / total) * 100);
               return (
                 <button
                   key={c.key}
+                  type="button"
                   onClick={() => {
                     if (!c.steps.includes(activeTab)) setActiveTab(c.steps[0]);
                   }}
-                  className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                  className={`rounded-lg border p-2.5 text-left transition-colors ${
                     isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground hover:bg-muted/70"
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/40"
                   }`}
                 >
-                  {c.label}
-                  <span
-                    className={`ml-1.5 text-xs ${
-                      isActive
-                        ? "text-primary-foreground/80"
-                        : "text-muted-foreground/70"
-                    }`}
-                  >
-                    {done}/{c.steps.length}
-                  </span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold">{c.label}</span>
+                    <span
+                      className={`flex items-center gap-1 text-xs ${
+                        complete
+                          ? "font-semibold text-primary"
+                          : "text-muted-foreground"
+                      }`}
+                    >
+                      {complete ? "✓ 完了" : `${done}/${total}`}
+                    </span>
+                  </div>
+                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
                 </button>
               );
             })}
@@ -1383,17 +1397,9 @@ export default function ProjectDetailPage() {
                             <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
                               {f.initialCost && (
                                 <span className="text-muted-foreground">
-                                  初期:{" "}
+                                  初期開発:{" "}
                                   <span className="font-medium text-foreground">
                                     {f.initialCost}
-                                  </span>
-                                </span>
-                              )}
-                              {f.validationCost && (
-                                <span className="text-muted-foreground">
-                                  検証:{" "}
-                                  <span className="font-medium text-foreground">
-                                    {f.validationCost}
                                   </span>
                                 </span>
                               )}
@@ -1402,6 +1408,14 @@ export default function ProjectDetailPage() {
                                   運用:{" "}
                                   <span className="font-medium text-foreground">
                                     {f.operationCost}
+                                  </span>
+                                </span>
+                              )}
+                              {f.learningCost && (
+                                <span className="text-muted-foreground">
+                                  顧客の学習:{" "}
+                                  <span className="font-medium text-foreground">
+                                    {f.learningCost}
                                   </span>
                                 </span>
                               )}
