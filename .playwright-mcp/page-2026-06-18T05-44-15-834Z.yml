@@ -1,0 +1,22 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - link "MVP Builder" [ref=e5] [cursor=pointer]:
+        - /url: /studio
+        - img [ref=e7]
+        - generic [ref=e10]: MVP Builder
+      - button "テーマ切替" [ref=e12]:
+        - img
+    - main [ref=e13]:
+      - generic [ref=e14]:
+        - generic [ref=e15]:
+          - paragraph [ref=e16]: projects
+          - heading "プロジェクト" [level=1] [ref=e17]
+          - paragraph [ref=e18]: 要件 → 可視化 → スコープ確定 → 動くMVP
+        - button "＋ 新規プロジェクト" [ref=e19]
+      - generic [ref=e21]: まだプロジェクトがありません。「＋ 新規プロジェクト」から作成してください。
+  - generic [ref=e22]:
+    - heading "Command Palette" [level=2] [ref=e23]
+    - paragraph [ref=e24]: Search for a command to run...
+  - button "Open Next.js Dev Tools" [ref=e30] [cursor=pointer]:
+    - img [ref=e31]

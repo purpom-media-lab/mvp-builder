@@ -191,9 +191,36 @@ const kpiMetric = z.object({
   cadence: z.string().optional().describe("計測頻度"),
   measurement: z.string().optional().describe("計測方法"),
 });
+/** グロース計画（KPI を伸ばすための計画） */
+const growthPlanSchema = z.object({
+  model: z
+    .string()
+    .describe("グロースモデル/ループの説明（どうやって成長を生むか）"),
+  levers: z.array(z.string()).describe("主要なグロースレバー（成長の打ち手の軸）"),
+  experiments: z
+    .array(
+      z.object({
+        title: z.string().describe("施策・実験のタイトル"),
+        hypothesis: z.string().optional().describe("仮説"),
+        metric: z.string().optional().describe("動かす指標"),
+        effort: z.string().optional().describe("工数/難易度（例: 低/中/高）"),
+      }),
+    )
+    .describe("優先度順の施策/実験（3〜5個）"),
+  milestones: z
+    .array(
+      z.object({
+        period: z.string().describe("時期（例: 1ヶ月後 / Q1）"),
+        target: z.string().describe("その時点の目標"),
+      }),
+    )
+    .optional()
+    .describe("時期ごとの目標マイルストーン"),
+});
 export const kpiSchema = z.object({
   northStar: kpiMetric.describe("北極星指標（1つ）"),
   supporting: z.array(kpiMetric).describe("補助KPI（3〜5個）"),
+  growthPlan: growthPlanSchema.describe("KPIを伸ばすためのグロース計画"),
 });
 
 /** ブランド設計（配色はHEXカラーコード前提） */

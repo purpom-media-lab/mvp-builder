@@ -36,6 +36,7 @@ import type {
   BackendView,
   BrandView,
   DataModelView,
+  GrowthPlanView,
   JourneyView,
   KpiMetricView,
   NavView,
@@ -46,7 +47,11 @@ import type {
   WireframeView,
 } from "@/lib/studio-types";
 
-type KpiData = { northStar: KpiMetricView | null; supporting: KpiMetricView[] };
+type KpiData = {
+  northStar: KpiMetricView | null;
+  supporting: KpiMetricView[];
+  growthPlan?: GrowthPlanView | null;
+};
 
 // ワイヤーフレームのセクション種別（API の wireframeSchema enum と一致させる）
 const SECTION_TYPES = [
@@ -80,6 +85,17 @@ const STEPS: { key: StepKey; label: string }[] = [
 
 /** MVP スコープに含められる機能の上限（資料の「最初に作る10以下」） */
 const MVP_LIMIT = 10;
+
+/** 工程を 3 カテゴリに整理（一度に見えるタブを絞る） */
+const CATEGORIES: { key: string; label: string; steps: StepKey[] }[] = [
+  { key: "analyze", label: "分析", steps: ["actors", "usecases", "ooui", "journey"] },
+  {
+    key: "design",
+    label: "設計",
+    steps: ["navigation", "wireframe", "datamodel", "backend"],
+  },
+  { key: "mvp", label: "MVP定義", steps: ["scope", "kpi", "brand"] },
+];
 
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -326,6 +342,9 @@ export default function ProjectDetailPage() {
     brand: !!brand,
   };
 
+  const activeCategory =
+    CATEGORIES.find((c) => c.steps.includes(activeTab)) ?? CATEGORIES[0];
+
   const screenFlow = useMemo(
     () => (nav?.length ? navigationToScreenFlow(nav) : null),
     [nav],
@@ -431,18 +450,53 @@ export default function ProjectDetailPage() {
           value={activeTab}
           onValueChange={(v) => setActiveTab(v as StepKey)}
         >
+          {/* カテゴリ選択（分析 / 設計 / MVP定義） */}
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            {CATEGORIES.map((c) => {
+              const isActive = c.key === activeCategory.key;
+              const done = c.steps.filter((k) => hasData[k]).length;
+              return (
+                <button
+                  key={c.key}
+                  onClick={() => {
+                    if (!c.steps.includes(activeTab)) setActiveTab(c.steps[0]);
+                  }}
+                  className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                    isActive
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-muted/70"
+                  }`}
+                >
+                  {c.label}
+                  <span
+                    className={`ml-1.5 text-xs ${
+                      isActive
+                        ? "text-primary-foreground/80"
+                        : "text-muted-foreground/70"
+                    }`}
+                  >
+                    {done}/{c.steps.length}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* 選択カテゴリの工程だけ表示 */}
           <TabsList className="w-full justify-start">
-            {STEPS.map((s, i) => (
-              <TabsTrigger key={s.key} value={s.key} className="gap-1">
-                <span className="text-muted-foreground">{i + 1}.</span>
-                {s.label}
-                {loading === s.key ? (
-                  <span className="text-primary">⏳</span>
-                ) : hasData[s.key] ? (
-                  <span className="text-primary">✓</span>
-                ) : null}
-              </TabsTrigger>
-            ))}
+            {STEPS.map((s, i) =>
+              activeCategory.steps.includes(s.key) ? (
+                <TabsTrigger key={s.key} value={s.key} className="gap-1">
+                  <span className="text-muted-foreground">{i + 1}.</span>
+                  {s.label}
+                  {loading === s.key ? (
+                    <span className="text-primary">⏳</span>
+                  ) : hasData[s.key] ? (
+                    <span className="text-primary">✓</span>
+                  ) : null}
+                </TabsTrigger>
+              ) : null,
+            )}
           </TabsList>
 
           <Card className="mt-3">
@@ -1372,6 +1426,82 @@ export default function ProjectDetailPage() {
                         </div>
                       ))}
                     </div>
+
+                    {/* グロース計画（KPIとセット） */}
+                    {kpi.growthPlan && (
+                      <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
+                        <p className="text-xs font-semibold tracking-wide text-primary uppercase">
+                          📈 グロース計画
+                        </p>
+                        {kpi.growthPlan.model && (
+                          <p className="text-sm">{kpi.growthPlan.model}</p>
+                        )}
+                        {kpi.growthPlan.levers?.length ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {kpi.growthPlan.levers.map((l, i) => (
+                              <Badge key={i} variant="secondary">
+                                {l}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : null}
+                        {kpi.growthPlan.experiments?.length ? (
+                          <div className="space-y-1.5">
+                            <p className="text-xs font-medium text-muted-foreground">
+                              施策・実験
+                            </p>
+                            <ol className="space-y-1.5">
+                              {kpi.growthPlan.experiments.map((ex, i) => (
+                                <li
+                                  key={i}
+                                  className="rounded-md border bg-background p-2 text-sm"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-mono text-xs text-primary">
+                                      {String(i + 1).padStart(2, "0")}
+                                    </span>
+                                    <span className="font-medium">{ex.title}</span>
+                                    {ex.effort && (
+                                      <Badge variant="outline">
+                                        工数 {ex.effort}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  {ex.hypothesis && (
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                      仮説: {ex.hypothesis}
+                                    </p>
+                                  )}
+                                  {ex.metric && (
+                                    <p className="text-xs text-muted-foreground">
+                                      指標: {ex.metric}
+                                    </p>
+                                  )}
+                                </li>
+                              ))}
+                            </ol>
+                          </div>
+                        ) : null}
+                        {kpi.growthPlan.milestones?.length ? (
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium text-muted-foreground">
+                              マイルストーン
+                            </p>
+                            <ul className="space-y-1 text-sm">
+                              {kpi.growthPlan.milestones.map((m, i) => (
+                                <li key={i} className="flex gap-2">
+                                  <Badge variant="outline" className="shrink-0">
+                                    {m.period}
+                                  </Badge>
+                                  <span>{m.target}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+
                     <Button
                       variant="outline"
                       disabled={loading !== null || !kpi.northStar}
@@ -1380,10 +1510,11 @@ export default function ProjectDetailPage() {
                         saveStep("kpi", {
                           northStar: kpi.northStar,
                           supporting: kpi.supporting,
+                          growthPlan: kpi.growthPlan,
                         })
                       }
                     >
-                      KPIを保存
+                      KPI・グロース計画を保存
                     </Button>
                   </div>
                 ) : (

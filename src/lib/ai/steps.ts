@@ -100,7 +100,7 @@ export function generateNavigation({ context, provider, modelId }: StepArgs) {
     provider,
     modelId,
     system:
-      "あなたはOOUI/情報設計の専門家です。OOUIオブジェクトとアクターから、アプリのメインナビゲーション（トップ階層の画面/メニュー）を設計してください。原則: コレクション系オブジェクトはメインナビ項目(list)に、集約・横断ビューは dashboard に、単一オブジェクトは原則メインナビに置かず一覧からの遷移先(detail)とする。アクターが複数いる場合は主要アクターが日常的に使う画面を優先。項目数は5〜8個程度に絞り、必要なら2階層まで(parentで表現)。label は日本語。",
+      "あなたは情報設計の専門家です。【ユースケース起点】でアプリのメインナビゲーション（トップ階層の画面/メニュー）を設計してください。手順と原則: (1) まず主要ユースケース（各アクターが達成したい目的・タスク）を洗い出す。(2) 1画面=ユーザーのタスクのまとまり、とし、関連するユースケースは同じ画面にまとめる。各主要ユースケースが最短で実行できる入口（画面/メニュー）を必ず用意する。(3) 各ナビ項目に、それが扱う主オブジェクト(targetObject)と画面種別(screenType: list/dashboard/detail/form 等)を割り当てる。コレクション操作は list、横断的に状況把握するユースケースは dashboard、入力タスクは form。(4) label は日本語で『ユーザーがやりたいこと（タスク）』が伝わる命名にする（単なるオブジェクト名の羅列にしない）。(5) 主要アクターが日常的に行うユースケースを上位に優先。項目数は5〜8個に絞り、必要なら2階層まで(parentで表現)。",
     prompt: context,
   });
 }
@@ -112,7 +112,7 @@ export function generateWireframes({ context, provider, modelId }: StepArgs) {
     provider,
     modelId,
     system:
-      "あなたはUIデザイナーです。ナビゲーション（メインナビ）とOOUIオブジェクトをもとに、各画面の低忠実度ワイヤーフレーム（画面ごとのセクション構成）を設計してください。ナビの各メニューを1画面とし、画面種別に応じてセクションを上から順に並べます（例: 一覧=ツールバー+テーブル/カード、ダッシュボード=KPI+チャート、詳細=ヘッダー+詳細フォーム+関連一覧）。label と items は日本語。各画面3〜6セクション程度に。",
+      "あなたはUIデザイナーです。【各画面が担うユースケースを起点に】、ナビゲーションの各画面の低忠実度ワイヤーフレーム（セクション構成）を設計してください。手順: (1) その画面が対応するユースケース（ユーザーのタスク）を特定する。(2) そのタスクを完了するために必要な要素を、操作の流れに沿って上から順にセクションとして並べる（例: 対象を探すタスク=ツールバー(検索/絞り込み)+テーブル/カード、状況把握タスク=KPI+チャート、確認・操作タスク=ヘッダー+詳細+アクション+関連一覧、入力タスク=フォーム）。(3) 各画面が『そのユースケースを実際に最後まで達成できる』構成になっているか確認する。label と items は日本語。各画面3〜6セクション程度に。",
     prompt: context,
   });
 }
@@ -153,14 +153,14 @@ export function generateScope({ context, provider, modelId }: StepArgs) {
   });
 }
 
-/** KPI設定（北極星指標と補助KPI） */
+/** KPI設定（北極星指標・補助KPI）とグロース計画をセットで設計 */
 export function generateKpi({ context, provider, modelId }: StepArgs) {
   return generateStructured({
     schema: kpiSchema,
     provider,
     modelId,
     system:
-      "あなたはグロース/事業計画の専門家です。確定したMVPスコープに紐づく成功指標を設計します。北極星指標(northStar)を1つ、補助KPI(supporting)を3〜5個。各指標に定義/目標値(target)/単位(unit)/計測方法(measurement)/計測頻度(cadence)を日本語で。",
+      "あなたはグロース/事業計画の専門家です。確定したMVPスコープに紐づく『成功指標』と、それを伸ばす『グロース計画』をセットで設計します。\n[KPI] 北極星指標(northStar)を1つ、補助KPI(supporting)を3〜5個。各指標に定義/目標値(target)/単位(unit)/計測方法(measurement)/計測頻度(cadence)を日本語で。\n[グロース計画 growthPlan] 上記KPIを伸ばすために: model=どうやって成長を生むか（グロースモデル/ループ）、levers=主要なグロースレバー、experiments=優先度順の施策/実験(3〜5個、仮説hypothesis・動かす指標metric・工数effortを付与)、milestones=時期ごとの目標。KPIと計画が一貫するようにする。すべて日本語で。",
     prompt: context,
   });
 }

@@ -92,6 +92,12 @@ export default function PrototypePage() {
         setMvpStatement(d.mvpStatement ?? "");
         setKpi(d.kpi ?? null);
         setBrand(d.brand ?? null);
+        // 保存済みプレビュー/ホスティング結果を復元
+        if (d.prototype) {
+          setHtml(d.prototype.html ?? null);
+          setDemoUrl(d.prototype.demoUrl ?? null);
+          setShareUrl(d.prototype.demoUrl ?? null);
+        }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "エラー");
       }
@@ -167,11 +173,39 @@ export default function PrototypePage() {
       if (!res.ok)
         throw new Error(data.error ?? "プロトタイプ生成に失敗しました");
       setDemoUrl(data.demoUrl ?? null);
-      setHtml(data.html ?? null);
-      setShareUrl(data.shareUrl ?? null);
+      if (data.html !== undefined) setHtml(data.html);
+      setShareUrl(data.shareUrl ?? data.demoUrl ?? null);
       setShareError(data.shareError ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラー");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  // プレビューに納得したら共有URLを発行（AWS=S3/CloudFront でホスティング）
+  async function hostPrototype() {
+    if (!html) return;
+    setLoading("host");
+    setError(null);
+    setShareError(null);
+    try {
+      const res = await fetch("/api/prototype", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          engine: "aws",
+          mode: "host",
+          currentHtml: html,
+          projectId: id,
+          projectName: name,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "ホスティングに失敗しました");
+      setShareUrl(data.shareUrl ?? null);
+    } catch (e) {
+      setShareError(e instanceof Error ? e.message : "エラー");
     } finally {
       setLoading(null);
     }
@@ -278,7 +312,7 @@ export default function PrototypePage() {
 
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground">
-              ① まずアプリ内で高速プレビュー → ② 良ければ v0 で本格化
+              ① アプリ内でプレビュー → ② 納得したらホスティング／本格化
             </p>
             <Button
               onClick={() => {
@@ -291,24 +325,40 @@ export default function PrototypePage() {
             >
               {loading === "prototype" && engine === "aws"
                 ? "プレビュー生成中…"
-                : html || demoUrl
+                : html
                   ? "プレビューを再生成（アプリ内）"
                   : "① プレビューを生成（アプリ内・高速）"}
             </Button>
-            {(html || demoUrl) && (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setEngine("v0");
-                  generatePrototype({ engine: "v0" });
-                }}
-                disabled={loading !== null}
-                className="w-full"
-              >
-                {loading === "prototype" && engine === "v0"
-                  ? "v0 で生成中…"
-                  : "② v0 で本格プロトタイプ化 →"}
-              </Button>
+
+            {html && (
+              <div className="space-y-2 rounded-lg border bg-muted/30 p-2">
+                <p className="text-xs font-medium text-muted-foreground">
+                  ② プレビューに納得したら公開
+                </p>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={hostPrototype}
+                  disabled={loading !== null}
+                >
+                  {loading === "host"
+                    ? "ホスティング中…"
+                    : "このプレビューをホスティング（共有URL発行）"}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    setEngine("v0");
+                    generatePrototype({ engine: "v0" });
+                  }}
+                  disabled={loading !== null}
+                >
+                  {loading === "prototype" && engine === "v0"
+                    ? "v0 で生成中…"
+                    : "v0 で本格プロトタイプ化 →"}
+                </Button>
+              </div>
             )}
           </div>
 

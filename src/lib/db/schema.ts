@@ -31,6 +31,18 @@ export const projects = pgTable("projects", {
   name: text("name").notNull(),
   summary: text("summary"),
   mvpStatement: text("mvp_statement"), // スコープ確定で生成するMVPの仮説と提供価値
+  // KPI工程で生成するグロース計画（model/levers/experiments/milestones）
+  growthPlan: jsonb("growth_plan").$type<{
+    model: string;
+    levers: string[];
+    experiments: {
+      title: string;
+      hypothesis?: string;
+      metric?: string;
+      effort?: string;
+    }[];
+    milestones?: { period: string; target: string }[];
+  }>(),
   status: projectStatus("status").notNull().default("draft"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -225,6 +237,8 @@ export const prototypes = pgTable("prototypes", {
     .references(() => projects.id, { onDelete: "cascade" }),
   v0ChatId: text("v0_chat_id"),
   demoUrl: text("demo_url"),
+  /** AWS エンジンで生成した自己完結 HTML プレビュー（保存・再読込用） */
+  html: text("html"),
   deploymentUrl: text("deployment_url"),
   githubRepoUrl: text("github_repo_url"),
   status: text("status").notNull().default("pending"),

@@ -121,6 +121,7 @@ export async function getProjectWithArtifacts(
     scopeRows,
     kpiRows,
     brandRows,
+    prototypeRows,
     sourceRows,
   ] = await Promise.all([
     db.select().from(actors).where(eq(actors.projectId, projectId)),
@@ -149,6 +150,7 @@ export async function getProjectWithArtifacts(
       .where(eq(kpiMetrics.projectId, projectId))
       .orderBy(kpiMetrics.sortOrder),
     db.select().from(brandDesign).where(eq(brandDesign.projectId, projectId)),
+    db.select().from(prototypes).where(eq(prototypes.projectId, projectId)),
     db
       .select()
       .from(sourceDocuments)
@@ -171,8 +173,10 @@ export async function getProjectWithArtifacts(
     kpi: {
       northStar: kpiRows.find((k) => k.kind === "north_star") ?? null,
       supporting: kpiRows.filter((k) => k.kind === "supporting"),
+      growthPlan: project.growthPlan ?? null,
     },
     brand: brandRows[0] ?? null,
+    prototype: prototypeRows[0] ?? null,
   };
 }
 
@@ -358,6 +362,11 @@ export async function saveStepResult(
         sortOrder: i,
       })),
     ]);
+    // グロース計画は projects 行に保存
+    await db
+      .update(projects)
+      .set({ growthPlan: r.growthPlan ?? null })
+      .where(eq(projects.id, projectId));
   } else if (step === "brand") {
     const r = result as BrandOutput;
     await db.delete(brandDesign).where(eq(brandDesign.projectId, projectId));
@@ -385,19 +394,35 @@ export async function saveStepResult(
 export async function savePrototype(
   ownerId: string,
   projectId: string,
-  data: { v0ChatId?: string | null; demoUrl?: string | null },
+  data: {
+    v0ChatId?: string | null;
+    demoUrl?: string | null;
+    html?: string | null;
+  },
 ) {
   const owned = await getOwnedProject(ownerId, projectId);
   if (!owned) return null;
+
+  // 既存行とマージ（部分保存で他フィールドを失わない）。
+  // 例: プレビュー(html)生成 → 後からホスティング(demoUrl)発行、を別アクションで行える。
+  const existing = (
+    await db.select().from(prototypes).where(eq(prototypes.projectId, projectId))
+  )[0];
+  const v0ChatId =
+    data.v0ChatId !== undefined ? data.v0ChatId : (existing?.v0ChatId ?? null);
+  const demoUrl =
+    data.demoUrl !== undefined ? data.demoUrl : (existing?.demoUrl ?? null);
+  const html = data.html !== undefined ? data.html : (existing?.html ?? null);
 
   await db.delete(prototypes).where(eq(prototypes.projectId, projectId));
   const [row] = await db
     .insert(prototypes)
     .values({
       projectId,
-      v0ChatId: data.v0ChatId ?? null,
-      demoUrl: data.demoUrl ?? null,
-      status: data.demoUrl ? "preview-ready" : "failed",
+      v0ChatId,
+      demoUrl,
+      html,
+      status: demoUrl ? "hosted" : html ? "preview-ready" : "failed",
     })
     .returning();
 

@@ -85,6 +85,17 @@ export type KpiMetricView = {
   cadence?: string | null;
   measurement?: string | null;
 };
+export type GrowthPlanView = {
+  model: string;
+  levers: string[];
+  experiments: {
+    title: string;
+    hypothesis?: string | null;
+    metric?: string | null;
+    effort?: string | null;
+  }[];
+  milestones?: { period: string; target: string }[] | null;
+};
 export type BrandView = {
   brandName?: string | null;
   tagline?: string | null;

@@ -18,8 +18,13 @@ interface Body extends PrototypeContext {
   engine?: "v0" | "aws";
   provider?: LlmProvider;
   modelId?: string;
-  /** "update" のとき currentHtml に instruction を反映して作り直す（AWS のみ） */
-  mode?: "create" | "update";
+  /**
+   * AWS のみ:
+   * - "create"（既定）: プレビュー HTML を生成（ホスティングはしない・保存のみ）
+   * - "update": currentHtml に instruction を反映して作り直す（ホスティングしない）
+   * - "host": 納得したプレビュー(currentHtml)を S3/CloudFront で公開して共有URLを発行
+   */
+  mode?: "create" | "update" | "host";
   instruction?: string;
   currentHtml?: string;
 }
@@ -44,8 +49,32 @@ export async function POST(req: Request) {
   }
 
   try {
-    // AWS エンジン: Claude で自己完結 HTML を生成。
-    // S3/CloudFront 設定があれば共有 URL も発行する（無ければプレビューのみ）。
+    // ホスティング（プレビューに納得した後の別アクション）:
+    // 保存済み/現在の HTML を S3/CloudFront で公開し、共有 URL を発行する。
+    if (body.engine === "aws" && body.mode === "host") {
+      if (!isS3Configured()) {
+        return NextResponse.json(
+          { error: "ホスティング未設定です（S3/CloudFront の環境変数が必要）" },
+          { status: 400 },
+        );
+      }
+      const html = body.currentHtml?.trim();
+      if (!html) {
+        return NextResponse.json(
+          { error: "ホスティングするプレビューがありません" },
+          { status: 400 },
+        );
+      }
+      const key = `p/${body.projectId ?? "anon"}/${crypto.randomUUID()}/index.html`;
+      const shareUrl = await publishHtml(key, html);
+      if (body.projectId) {
+        await savePrototype(user.id, body.projectId, { demoUrl: shareUrl, html });
+      }
+      return NextResponse.json({ shareUrl, html });
+    }
+
+    // AWS エンジン: Claude で自己完結 HTML プレビューを生成（ホスティングはしない）。
+    // 生成した HTML は保存し、再読込で復元できるようにする。
     if (body.engine === "aws") {
       const html =
         body.mode === "update" && body.currentHtml?.trim()
@@ -56,26 +85,14 @@ export async function POST(req: Request) {
               body.modelId,
             )
           : await generatePrototypeHtml(body, body.provider, body.modelId);
-      // S3 公開は失敗しても生成済み HTML は返す（プレビューを失わない）。
-      // 例: SSO セッション期限切れで一時的にアップロードできない場合など。
-      let shareUrl: string | null = null;
-      let shareError: string | null = null;
-      if (isS3Configured()) {
-        try {
-          const key = `p/${body.projectId ?? "anon"}/${crypto.randomUUID()}/index.html`;
-          shareUrl = await publishHtml(key, html);
-          if (body.projectId) {
-            await savePrototype(user.id, body.projectId, { demoUrl: shareUrl });
-          }
-        } catch (e) {
-          shareError =
-            e instanceof Error ? e.message : "共有URLの発行に失敗しました";
-        }
+      if (body.projectId) {
+        await savePrototype(user.id, body.projectId, { html });
       }
-      return NextResponse.json({ html, shareUrl, shareError });
+      return NextResponse.json({ html });
     }
 
-    // v0 エンジン（既定）
+    // v0 エンジン: 生成にホスティングが含まれる（v0 がホストする）。
+    // UI 上はプレビューに納得した後にだけ実行する導線にする。
     const result = await createPrototype(body);
     if (body.projectId) {
       await savePrototype(user.id, body.projectId, {
