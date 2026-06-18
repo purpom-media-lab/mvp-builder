@@ -1,8 +1,8 @@
 "use client";
 
-import { Compass } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { LeanQuestLogo } from "@/components/leanquest-logo";
 import { signUp } from "@/lib/auth/client";
 
 /** 招待承諾フォーム。メールは固定、氏名・パスワードを設定してアカウント作成する。 */
@@ -37,19 +37,17 @@ export function AcceptForm({ token, email }: { token: string; email: string }) {
       <div className="pm-stars pointer-events-none absolute inset-0 -z-10" />
 
       <div className="pm-panel w-full max-w-sm p-7">
-        <div className="flex items-center gap-2.5">
-          <span className="pm-compass">
-            <Compass className="h-4 w-4" />
-          </span>
+        <div className="flex items-center gap-2">
+          <LeanQuestLogo className="h-5 w-auto text-foreground" />
           <span className="font-heading text-sm font-bold tracking-tight">
-            MVP&nbsp;Builder
+            LEAN&nbsp;QUEST&nbsp;<span className="text-primary">AI</span>
           </span>
         </div>
         <h1 className="mt-5 font-heading text-2xl font-bold tracking-tight">
           メンバー登録
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          MVP Builder への招待を受け取りました
+          LEAN QUEST AI への招待を受け取りました
         </p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-3">

@@ -12,6 +12,7 @@ import {
   generateBackendSpec,
   generateBrand,
   generateDataModel,
+  generateGrowth,
   generateJourney,
   generateKpi,
   generateNavigation,
@@ -42,6 +43,7 @@ const STEP_FNS = {
   backend: generateBackendSpec,
   scope: generateScope,
   kpi: generateKpi,
+  growth: generateGrowth,
   brand: generateBrand,
 } as const;
 
@@ -56,6 +58,7 @@ const STEP_ORDER: StepKey[] = [
   "backend",
   "scope",
   "kpi",
+  "growth",
   "brand",
 ];
 
@@ -80,6 +83,7 @@ function buildContext(a: Artifacts): string {
     a.mvpStatement && `## MVPステートメント\n${a.mvpStatement}`,
     (a.kpi.northStar || a.kpi.supporting.length) &&
       `## KPI\n${JSON.stringify(a.kpi)}`,
+    a.growthPlan && `## グロース計画\n${JSON.stringify(a.growthPlan)}`,
     a.brand && `## ブランド\n${JSON.stringify(a.brand)}`,
   ]
     .filter(Boolean)

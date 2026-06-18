@@ -10,6 +10,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ModelSelection } from "@/components/model-selector";
+import { Markdown } from "@/components/markdown";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -33,7 +34,8 @@ const STEP_LABEL: Record<StepKey, string> = {
   backend: "バックエンド",
   scope: "スコープ",
   kpi: "KPI",
-  brand: "ブランド",
+  growth: "グロース計画",
+  brand: "デザイン",
 };
 
 function labelSteps(steps: unknown): string {
@@ -149,17 +151,23 @@ export function AiConsultPanel({
                 output?: { ranSteps?: unknown };
               };
               if (p.type === "text" && p.text) {
+                if (m.role === "user") {
+                  return (
+                    <span
+                      key={i}
+                      className="inline-block max-w-[90%] rounded-lg bg-primary px-3 py-1.5 text-sm whitespace-pre-wrap text-primary-foreground"
+                    >
+                      {p.text}
+                    </span>
+                  );
+                }
                 return (
-                  <span
+                  <div
                     key={i}
-                    className={`inline-block max-w-[90%] rounded-lg px-3 py-1.5 text-sm whitespace-pre-wrap ${
-                      m.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-background text-foreground"
-                    }`}
+                    className="inline-block max-w-[90%] rounded-lg bg-background px-3 py-1.5 text-left text-foreground"
                   >
-                    {p.text}
-                  </span>
+                    <Markdown>{p.text}</Markdown>
+                  </div>
                 );
               }
               if (p.type === "tool-runAnalysis") {

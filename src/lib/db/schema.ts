@@ -1,5 +1,5 @@
 /**
- * MVP Builder — データモデル（Drizzle / Neon Postgres）
+ * LEAN QUEST AI — データモデル（Drizzle / Neon Postgres）
  *
  * OOUI パイプラインの各工程の成果物を1プロジェクト配下に永続化する。
  * 工程: 資料読込 → アクター整理 → ユースケース → ユースケース図 → OOUI分析
@@ -183,6 +183,11 @@ export const scopeItems = pgTable("scope_items", {
   description: text("description"),
   impact: integer("impact").notNull(),
   effort: integer("effort").notNull(),
+  // コストの3区分: 初期 / 検証 / 運用
+  initialCost: text("initial_cost"),
+  validationCost: text("validation_cost"),
+  operationCost: text("operation_cost"),
+  operationTime: text("operation_time"), // 旧: 実運用時間（後方互換のため残置・未使用）
   priority: text("priority").notNull(), // must | should | could | wont
   includedInMvp: boolean("included_in_mvp").notNull().default(false),
   rationale: text("rationale"),

@@ -40,7 +40,7 @@ function buildDeckContext(
         northStar: p.kpi.northStar,
         supporting: p.kpi.supporting,
       })}`,
-    p.kpi.growthPlan && `## グロース計画\n${JSON.stringify(p.kpi.growthPlan)}`,
+    p.growthPlan && `## グロース計画\n${JSON.stringify(p.growthPlan)}`,
     p.brand && `## ブランド\n${JSON.stringify(p.brand)}`,
   ]
     .filter(Boolean)

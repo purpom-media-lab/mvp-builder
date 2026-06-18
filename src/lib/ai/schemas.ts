@@ -173,6 +173,15 @@ export const scopeSchema = z.object({
       description: z.string().optional().describe("機能の概要"),
       impact: z.number().int().min(1).max(5).describe("影響度（1-5）"),
       effort: z.number().int().min(1).max(5).describe("実装工数（1-5）"),
+      initialCost: z
+        .string()
+        .describe("初期コスト（構築の参考金額。例: 30〜50万円）"),
+      validationCost: z
+        .string()
+        .describe("検証コスト（仮説検証にかかる参考金額・工数。例: 10万円 / 2週間）"),
+      operationCost: z
+        .string()
+        .describe("運用コスト（継続運用の参考金額・時間。例: 月3万円 + 月5時間）"),
       priority: z
         .enum(["must", "should", "could", "wont"])
         .describe("優先度（MoSCoW）"),
@@ -191,8 +200,8 @@ const kpiMetric = z.object({
   cadence: z.string().optional().describe("計測頻度"),
   measurement: z.string().optional().describe("計測方法"),
 });
-/** グロース計画（KPI を伸ばすための計画） */
-const growthPlanSchema = z.object({
+/** グロース計画（KPI を伸ばすための計画。独立工程） */
+export const growthSchema = z.object({
   model: z
     .string()
     .describe("グロースモデル/ループの説明（どうやって成長を生むか）"),
@@ -220,7 +229,6 @@ const growthPlanSchema = z.object({
 export const kpiSchema = z.object({
   northStar: kpiMetric.describe("北極星指標（1つ）"),
   supporting: z.array(kpiMetric).describe("補助KPI（3〜5個）"),
-  growthPlan: growthPlanSchema.describe("KPIを伸ばすためのグロース計画"),
 });
 
 /** 配色（すべて HEX カラーコード） */
@@ -273,6 +281,7 @@ export const orchestratePlanSchema = z.object({
         "backend",
         "scope",
         "kpi",
+        "growth",
         "brand",
       ]),
     )
@@ -297,5 +306,6 @@ export type WireframeOutput = z.infer<typeof wireframeSchema>;
 export type BackendSpecOutput = z.infer<typeof backendSpecSchema>;
 export type ScopeOutput = z.infer<typeof scopeSchema>;
 export type KpiOutput = z.infer<typeof kpiSchema>;
+export type GrowthOutput = z.infer<typeof growthSchema>;
 export type BrandOutput = z.infer<typeof brandSchema>;
 export type OrchestratePlan = z.infer<typeof orchestratePlanSchema>;

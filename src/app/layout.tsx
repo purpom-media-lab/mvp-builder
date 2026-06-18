@@ -21,7 +21,7 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "MVP Builder",
+  title: "LEAN QUEST AI",
   description: "あいまいな構想を、最初の MVP へ。冒険の一歩目を踏み出す。",
 };
 

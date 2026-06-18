@@ -28,6 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   analysisToFlowchart,
+  growthToSchedule,
   navigationToScreenFlow,
   oouiToClassDiagram,
 } from "@/lib/mermaid-source";
@@ -50,7 +51,6 @@ import type {
 type KpiData = {
   northStar: KpiMetricView | null;
   supporting: KpiMetricView[];
-  growthPlan?: GrowthPlanView | null;
 };
 
 // ワイヤーフレームのセクション種別（API の wireframeSchema enum と一致させる）
@@ -80,7 +80,8 @@ const STEPS: { key: StepKey; label: string }[] = [
   { key: "backend", label: "バックエンド" },
   { key: "scope", label: "スコープ" },
   { key: "kpi", label: "KPI" },
-  { key: "brand", label: "ブランド" },
+  { key: "growth", label: "グロース計画" },
+  { key: "brand", label: "デザイン" },
 ];
 
 /** MVP スコープに含められる機能の上限（資料の「最初に作る10以下」） */
@@ -94,7 +95,7 @@ const CATEGORIES: { key: string; label: string; steps: StepKey[] }[] = [
     label: "設計",
     steps: ["navigation", "wireframe", "datamodel", "backend"],
   },
-  { key: "mvp", label: "MVP定義", steps: ["scope", "kpi", "brand"] },
+  { key: "mvp", label: "MVP定義", steps: ["scope", "kpi", "growth", "brand"] },
 ];
 
 export default function ProjectDetailPage() {
@@ -120,6 +121,7 @@ export default function ProjectDetailPage() {
   const [scope, setScope] = useState<ScopeFeatureView[] | null>(null);
   const [mvpStatement, setMvpStatement] = useState("");
   const [kpi, setKpi] = useState<KpiData | null>(null);
+  const [growth, setGrowth] = useState<GrowthPlanView | null>(null);
   const [brand, setBrand] = useState<BrandView | null>(null);
   const [diagramsOpen, setDiagramsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<StepKey>("actors");
@@ -197,9 +199,11 @@ export default function ProjectDetailPage() {
         setScope(sc);
         setMvpStatement(d.mvpStatement ?? "");
         setKpi(k);
+        setGrowth(d.growthPlan ?? null);
         setBrand(d.brand ?? null);
         const last = [
           d.brand && "brand",
+          d.growthPlan && "growth",
           k && "kpi",
           sc && "scope",
           d.backend && "backend",
@@ -238,6 +242,7 @@ export default function ProjectDetailPage() {
       scope &&
         `## スコープ（確定機能）\n${JSON.stringify({ mvpStatement, features: scope })}`,
       kpi && `## KPI\n${JSON.stringify(kpi)}`,
+      growth && `## グロース計画\n${JSON.stringify(growth)}`,
       brand && `## ブランド\n${JSON.stringify(brand)}`,
     ]
       .filter(Boolean)
@@ -274,6 +279,7 @@ export default function ProjectDetailPage() {
         setMvpStatement(data.result.mvpStatement ?? "");
       }
       if (step === "kpi") setKpi(data.result);
+      if (step === "growth") setGrowth(data.result);
       if (step === "brand") setBrand(data.result);
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラー");
@@ -313,6 +319,7 @@ export default function ProjectDetailPage() {
       | { features?: ScopeFeatureView[]; mvpStatement?: string }
       | undefined;
     const k = r.kpi as KpiData | undefined;
+    const gr = r.growth as GrowthPlanView | undefined;
     const br = r.brand as BrandView | undefined;
     if (a?.actors) setActors(a.actors);
     if (u?.useCases) setUseCases(u.useCases);
@@ -325,6 +332,7 @@ export default function ProjectDetailPage() {
       if (sc.mvpStatement) setMvpStatement(sc.mvpStatement);
     }
     if (k) setKpi(k);
+    if (gr) setGrowth(gr);
     if (br) setBrand(br);
   }
 
@@ -339,6 +347,7 @@ export default function ProjectDetailPage() {
     backend: !!backend,
     scope: !!scope?.length,
     kpi: !!(kpi?.northStar || kpi?.supporting?.length),
+    growth: !!growth,
     brand: !!brand,
   };
 
@@ -433,9 +442,17 @@ export default function ProjectDetailPage() {
             value={sourceText}
             onChange={(e) => setSourceText(e.target.value)}
           />
-          <p className="text-xs text-muted-foreground">
-            各ステップの結果は自動で保存されます
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              各ステップの結果は自動で保存されます
+            </p>
+            <Link
+              href={`/studio/${id}/intake`}
+              className={buttonVariants({ size: "sm", variant: "outline" })}
+            >
+              🧭 ジョブ理論で要望を深掘り
+            </Link>
+          </div>
         </section>
 
         {/* 統合チャット */}
@@ -1357,13 +1374,38 @@ export default function ProjectDetailPage() {
                               <span className="font-medium">{f.name}</span>
                               <Badge variant="secondary">{f.priority}</Badge>
                               <Badge variant="outline">影響 {f.impact}</Badge>
-                              <Badge variant="outline">工数 {f.effort}</Badge>
                             </div>
                             {f.description && (
                               <p className="mt-1 text-sm text-muted-foreground">
                                 {f.description}
                               </p>
                             )}
+                            <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
+                              {f.initialCost && (
+                                <span className="text-muted-foreground">
+                                  初期:{" "}
+                                  <span className="font-medium text-foreground">
+                                    {f.initialCost}
+                                  </span>
+                                </span>
+                              )}
+                              {f.validationCost && (
+                                <span className="text-muted-foreground">
+                                  検証:{" "}
+                                  <span className="font-medium text-foreground">
+                                    {f.validationCost}
+                                  </span>
+                                </span>
+                              )}
+                              {f.operationCost && (
+                                <span className="text-muted-foreground">
+                                  運用:{" "}
+                                  <span className="font-medium text-foreground">
+                                    {f.operationCost}
+                                  </span>
+                                </span>
+                              )}
+                            </div>
                             {f.rationale && (
                               <p className="mt-1 text-xs text-muted-foreground/80">
                                 判断: {f.rationale}
@@ -1433,81 +1475,6 @@ export default function ProjectDetailPage() {
                       ))}
                     </div>
 
-                    {/* グロース計画（KPIとセット） */}
-                    {kpi.growthPlan && (
-                      <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
-                        <p className="text-xs font-semibold tracking-wide text-primary uppercase">
-                          📈 グロース計画
-                        </p>
-                        {kpi.growthPlan.model && (
-                          <p className="text-sm">{kpi.growthPlan.model}</p>
-                        )}
-                        {kpi.growthPlan.levers?.length ? (
-                          <div className="flex flex-wrap gap-1.5">
-                            {kpi.growthPlan.levers.map((l, i) => (
-                              <Badge key={i} variant="secondary">
-                                {l}
-                              </Badge>
-                            ))}
-                          </div>
-                        ) : null}
-                        {kpi.growthPlan.experiments?.length ? (
-                          <div className="space-y-1.5">
-                            <p className="text-xs font-medium text-muted-foreground">
-                              施策・実験
-                            </p>
-                            <ol className="space-y-1.5">
-                              {kpi.growthPlan.experiments.map((ex, i) => (
-                                <li
-                                  key={i}
-                                  className="rounded-md border bg-background p-2 text-sm"
-                                >
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-mono text-xs text-primary">
-                                      {String(i + 1).padStart(2, "0")}
-                                    </span>
-                                    <span className="font-medium">{ex.title}</span>
-                                    {ex.effort && (
-                                      <Badge variant="outline">
-                                        工数 {ex.effort}
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  {ex.hypothesis && (
-                                    <p className="mt-1 text-xs text-muted-foreground">
-                                      仮説: {ex.hypothesis}
-                                    </p>
-                                  )}
-                                  {ex.metric && (
-                                    <p className="text-xs text-muted-foreground">
-                                      指標: {ex.metric}
-                                    </p>
-                                  )}
-                                </li>
-                              ))}
-                            </ol>
-                          </div>
-                        ) : null}
-                        {kpi.growthPlan.milestones?.length ? (
-                          <div className="space-y-1">
-                            <p className="text-xs font-medium text-muted-foreground">
-                              マイルストーン
-                            </p>
-                            <ul className="space-y-1 text-sm">
-                              {kpi.growthPlan.milestones.map((m, i) => (
-                                <li key={i} className="flex gap-2">
-                                  <Badge variant="outline" className="shrink-0">
-                                    {m.period}
-                                  </Badge>
-                                  <span>{m.target}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        ) : null}
-                      </div>
-                    )}
-
                     <Button
                       variant="outline"
                       disabled={loading !== null || !kpi.northStar}
@@ -1516,12 +1483,83 @@ export default function ProjectDetailPage() {
                         saveStep("kpi", {
                           northStar: kpi.northStar,
                           supporting: kpi.supporting,
-                          growthPlan: kpi.growthPlan,
                         })
                       }
                     >
-                      KPI・グロース計画を保存
+                      KPIを保存
                     </Button>
+                  </div>
+                ) : (
+                  <Empty />
+                )}
+              </TabsContent>
+
+              {/* グロース計画 */}
+              <TabsContent value="growth">
+                <GenerateButton />
+                {growth ? (
+                  <div className="space-y-4">
+                    {growth.model && (
+                      <p className="text-sm leading-relaxed">{growth.model}</p>
+                    )}
+                    {growth.levers?.length ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {growth.levers.map((l, i) => (
+                          <Badge key={i} variant="secondary">
+                            {l}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {/* スケジュール（mermaid） */}
+                    {(() => {
+                      const code = growthToSchedule(growth.milestones);
+                      return code ? (
+                        <div className="space-y-1.5">
+                          <p className="text-xs font-medium text-muted-foreground">
+                            スケジュール
+                          </p>
+                          <MermaidBlock code={code} title="グロース・スケジュール" />
+                        </div>
+                      ) : null;
+                    })()}
+
+                    {growth.experiments?.length ? (
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          施策・実験
+                        </p>
+                        <ol className="space-y-1.5">
+                          {growth.experiments.map((ex, i) => (
+                            <li
+                              key={i}
+                              className="rounded-md border bg-background p-2 text-sm"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-xs text-primary">
+                                  {String(i + 1).padStart(2, "0")}
+                                </span>
+                                <span className="font-medium">{ex.title}</span>
+                                {ex.effort && (
+                                  <Badge variant="outline">工数 {ex.effort}</Badge>
+                                )}
+                              </div>
+                              {ex.hypothesis && (
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  仮説: {ex.hypothesis}
+                                </p>
+                              )}
+                              {ex.metric && (
+                                <p className="text-xs text-muted-foreground">
+                                  指標: {ex.metric}
+                                </p>
+                              )}
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    ) : null}
                   </div>
                 ) : (
                   <Empty />
@@ -1671,12 +1709,17 @@ export default function ProjectDetailPage() {
                       </div>
                     </div>
                     {brand.tone?.length ? (
-                      <div className="flex flex-wrap gap-1.5">
-                        {brand.tone.map((t) => (
-                          <Badge key={t} variant="secondary">
-                            {t}
-                          </Badge>
-                        ))}
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          トーンマナー
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {brand.tone.map((t) => (
+                            <Badge key={t} variant="secondary">
+                              {t}
+                            </Badge>
+                          ))}
+                        </div>
                       </div>
                     ) : null}
                     {brand.voice && (
@@ -1694,7 +1737,7 @@ export default function ProjectDetailPage() {
                       disabled={loading !== null}
                       onClick={() => saveStep("brand", brand)}
                     >
-                      ブランドを保存
+                      デザインを保存
                     </Button>
                   </div>
                 ) : (

@@ -1,8 +1,8 @@
 "use client";
 
-import { Compass } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { LeanQuestLogo } from "@/components/leanquest-logo";
 import { signIn } from "@/lib/auth/client";
 
 export default function SignInPage() {
@@ -30,12 +30,10 @@ export default function SignInPage() {
       <div className="pm-stars pointer-events-none absolute inset-0 -z-10" />
 
       <div className="pm-panel w-full max-w-sm p-7">
-        <div className="flex items-center gap-2.5">
-          <span className="pm-compass">
-            <Compass className="h-4 w-4" />
-          </span>
+        <div className="flex items-center gap-2">
+          <LeanQuestLogo className="h-5 w-auto text-foreground" />
           <span className="font-heading text-sm font-bold tracking-tight">
-            MVP&nbsp;Builder
+            LEAN&nbsp;QUEST&nbsp;<span className="text-primary">AI</span>
           </span>
         </div>
         <h1 className="mt-5 font-heading text-2xl font-bold tracking-tight">

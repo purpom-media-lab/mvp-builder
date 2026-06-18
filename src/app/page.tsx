@@ -1,5 +1,6 @@
 import { Compass, Rocket, Search, TrendingUp } from "lucide-react";
 import Link from "next/link";
+import { LeanQuestLogo } from "@/components/leanquest-logo";
 
 /** LEAN QUEST メソッドの 3 フェーズ（構想 → プロダクト） */
 const PHASES = [
@@ -8,7 +9,7 @@ const PHASES = [
     icon: Search,
     title: "スコープ設計",
     desc: "体験を可視化し、やりたいこと100から最初に作る10を見出す。",
-    items: ["確定スコープ", "UIデザイン", "ユースケース", "KPI", "ブランド"],
+    items: ["確定スコープ", "UIデザイン", "ユースケース", "KPI", "トーンマナー"],
   },
   {
     no: "02",
@@ -32,6 +33,12 @@ export default function Home() {
       <div className="pm-stars pointer-events-none absolute inset-0 -z-10" />
 
       <div className="mx-auto flex min-h-screen max-w-5xl flex-col justify-center px-6 py-20">
+        <div className="mb-7 flex items-center gap-2">
+          <LeanQuestLogo className="h-6 w-auto text-foreground" />
+          <span className="font-heading text-lg font-bold tracking-tight">
+            LEAN&nbsp;QUEST&nbsp;<span className="text-primary">AI</span>
+          </span>
+        </div>
         <p className="pm-eyebrow">新規事業 — MVP スコープ設計</p>
 
         <h1 className="mt-5 max-w-3xl font-heading text-5xl leading-[1.08] font-extrabold tracking-tight text-balance sm:text-6xl">

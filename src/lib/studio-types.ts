@@ -11,6 +11,7 @@ export type StepKey =
   | "backend"
   | "scope"
   | "kpi"
+  | "growth"
   | "brand";
 
 export type WireframeSection = {
@@ -73,6 +74,9 @@ export type ScopeFeatureView = {
   description?: string | null;
   impact: number;
   effort: number;
+  initialCost?: string | null;
+  validationCost?: string | null;
+  operationCost?: string | null;
   priority: string; // must | should | could | wont
   includedInMvp: boolean;
   rationale?: string | null;

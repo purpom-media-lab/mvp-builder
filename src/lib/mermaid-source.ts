@@ -161,3 +161,20 @@ export function analysisToFlowchart(
   }
   return lines.join("\n");
 }
+
+/**
+ * グロース計画のマイルストーンを mermaid timeline（スケジュール）に変換する。
+ * period を時間軸、target をイベントとして並べる。
+ */
+export function growthToSchedule(
+  milestones?: { period: string; target: string }[] | null,
+): string | null {
+  if (!milestones?.length) return null;
+  const esc = (s: string) =>
+    (s ?? "").replace(/:/g, "：").replace(/\n/g, " ").trim();
+  const lines = ["timeline", "  title グロース・スケジュール"];
+  for (const m of milestones) {
+    lines.push(`  ${esc(m.period) || "—"} : ${esc(m.target) || " "}`);
+  }
+  return lines.join("\n");
+}

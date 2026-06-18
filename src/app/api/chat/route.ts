@@ -11,6 +11,7 @@ import {
   generateBackendSpec,
   generateBrand,
   generateDataModel,
+  generateGrowth,
   generateJourney,
   generateKpi,
   generateNavigation,
@@ -41,6 +42,7 @@ const STEP_FNS = {
   backend: generateBackendSpec,
   scope: generateScope,
   kpi: generateKpi,
+  growth: generateGrowth,
   brand: generateBrand,
 } as const;
 
@@ -55,6 +57,7 @@ const STEP_ORDER: StepKey[] = [
   "backend",
   "scope",
   "kpi",
+  "growth",
   "brand",
 ];
 
@@ -78,6 +81,7 @@ function buildContext(a: Artifacts): string {
     a.mvpStatement && `## MVPステートメント\n${a.mvpStatement}`,
     (a.kpi.northStar || a.kpi.supporting.length) &&
       `## KPI\n${JSON.stringify(a.kpi)}`,
+    a.growthPlan && `## グロース計画\n${JSON.stringify(a.growthPlan)}`,
     a.brand && `## ブランド\n${JSON.stringify(a.brand)}`,
   ]
     .filter(Boolean)
@@ -108,7 +112,7 @@ export async function POST(req: Request) {
 
   const result = streamText({
     model: resolveModel(provider, modelId),
-    system: `あなたは MVP Builder のアシスタントです。ユーザーと自然に会話しながら、MVPの分析・設計（アクター/ユースケース/モデリング/ジャーニー/ナビゲーション/ワイヤー/データ設計/バックエンド/スコープ/KPI/ブランド）の相談に乗ります。
+    system: `あなたは LEAN QUEST AI のアシスタントです。ユーザーと自然に会話しながら、MVPの分析・設計（アクター/ユースケース/モデリング/ジャーニー/ナビゲーション/ワイヤー/データ設計/バックエンド/スコープ/KPI/ブランド）の相談に乗ります。
 
 - 単なる質問・相談には会話で答え、ツールは呼ばないでください。
 - ユーザーの要望が「分析内容や画面の変更・作り直し」を伴う場合のみ runAnalysis ツールを呼びます。関係する最小限の工程だけ steps に指定してください（依存順: ${STEP_ORDER.join("→")}）。画面構成・UIの変更を伴うなら regeneratePrototype=true。
@@ -136,6 +140,7 @@ ${context}`,
                 "backend",
                 "scope",
                 "kpi",
+                "growth",
                 "brand",
               ]),
             )

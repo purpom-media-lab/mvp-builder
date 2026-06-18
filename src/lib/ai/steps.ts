@@ -11,6 +11,7 @@ import {
   backendSpecSchema,
   brandSchema,
   dataModelSchema,
+  growthSchema,
   journeySchema,
   kpiSchema,
   navigationSchema,
@@ -40,7 +41,7 @@ export function planOrchestration({
     modelId,
     temperature: 0.2,
     system:
-      "あなたはMVP Builderのオーケストレーターです。ユーザーの要望と現在の分析状態を踏まえ、最適なUIを再提案するために、どの分析工程(actors/usecases/ooui/journey/navigation/wireframe/datamodel/backend/scope/kpi/brand)を再実行すべきか、プロトタイプ(UI)を作り直すべきかを判断します。工程の依存順は actors→usecases→ooui→journey→navigation→wireframe→datamodel→backend→scope→kpi→brand。navigation はメインナビ(画面/メニュー構成)、wireframe は各画面のセクション構成(レイアウト)の設計です。scope は機能候補をMVPに絞り込むスコープ確定、kpi は成功指標(KPI)設計、brand はブランド設計(配色・トーン等)です。画面構成・メニューの変更要望では navigation を、画面内のレイアウト・要素配置の変更要望では wireframe を、MVPで作る機能の取捨選択の要望では scope を、成功指標の要望では kpi を、世界観・配色・トーンの要望では brand を選びます。要望に関係する最小限の工程だけ選んでください。UIの見た目・画面構成の変更を伴うなら regeneratePrototype を true にします。",
+      "あなたは LEAN QUEST AI のオーケストレーターです。ユーザーの要望と現在の分析状態を踏まえ、最適なUIを再提案するために、どの分析工程(actors/usecases/ooui/journey/navigation/wireframe/datamodel/backend/scope/kpi/brand)を再実行すべきか、プロトタイプ(UI)を作り直すべきかを判断します。工程の依存順は actors→usecases→ooui→journey→navigation→wireframe→datamodel→backend→scope→kpi→brand。navigation はメインナビ(画面/メニュー構成)、wireframe は各画面のセクション構成(レイアウト)の設計です。scope は機能候補をMVPに絞り込むスコープ確定、kpi は成功指標(KPI)設計、brand はブランド設計(配色・トーン等)です。画面構成・メニューの変更要望では navigation を、画面内のレイアウト・要素配置の変更要望では wireframe を、MVPで作る機能の取捨選択の要望では scope を、成功指標の要望では kpi を、世界観・配色・トーンの要望では brand を選びます。要望に関係する最小限の工程だけ選んでください。UIの見た目・画面構成の変更を伴うなら regeneratePrototype を true にします。",
     prompt: `## 現在の分析状態\n${context}\n\n## ユーザー要望\n${message}`,
   });
 }
@@ -148,19 +149,31 @@ export function generateScope({ context, provider, modelId }: StepArgs) {
     provider,
     modelId,
     system:
-      "あなたは新規事業のプロダクトマネージャーです。これまでのユースケース/OOUI/ジャーニーから機能候補を洗い出し、各機能を影響度(impact 1-5)と実装工数(effort 1-5)で評価し、MVPで最初に作るべき機能を10個以下に絞り込みます。includedInMvp で MVPに含むか明示し、絞り込みの理由(rationale)を述べてください。mvpStatement に『このMVPで検証する仮説と提供価値』を1-2文で。",
+      "あなたは新規事業のプロダクトマネージャーです。これまでのユースケース/OOUI/ジャーニーから機能候補を洗い出し、各機能を影響度(impact 1-5)と実装工数(effort 1-5)で評価し、MVPで最初に作るべき機能を10個以下に絞り込みます。さらに各機能の『工数』を具体的に: initialCost=初期費用の参考金額（日本円。例: 30〜50万円）、operationTime=実運用時にかかる時間の目安（例: 1件あたり約3分 / 月5時間）として見積もってください。includedInMvp で MVPに含むか明示し、絞り込みの理由(rationale)を述べてください。mvpStatement に『このMVPで検証する仮説と提供価値』を1-2文で。",
     prompt: context,
   });
 }
 
-/** KPI設定（北極星指標・補助KPI）とグロース計画をセットで設計 */
+/** KPI設定（北極星指標・補助KPI） */
 export function generateKpi({ context, provider, modelId }: StepArgs) {
   return generateStructured({
     schema: kpiSchema,
     provider,
     modelId,
     system:
-      "あなたはグロース/事業計画の専門家です。確定したMVPスコープに紐づく『成功指標』と、それを伸ばす『グロース計画』をセットで設計します。\n[KPI] 北極星指標(northStar)を1つ、補助KPI(supporting)を3〜5個。各指標に定義/目標値(target)/単位(unit)/計測方法(measurement)/計測頻度(cadence)を日本語で。\n[グロース計画 growthPlan] 上記KPIを伸ばすために: model=どうやって成長を生むか（グロースモデル/ループ）、levers=主要なグロースレバー、experiments=優先度順の施策/実験(3〜5個、仮説hypothesis・動かす指標metric・工数effortを付与)、milestones=時期ごとの目標。KPIと計画が一貫するようにする。すべて日本語で。",
+      "あなたはグロース/事業計画の専門家です。確定したMVPスコープに紐づく成功指標を設計します。北極星指標(northStar)を1つ、補助KPI(supporting)を3〜5個。各指標に定義/目標値(target)/単位(unit)/計測方法(measurement)/計測頻度(cadence)を日本語で。",
+    prompt: context,
+  });
+}
+
+/** グロース計画（KPIを伸ばす計画。独立工程） */
+export function generateGrowth({ context, provider, modelId }: StepArgs) {
+  return generateStructured({
+    schema: growthSchema,
+    provider,
+    modelId,
+    system:
+      "あなたはグロース戦略の専門家です。確定したKPIを伸ばすためのグロース計画を設計します。model=どうやって成長を生むか（グロースモデル/ループ）、levers=主要なグロースレバー、experiments=優先度順の施策/実験(3〜5個、仮説hypothesis・動かす指標metric・工数effortを付与)、milestones=時期(period)ごとの目標(target)を時系列で（スケジュールとして読めるよう period は『1ヶ月後/Q1』等で順序立てる）。KPIと一貫させ、すべて日本語で。",
     prompt: context,
   });
 }

@@ -26,6 +26,7 @@ import type {
   BackendSpecOutput,
   BrandOutput,
   DataModelOutput,
+  GrowthOutput,
   JourneyOutput,
   KpiOutput,
   NavigationOutput,
@@ -46,6 +47,7 @@ export type StepKey =
   | "backend"
   | "scope"
   | "kpi"
+  | "growth"
   | "brand";
 
 /** 所有権チェック（無ければ null） */
@@ -173,12 +175,41 @@ export async function getProjectWithArtifacts(
     kpi: {
       northStar: kpiRows.find((k) => k.kind === "north_star") ?? null,
       supporting: kpiRows.filter((k) => k.kind === "supporting"),
-      growthPlan: project.growthPlan ?? null,
     },
+    growthPlan: project.growthPlan ?? null,
     brand: brandRows[0] ?? null,
     prototype: prototypeRows[0] ?? null,
     deck: project.deck ?? null,
   };
+}
+
+/**
+ * ジョブ理論インタビューで整理した要望を、プロジェクトの概要＋入力資料に反映する。
+ * 所有権が無ければ false。
+ */
+export async function saveRequirement(
+  ownerId: string,
+  projectId: string,
+  data: { summary?: string; requirement: string },
+) {
+  const owned = await getOwnedProject(ownerId, projectId);
+  if (!owned) return false;
+  if (data.summary) {
+    await db
+      .update(projects)
+      .set({ summary: data.summary, updatedAt: new Date() })
+      .where(eq(projects.id, projectId));
+  }
+  // 入力資料（text）を洗い替え
+  await db
+    .delete(sourceDocuments)
+    .where(eq(sourceDocuments.projectId, projectId));
+  await db.insert(sourceDocuments).values({
+    projectId,
+    type: "text",
+    rawText: data.requirement,
+  });
+  return true;
 }
 
 /** 提案資料（slideData 配列）を保存する。所有権が無ければ false。 */
@@ -212,6 +243,7 @@ export async function saveStepResult(
     | BackendSpecOutput
     | ScopeOutput
     | KpiOutput
+    | GrowthOutput
     | BrandOutput,
 ): Promise<boolean> {
   const owned = await getOwnedProject(ownerId, projectId);
@@ -340,6 +372,9 @@ export async function saveStepResult(
           description: f.description ?? null,
           impact: f.impact,
           effort: f.effort,
+          initialCost: f.initialCost ?? null,
+          validationCost: f.validationCost ?? null,
+          operationCost: f.operationCost ?? null,
           priority: f.priority,
           includedInMvp: f.includedInMvp,
           rationale: f.rationale ?? null,
@@ -378,10 +413,11 @@ export async function saveStepResult(
         sortOrder: i,
       })),
     ]);
-    // グロース計画は projects 行に保存
+  } else if (step === "growth") {
+    const r = result as GrowthOutput;
     await db
       .update(projects)
-      .set({ growthPlan: r.growthPlan ?? null })
+      .set({ growthPlan: r })
       .where(eq(projects.id, projectId));
   } else if (step === "brand") {
     const r = result as BrandOutput;

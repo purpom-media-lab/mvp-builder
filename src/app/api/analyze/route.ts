@@ -5,6 +5,7 @@ import {
   generateBackendSpec,
   generateBrand,
   generateDataModel,
+  generateGrowth,
   generateJourney,
   generateKpi,
   generateNavigation,
@@ -30,6 +31,7 @@ const STEP_FNS = {
   backend: generateBackendSpec,
   scope: generateScope,
   kpi: generateKpi,
+  growth: generateGrowth,
   brand: generateBrand,
 } as const;
 
