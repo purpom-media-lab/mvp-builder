@@ -4,42 +4,44 @@ import { cn } from "@/lib/utils";
 
 /**
  * 勇者が冒険するドット絵ローダー。
- * 剣を掲げた勇者が上下にバウンドしながら歩き、足元の地面が流れて“前進”を表現。
- * 星（ブランドの星座モチーフ）がきらめく。prefers-reduced-motion 尊重（globals.css 側）。
+ * 剣を掲げた勇者が、暗い夜空タイルの中をバウンドしながら歩く。
+ * 足元の地面が流れて“前進”を、星のきらめきで冒険感を表現。
+ * 暗いタイルに収めることで、明暗どちらのテーマでもくっきり読める。
+ * prefers-reduced-motion はアニメ無効化（globals.css 側）。
  */
 
-// パレット
+// パレット（'.' は透明）
 const P: Record<string, string> = {
-  W: "#f3f1ea", // 兜・白
+  W: "#eef0ee", // 兜・剣身の白
   R: "#d6312b", // 赤
-  K: "#241c1c", // 黒に近い濃色
+  K: "#241c1c", // 黒に近い濃色（兜の影・髪）
   O: "#e8920f", // 顔・肌/アーム
-  B: "#8a5a2b", // 茶（髪・グリップ）
-  G: "#9298a3", // 剣身グレー
+  B: "#8a5a2b", // 茶（グリップ・髪）
+  G: "#8d929b", // 剣の鍔グレー
   T: "#cdb892", // ブーツ
   L: "#1163c6", // 青（鎧）
 };
 
-// 上半身〜胴（静止）。'.' は透明。14列。
+// 上半身〜胴（静止）。14列。長い白刃を左に、鍔→グリップと続く。
 const BODY = [
-  "......RWKK....",
-  ".....WWWWKK...",
-  "....BOBOOOKK..",
+  "..W...RWKK....",
+  "..W..WWWWKK...",
+  "..W.BOBOOOKK..",
   "..W..OOOOOOK..",
-  "..W..OOOOOO...",
-  ".GGGG.OOOO..O.",
-  "..W..OLLLLO.OO",
+  "..W..OOOOOO..O",
+  ".GGGG.OOOO..OO",
+  "..B..OLLLLO.OO",
   "..B..LLRRLLOR.",
-  "..B..LRRRRL.R.",
+  ".....LRRRRL.R.",
   ".....LLLLLLRR.",
   ".....LLLLLL...",
 ];
 
-// 脚＋ブーツの2フレーム（歩行アニメ）。rows 11-13 相当。
+// 脚＋ブーツの2フレーム（歩行）
 const LEGS_A = [
   ".....LL..LL...",
   ".....LL..LL...",
-  "....TT....TT..",
+  ".....TT..TT...",
 ];
 const LEGS_B = [
   ".....LL..LL...",
@@ -60,41 +62,45 @@ function rowsToRects(rows: string[], yOffset: number) {
 
 const COLS = 14;
 const ROWS = BODY.length + LEGS_A.length; // 14
+const VH = ROWS + 2; // 地面ぶん
 
 export function PixelHero({
   className,
-  size = 64,
+  size = 72,
 }: {
   className?: string;
+  /** タイルの高さ(px)。幅は少し広め。 */
   size?: number;
 }) {
   const body = rowsToRects(BODY, 0);
   const legsA = rowsToRects(LEGS_A, BODY.length);
   const legsB = rowsToRects(LEGS_B, BODY.length);
+  const svgH = size - 12;
+  const svgW = Math.round((svgH * COLS) / VH);
 
   return (
     <div
       className={cn("pixel-hero", className)}
       aria-hidden
-      style={{ width: size, height: Math.round((size * (ROWS + 2)) / COLS) }}
+      style={{ width: Math.round(size * 1.06), height: size }}
     >
       <svg
-        viewBox={`0 0 ${COLS} ${ROWS + 2}`}
-        width="100%"
-        height="100%"
+        viewBox={`0 0 ${COLS} ${VH}`}
+        width={svgW}
+        height={svgH}
         shapeRendering="crispEdges"
       >
-        {/* 地面（流れる破線） */}
+        {/* 流れる地面 */}
         <g className="ph-ground">
           {Array.from({ length: 14 }).map((_, i) => (
             <rect
               key={`g${i}`}
               x={(i * 2) % (COLS + 4)}
-              y={ROWS + 1}
+              y={VH - 1}
               width={1}
               height={1}
-              fill="#4f46e5"
-              opacity={0.5}
+              fill="#6d63f0"
+              opacity={0.7}
             />
           ))}
         </g>
@@ -116,8 +122,8 @@ export function PixelHero({
         </g>
         {/* きらめく星 */}
         <rect className="ph-star ph-star1" x={1} y={2} width={1} height={1} fill="#f0a9d8" />
-        <rect className="ph-star ph-star2" x={12} y={4} width={1} height={1} fill="#8b82f5" />
-        <rect className="ph-star ph-star3" x={11} y={1} width={1} height={1} fill="#f3f1ea" />
+        <rect className="ph-star ph-star2" x={12} y={5} width={1} height={1} fill="#8b82f5" />
+        <rect className="ph-star ph-star3" x={11} y={1} width={1} height={1} fill="#eef0ee" />
       </svg>
     </div>
   );
