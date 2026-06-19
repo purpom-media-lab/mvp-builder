@@ -20,7 +20,7 @@ import {
   ModelSelector,
 } from "@/components/model-selector";
 import { Modal } from "@/components/modal";
-import { LoadingOverlay } from "@/components/spinner";
+import { LoadingOverlay, Spinner } from "@/components/spinner";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -382,17 +382,21 @@ export default function ProjectDetailPage() {
   }, [actors, useCases]);
 
   const GenerateButton = () => (
-    <Button
-      onClick={() => runStep(activeTab)}
-      disabled={loading !== null}
-      className="mb-4"
-    >
-      {loading === activeTab
-        ? "生成中…"
-        : hasData[activeTab]
-          ? "AIで再生成"
-          : "AIで生成"}
-    </Button>
+    <div className="mb-4 space-y-3">
+      <Button onClick={() => runStep(activeTab)} disabled={loading !== null}>
+        {loading === activeTab
+          ? "生成中…"
+          : hasData[activeTab]
+            ? "AIで再生成"
+            : "AIで生成"}
+      </Button>
+      {loading === activeTab && (
+        <div className="flex items-center gap-2.5 rounded-lg border bg-muted/40 px-3 py-3 text-sm text-muted-foreground">
+          <Spinner className="h-4 w-4 shrink-0 text-primary" />
+          AIがコンテンツを生成中です… しばらくお待ちください
+        </div>
+      )}
+    </div>
   );
 
   return (

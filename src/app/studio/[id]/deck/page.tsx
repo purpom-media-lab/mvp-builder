@@ -149,6 +149,8 @@ export default function DeckPage() {
 
           {loadingProject ? (
             <PageLoading label="読み込み中…" />
+          ) : loading ? (
+            <PageLoading label="提案資料を生成中… しばらくお待ちください" />
           ) : deck ? (
             <SlideDeck slides={deck} theme={theme} />
           ) : (
