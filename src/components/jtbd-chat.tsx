@@ -102,10 +102,10 @@ export function JtbdChat({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
+    <div className="flex flex-1 flex-col gap-3">
       <div
         ref={scrollRef}
-        className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-lg border bg-muted/20 p-4"
+        className="h-[55vh] min-h-[300px] space-y-3 overflow-y-auto rounded-lg border bg-muted/20 p-4"
       >
         {messages
           .filter((m, i) => !(i === 0 && m.role === "user")) // 起動用の最初の発話は隠す

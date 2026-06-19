@@ -25,7 +25,7 @@ export default function IntakePage() {
   const [saved, setSaved] = useState(false);
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex min-h-screen flex-col">
       <GlobalHeader
         back={{ href: `/studio/${id}`, label: "分析に戻る" }}
         center={
@@ -48,7 +48,7 @@ export default function IntakePage() {
         }
       />
 
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-3 overflow-hidden p-4">
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-3 p-4">
         <div>
           <p className="pm-eyebrow">jobs to be done</p>
           <h1 className="mt-2 font-heading text-xl font-bold tracking-tight">
