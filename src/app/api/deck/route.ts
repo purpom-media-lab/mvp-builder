@@ -5,7 +5,7 @@ import { getSessionUser } from "@/lib/auth/session";
 import { getProjectWithArtifacts, saveDeck } from "@/lib/projects";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 interface Body {
   projectId?: string;

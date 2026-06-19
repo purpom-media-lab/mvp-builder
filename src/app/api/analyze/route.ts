@@ -18,7 +18,9 @@ import { getSessionUser } from "@/lib/auth/session";
 import { saveStepResult, type StepKey } from "@/lib/projects";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// 各工程のAI生成は30〜110秒かかることがあるため、Vercel関数の上限を引き上げる
+// （60秒だと長い生成がタイムアウトして「終わらない」状態になる）
+export const maxDuration = 300;
 
 const STEP_FNS = {
   actors: generateActors,

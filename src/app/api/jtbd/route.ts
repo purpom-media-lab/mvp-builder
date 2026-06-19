@@ -15,7 +15,7 @@ import {
 } from "@/lib/projects";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 interface Body {
   messages: UIMessage[];
