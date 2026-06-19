@@ -336,6 +336,26 @@ export default function ProjectDetailPage() {
     }
   }
 
+  // AIチームで全工程を並列一括生成
+  async function runFullPipeline() {
+    setLoading("full");
+    setError(null);
+    try {
+      const data = await postJsonKeepalive<{
+        results: Record<string, unknown>;
+      }>("/api/orchestrate/full", {
+        projectId: id,
+        provider: model.provider,
+        modelId: model.modelId,
+      });
+      applyOrchestrate({ results: data.results } as OrchestrateResponse);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "一括生成に失敗しました");
+    } finally {
+      setLoading(null);
+    }
+  }
+
   // 編集可能カードの保存（手動編集を洗い替えで永続化）
   async function saveStep(step: StepKey, result: unknown) {
     setLoading("save");
@@ -360,6 +380,8 @@ export default function ProjectDetailPage() {
     const a = r.actors as { actors?: ActorView[] } | undefined;
     const u = r.usecases as { useCases?: UseCaseView[] } | undefined;
     const o = r.ooui as { objects?: OouiView[] } | undefined;
+    const j = r.journey as { journeys?: JourneyView[] } | undefined;
+    const dm = r.datamodel as { entities?: DataModelView[] } | undefined;
     const n = r.navigation as { items?: NavView[] } | undefined;
     const w = r.wireframe as { screens?: WireframeView[] } | undefined;
     const b = r.backend as BackendView | undefined;
@@ -372,6 +394,8 @@ export default function ProjectDetailPage() {
     if (a?.actors) setActors(a.actors);
     if (u?.useCases) setUseCases(u.useCases);
     if (o?.objects) setOoui(o.objects);
+    if (j?.journeys) setJourney(j.journeys);
+    if (dm?.entities) setDataModel(dm.entities);
     if (n?.items) setNav(n.items);
     if (w?.screens) setWireframe(w.screens);
     if (b) setBackend(b);
@@ -506,18 +530,40 @@ export default function ProjectDetailPage() {
             value={sourceText}
             onChange={(e) => setSourceText(e.target.value)}
           />
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">
               各ステップの結果は自動で保存されます
             </p>
-            <Link
-              href={`/studio/${id}/intake`}
-              title="ジョブ理論（JTBD）で「状況・成し遂げたい進歩」を整理し、機能の取捨選択とMVPの絞り込みに役立てます"
-              className={buttonVariants({ size: "sm", variant: "outline" })}
-            >
-              🧭 ジョブ理論で要望を深掘り
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href={`/studio/${id}/intake`}
+                title="ジョブ理論（JTBD）で「状況・成し遂げたい進歩」を整理し、機能の取捨選択とMVPの絞り込みに役立てます"
+                className={buttonVariants({ size: "sm", variant: "outline" })}
+              >
+                🧭 ジョブ理論で要望を深掘り
+              </Link>
+              <Button
+                size="sm"
+                onClick={runFullPipeline}
+                disabled={busy}
+                title="アクター/UX/データ/PM/ブランドなど専門ロールのAIが、依存関係を保ちつつ並列で全工程を一気に生成します"
+              >
+                {loading === "full" ? "AIチーム生成中…" : "🤝 AIチームで一括生成"}
+              </Button>
+            </div>
           </div>
+          {loading === "full" && (
+            <AiGenerating
+              label="MVP設計一式"
+              messages={[
+                "ビジネスアナリストが要件を整理しています",
+                "UXデザイナーが体験を設計しています",
+                "データアーキテクトが構造を組んでいます",
+                "PM がスコープと KPI を確定しています",
+                "ブランドデザイナーが世界観を整えています",
+              ]}
+            />
+          )}
         </section>
 
         {/* 統合チャット */}
