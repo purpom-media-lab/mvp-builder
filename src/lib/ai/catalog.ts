@@ -22,11 +22,22 @@ export const MODEL_CATALOG: Record<
   },
   gemini: {
     label: "Gemini (Google)",
-    models: ["gemini-2.0-flash", "gemini-1.5-pro"],
-    defaultModel: "gemini-2.0-flash",
+    models: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash"],
+    defaultModel: "gemini-2.5-flash",
   },
 };
 
 export const PROVIDERS = Object.keys(MODEL_CATALOG) as LlmProvider[];
 
 export const DEFAULT_PROVIDER: LlmProvider = "claude";
+
+/**
+ * 各プロバイダの「高速・低コスト」モデル。
+ * 軽い工程（抽出系など品質影響の小さい工程）に使って体感を速くする。
+ * 重要な工程は選択中のモデルのまま使う。
+ */
+export const FAST_MODEL: Record<LlmProvider, string> = {
+  claude: "claude-haiku-4-5",
+  openai: "gpt-4o-mini",
+  gemini: "gemini-2.5-flash",
+};

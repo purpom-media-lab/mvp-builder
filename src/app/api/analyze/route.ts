@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import type { LlmProvider } from "@/lib/ai/catalog";
+import {
+  DEFAULT_PROVIDER,
+  FAST_MODEL,
+  type LlmProvider,
+} from "@/lib/ai/catalog";
 import {
   generateActors,
   generateBackendSpec,
@@ -38,6 +42,18 @@ const STEP_FNS = {
   brand: generateBrand,
 } as const;
 
+/**
+ * 高速モデルで実行する「軽い」工程（抽出系・構造が単純で品質影響が小さい）。
+ * 重要な判断を伴う工程（ooui/scope/kpi/growth/brand/wireframe/datamodel/backend）は
+ * 選択中のモデルのまま使う。
+ */
+const FAST_STEPS = new Set<StepKey>([
+  "actors",
+  "usecases",
+  "journey",
+  "navigation",
+]);
+
 interface Body {
   step: StepKey;
   context: string;
@@ -70,10 +86,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "context is required" }, { status: 400 });
   }
 
+  // 軽い抽出系の工程は高速モデルで実行して体感を速くする。
+  // スコープ/モデリング等の品質が重要な工程は選択中のモデルのまま。
+  const effectiveModelId = FAST_STEPS.has(step)
+    ? FAST_MODEL[provider ?? DEFAULT_PROVIDER]
+    : modelId;
+
   // ハートビートで接続を維持しながら生成（アイドル切断＝タイムアウトを抑制）。
   // 完了時に { result, saved } を、失敗時に { error } を最終JSONとして流す。
   return streamJsonWithHeartbeat(async () => {
-    const result = await fn({ context, provider, modelId });
+    const result = await fn({ context, provider, modelId: effectiveModelId });
     // プロジェクトに紐付いていれば保存（所有権は saveStepResult 内で検証）
     let saved = false;
     if (projectId) {
