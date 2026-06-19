@@ -49,6 +49,13 @@ const LEGS_B = [
   ".....TT..TT...",
 ];
 
+// 剣（刃・鍔・グリップ）のセル。歩行に合わせて振るため別グループにする。
+const SWORD_CELLS = new Set([
+  "2,0", "2,1", "2,2", "2,3", "2,4", // 刃
+  "1,5", "2,5", "3,5", "4,5", // 鍔
+  "2,6", "2,7", // グリップ
+]);
+
 function rowsToRects(rows: string[], yOffset: number) {
   const rects: { x: number; y: number; c: string }[] = [];
   rows.forEach((row, r) => {
@@ -72,7 +79,9 @@ export function PixelHero({
   /** タイルの高さ(px)。幅は少し広め。 */
   size?: number;
 }) {
-  const body = rowsToRects(BODY, 0);
+  const allBody = rowsToRects(BODY, 0);
+  const sword = allBody.filter((p) => SWORD_CELLS.has(`${p.x},${p.y}`));
+  const body = allBody.filter((p) => !SWORD_CELLS.has(`${p.x},${p.y}`));
   const legsA = rowsToRects(LEGS_A, BODY.length);
   const legsB = rowsToRects(LEGS_B, BODY.length);
   const svgH = size - 12;
@@ -109,6 +118,12 @@ export function PixelHero({
           {body.map((p, i) => (
             <rect key={`b${i}`} x={p.x} y={p.y} width={1.02} height={1.02} fill={p.c} />
           ))}
+          {/* 剣（歩行に合わせて振る） */}
+          <g className="ph-sword">
+            {sword.map((p, i) => (
+              <rect key={`s${i}`} x={p.x} y={p.y} width={1.02} height={1.02} fill={p.c} />
+            ))}
+          </g>
           <g className="ph-legA">
             {legsA.map((p, i) => (
               <rect key={`la${i}`} x={p.x} y={p.y} width={1.02} height={1.02} fill={p.c} />

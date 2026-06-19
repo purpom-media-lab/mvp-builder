@@ -409,6 +409,15 @@
   transform-box: fill-box;
   transform-origin: center bottom;
 }
+@keyframes ph-swing {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(26deg); }
+}
+.ph-sword {
+  transform-box: fill-box;
+  transform-origin: 42% 92%;
+  animation: ph-swing 0.5s ease-in-out infinite;
+}
 .ph-legA { animation: ph-walk-a 0.5s steps(1, end) infinite; }
 .ph-legB { animation: ph-walk-b 0.5s steps(1, end) infinite; }
 .ph-ground { animation: ph-ground 0.5s linear infinite; }
@@ -428,3 +437,5 @@
 /* pixel-hero loader */
 
 /* pixel-hero tile */
+
+/* sword swing */
