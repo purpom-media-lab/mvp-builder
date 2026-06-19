@@ -148,7 +148,13 @@ export default function ProjectDetailPage() {
   const [activeTab, setActiveTab] = useState<StepKey>("actors");
 
   const [loading, setLoading] = useState<string | null>(null);
+  // チャット相談パネルの busy 状態。loading（工程生成/読込/保存）とは別管理にする。
+  // これを loading と共用すると、チャットの onBusyChange(false) が生成中の loading を
+  // 即 null に上書きしてしまい、生成ローダーが一瞬で消える不具合になる。
+  const [chatBusy, setChatBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 何らかの処理中（工程生成・読込・保存・チャット）か。ボタンの無効化判定に使う。
+  const busy = loading !== null || chatBusy;
 
   useEffect(() => {
     if (!id) return;
@@ -416,7 +422,7 @@ export default function ProjectDetailPage() {
 
   const GenerateButton = () => (
     <div className="mb-4 space-y-3">
-      <Button onClick={() => runStep(activeTab)} disabled={loading !== null}>
+      <Button onClick={() => runStep(activeTab)} disabled={busy}>
         {loading === activeTab
           ? "生成中…"
           : hasData[activeTab]
@@ -500,7 +506,7 @@ export default function ProjectDetailPage() {
               projectId={id}
               model={model}
               busy={loading !== null}
-              onBusyChange={(b) => setLoading(b ? "chat" : null)}
+              onBusyChange={setChatBusy}
               onResults={applyOrchestrate}
             />
           </div>
@@ -664,7 +670,7 @@ export default function ProjectDetailPage() {
                       </Button>
                       <Button
                         size="sm"
-                        disabled={loading !== null}
+                        disabled={busy}
                         onClick={() =>
                           saveStep("actors", {
                             actors: (actors ?? []).map((a) => ({
@@ -767,7 +773,7 @@ export default function ProjectDetailPage() {
                       </Button>
                       <Button
                         size="sm"
-                        disabled={loading !== null}
+                        disabled={busy}
                         onClick={() =>
                           saveStep("usecases", {
                             useCases: (useCases ?? []).map((u) => ({
@@ -950,7 +956,7 @@ export default function ProjectDetailPage() {
                         </Button>
                         <Button
                           size="sm"
-                          disabled={loading !== null}
+                          disabled={busy}
                           onClick={() =>
                             saveStep("ooui", {
                               objects: (ooui ?? []).map((o) => ({
@@ -1112,7 +1118,7 @@ export default function ProjectDetailPage() {
                       </Button>
                       <Button
                         size="sm"
-                        disabled={loading !== null}
+                        disabled={busy}
                         onClick={() =>
                           saveStep("navigation", {
                             items: (nav ?? []).map((n) => ({
@@ -1292,7 +1298,7 @@ export default function ProjectDetailPage() {
                       </Button>
                       <Button
                         size="sm"
-                        disabled={loading !== null}
+                        disabled={busy}
                         onClick={() =>
                           saveStep("wireframe", {
                             screens: (wireframe ?? []).map((scr) => ({
@@ -1500,7 +1506,7 @@ export default function ProjectDetailPage() {
                     </ul>
                     <Button
                       variant="outline"
-                      disabled={loading !== null}
+                      disabled={busy}
                       onClick={() =>
                         saveStep("scope", { mvpStatement, features: scope })
                       }
@@ -1560,7 +1566,7 @@ export default function ProjectDetailPage() {
 
                     <Button
                       variant="outline"
-                      disabled={loading !== null || !kpi.northStar}
+                      disabled={busy || !kpi.northStar}
                       onClick={() =>
                         kpi.northStar &&
                         saveStep("kpi", {
@@ -1841,7 +1847,7 @@ export default function ProjectDetailPage() {
                     ) : null}
                     <Button
                       variant="outline"
-                      disabled={loading !== null}
+                      disabled={busy}
                       onClick={() => saveStep("brand", brand)}
                     >
                       デザインを保存

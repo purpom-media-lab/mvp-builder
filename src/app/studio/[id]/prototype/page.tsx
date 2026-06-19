@@ -74,6 +74,8 @@ export default function PrototypePage() {
   } | null>(null);
 
   const [loading, setLoading] = useState<string | null>(null);
+  // チャット busy は loading とは別管理（共用すると生成 loading を上書きしてしまう）
+  const [chatBusy, setChatBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingProject, setLoadingProject] = useState(true);
 
@@ -321,7 +323,7 @@ export default function PrototypePage() {
               projectId={id}
               model={model}
               busy={loading !== null}
-              onBusyChange={(b) => setLoading(b ? "chat" : null)}
+              onBusyChange={setChatBusy}
               onResults={applyOrchestrate}
             />
           )}
@@ -342,7 +344,7 @@ export default function PrototypePage() {
                 setEngine("aws");
                 generatePrototype({ engine: "aws" });
               }}
-              disabled={loading !== null}
+              disabled={loading !== null || chatBusy}
             >
               {loading === "prototype" && engine === "aws"
                 ? "プレビュー生成中…"
@@ -364,13 +366,13 @@ export default function PrototypePage() {
                       if (e.key === "Enter" && !e.nativeEvent.isComposing)
                         updatePrototype();
                     }}
-                    disabled={loading !== null}
+                    disabled={loading !== null || chatBusy}
                   />
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={updatePrototype}
-                    disabled={loading !== null || !instruction.trim()}
+                    disabled={loading !== null || chatBusy || !instruction.trim()}
                   >
                     {loading === "prototype" ? "更新中…" : "更新"}
                   </Button>
@@ -382,7 +384,7 @@ export default function PrototypePage() {
                   size="sm"
                   variant="outline"
                   onClick={hostPrototype}
-                  disabled={loading !== null}
+                  disabled={loading !== null || chatBusy}
                 >
                   {loading === "host" ? "ホスティング中…" : "ホスティング"}
                 </Button>
@@ -393,7 +395,7 @@ export default function PrototypePage() {
                     setEngine("v0");
                     generatePrototype({ engine: "v0" });
                   }}
-                  disabled={loading !== null}
+                  disabled={loading !== null || chatBusy}
                 >
                   {loading === "prototype" && engine === "v0"
                     ? "v0生成中…"
@@ -403,7 +405,7 @@ export default function PrototypePage() {
                   size="sm"
                   variant="outline"
                   onClick={publishHandoff}
-                  disabled={loading !== null}
+                  disabled={loading !== null || chatBusy}
                 >
                   {loading === "publish" ? "引き継ぎ中…" : "公開・引き継ぎ"}
                 </Button>
