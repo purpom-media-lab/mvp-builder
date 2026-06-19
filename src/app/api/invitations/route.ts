@@ -9,6 +9,21 @@ import {
 
 export const runtime = "nodejs";
 
+/**
+ * 招待リンクのベースURLを決める。
+ * NEXT_PUBLIC_APP_URL が設定されていればそれを使い、空ならリクエストの
+ * ホスト（本番ドメイン）から導出する。これでメール内リンクが必ず実URLになる。
+ */
+function resolveBaseUrl(req: Request): string {
+  const env = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (env) return env.replace(/\/+$/, "");
+  const h = req.headers;
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  if (!host) return "";
+  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  return `${proto}://${host}`;
+}
+
 /** メンバー一覧＋招待一覧を返す */
 export async function GET(req: Request) {
   const user = await getSessionUser(req.headers);
@@ -34,7 +49,7 @@ export async function POST(req: Request) {
 
   try {
     const invitation = await createInvitation(user.id, body.email);
-    const base = process.env.NEXT_PUBLIC_APP_URL ?? "";
+    const base = resolveBaseUrl(req);
     const inviteUrl = `${base}/invite/${invitation.token}`;
     // メール送信（未設定なら no-op。失敗してもリンクは返す）
     const email = await sendInviteEmail(body.email, inviteUrl);
