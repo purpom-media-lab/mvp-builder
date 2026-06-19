@@ -143,7 +143,7 @@ export default function PrototypePage() {
           })),
           oouiObjects: oData.map((o) => ({
             name: o.name,
-            attributes: o.attributes,
+            attributes: (o.attributes ?? []).map((a) => a.label ?? a.name),
           })),
           navigation: navData.map((n) => ({
             label: n.label,

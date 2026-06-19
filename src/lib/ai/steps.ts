@@ -77,7 +77,7 @@ export function generateOoui({ context, provider, modelId }: StepArgs) {
     provider,
     modelId,
     system:
-      "あなたはOOUIの専門家です。ユースケースから名詞=オブジェクト、動詞=アクションを抽出し、コレクションと関係を整理してください。オブジェクト名（name）と関係の種別（relations.type）は必ず日本語で命名してください（例: 「リード」「営業担当」「保有する」）。属性（attributes）とアクション（actions）は英語の識別子のままで構いません。",
+      "あなたはOOUIの専門家です。ユースケースから名詞=オブジェクト、動詞=アクションを抽出し、コレクションと関係を整理してください。オブジェクト名（name）と関係の種別（relations.type）は必ず日本語で命名してください（例: 「リード」「営業担当」「保有する」）。属性（attributes）とアクション（actions）は、それぞれ name=英語の識別子（例: leadScore, createLead）と label=日本語の表示名（例: 確度スコア, リードを作成）を**両方**付与してください。",
     prompt: context,
   });
 }

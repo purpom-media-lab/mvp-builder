@@ -29,7 +29,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   analysisToFlowchart,
-  growthToSchedule,
   navigationToScreenFlow,
   oouiToClassDiagram,
 } from "@/lib/mermaid-source";
@@ -87,6 +86,26 @@ const STEPS: { key: StepKey; label: string }[] = [
 
 /** MVP スコープに含められる機能の上限（資料の「最初に作る10以下」） */
 const MVP_LIMIT = 10;
+
+/** 各工程の「これは何か」ヘルプ */
+const STEP_HELP: Partial<Record<StepKey, { title: string; body: string }>> = {
+  actors: {
+    title: "アクターとは",
+    body: "システムを使う人や役割（外部システム・AIも含む）です。『誰のためのプロダクトか』を洗い出します。",
+  },
+  usecases: {
+    title: "ユースケースとは",
+    body: "各アクターが達成したい目的・タスク（『〜したい』）です。機能ではなく“目的”で捉えます。",
+  },
+  ooui: {
+    title: "モデリングとは",
+    body: "プロダクトが扱う『オブジェクト（名詞）』と、その『プロパティ（属性）』『アクション（操作）』を整理する設計です。画面やデータの単位になります。",
+  },
+  journey: {
+    title: "ジャーニーとは",
+    body: "アクターが目的を達成するまでの一連の行動・接点・感情の流れです。体験の全体像を掴みます。",
+  },
+};
 
 /** 工程を 3 カテゴリに整理（一度に見えるタブを絞る） */
 const CATEGORIES: { key: string; label: string; steps: StepKey[] }[] = [
@@ -146,7 +165,20 @@ export default function ProjectDetailPage() {
         setSourceText(d.sourceText ?? "");
         const a = d.actors.length ? d.actors : null;
         const u = d.useCases.length ? d.useCases : null;
-        const o = d.ooui.length ? d.ooui : null;
+        // 旧データ（attributes/actions が string[]）を {name,label} 形へ正規化
+        const normTerms = (arr: unknown): { name: string; label?: string }[] =>
+          (Array.isArray(arr) ? arr : []).map((t) =>
+            typeof t === "string" ? { name: t } : (t as { name: string }),
+          );
+        const o = d.ooui.length
+          ? d.ooui.map(
+              (row: { attributes?: unknown; actions?: unknown }) => ({
+                ...row,
+                attributes: normTerms(row.attributes),
+                actions: normTerms(row.actions),
+              }),
+            )
+          : null;
         const j = d.journey?.length
           ? d.journey.map(
               (row: { name: string; steps?: JourneyView["steps"] }) => ({
@@ -540,6 +572,19 @@ export default function ProjectDetailPage() {
             )}
           </TabsList>
 
+          {STEP_HELP[activeTab] && (
+            <div className="mt-3 flex gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm">
+              <span className="shrink-0">ℹ️</span>
+              <p className="text-muted-foreground">
+                <span className="font-semibold text-foreground">
+                  {STEP_HELP[activeTab]?.title}
+                </span>
+                {" — "}
+                {STEP_HELP[activeTab]?.body}
+              </p>
+            </div>
+          )}
+
           <Card className="mt-3">
             <CardContent>
               <TabsContent value="actors">
@@ -792,15 +837,19 @@ export default function ProjectDetailPage() {
                               <div className="flex flex-wrap gap-1">
                                 {o.attributes.map((attr, k) => (
                                   <Badge key={k} variant="secondary">
-                                    {attr}
+                                    {attr.label
+                                      ? `${attr.label}（${attr.name}）`
+                                      : attr.name}
                                   </Badge>
                                 ))}
                               </div>
                             ) : null}
                             <Input
                               className="h-8"
-                              placeholder="プロパティをカンマ区切りで（例: 名前, ステータス, 作成日）"
-                              value={(o.attributes ?? []).join(", ")}
+                              placeholder="英名をカンマ区切りで（日本語名はAI生成で付与）"
+                              value={(o.attributes ?? [])
+                                .map((a) => a.name)
+                                .join(", ")}
                               onChange={(e) =>
                                 setOoui((cur) =>
                                   (cur ?? []).map((x, j) =>
@@ -810,7 +859,13 @@ export default function ProjectDetailPage() {
                                           attributes: e.target.value
                                             .split(",")
                                             .map((s) => s.trim())
-                                            .filter(Boolean),
+                                            .filter(Boolean)
+                                            .map(
+                                              (n) =>
+                                                (x.attributes ?? []).find(
+                                                  (a) => a.name === n,
+                                                ) ?? { name: n },
+                                            ),
                                         }
                                       : x,
                                   ),
@@ -836,15 +891,19 @@ export default function ProjectDetailPage() {
                                     variant="outline"
                                     className="border-primary/40 text-primary"
                                   >
-                                    {act}()
+                                    {act.label
+                                      ? `${act.label}（${act.name}）`
+                                      : `${act.name}()`}
                                   </Badge>
                                 ))}
                               </div>
                             ) : null}
                             <Input
                               className="h-8"
-                              placeholder="アクションをカンマ区切りで（例: 作成する, 更新する, 削除する）"
-                              value={(o.actions ?? []).join(", ")}
+                              placeholder="英名をカンマ区切りで（日本語名はAI生成で付与）"
+                              value={(o.actions ?? [])
+                                .map((a) => a.name)
+                                .join(", ")}
                               onChange={(e) =>
                                 setOoui((cur) =>
                                   (cur ?? []).map((x, j) =>
@@ -854,7 +913,13 @@ export default function ProjectDetailPage() {
                                           actions: e.target.value
                                             .split(",")
                                             .map((s) => s.trim())
-                                            .filter(Boolean),
+                                            .filter(Boolean)
+                                            .map(
+                                              (n) =>
+                                                (x.actions ?? []).find(
+                                                  (a) => a.name === n,
+                                                ) ?? { name: n },
+                                            ),
                                         }
                                       : x,
                                   ),
@@ -1530,18 +1595,42 @@ export default function ProjectDetailPage() {
                       </div>
                     ) : null}
 
-                    {/* スケジュール（mermaid） */}
-                    {(() => {
-                      const code = growthToSchedule(growth.milestones);
-                      return code ? (
-                        <div className="space-y-1.5">
-                          <p className="text-xs font-medium text-muted-foreground">
-                            スケジュール
-                          </p>
-                          <MermaidBlock code={code} title="グロース・スケジュール" />
-                        </div>
-                      ) : null;
-                    })()}
+                    {/* マイルストーン（到達ステッパー） */}
+                    {growth.milestones?.length ? (
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          マイルストーン
+                        </p>
+                        <ol className="flex flex-col gap-4 rounded-lg border bg-muted/20 p-4 sm:flex-row sm:gap-0">
+                          {growth.milestones.map((m, i) => {
+                            const last = i === growth.milestones!.length - 1;
+                            return (
+                              <li
+                                key={i}
+                                className="relative flex flex-1 flex-col items-center px-2 text-center"
+                              >
+                                {/* 次のノードへの接続線 */}
+                                {!last && (
+                                  <span className="absolute top-4 left-1/2 hidden h-0.5 w-full bg-primary/30 sm:block" />
+                                )}
+                                <span
+                                  className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-primary-foreground"
+                                  style={{ backgroundColor: "var(--primary)" }}
+                                >
+                                  {last ? "🏁" : i + 1}
+                                </span>
+                                <span className="mt-2 text-xs font-semibold text-primary">
+                                  {m.period}
+                                </span>
+                                <span className="mt-0.5 text-sm text-foreground">
+                                  {m.target}
+                                </span>
+                              </li>
+                            );
+                          })}
+                        </ol>
+                      </div>
+                    ) : null}
 
                     {growth.experiments?.length ? (
                       <div className="space-y-1.5">

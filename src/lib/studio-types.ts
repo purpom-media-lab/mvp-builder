@@ -35,10 +35,11 @@ export type UseCaseView = {
   goal: string;
   description?: string | null;
 };
+export type OouiTerm = { name: string; label?: string | null };
 export type OouiView = {
   name: string;
-  attributes?: string[] | null;
-  actions?: string[] | null;
+  attributes?: OouiTerm[] | null;
+  actions?: OouiTerm[] | null;
   // 編集時に失わないよう保持（UIでは直接編集しないが保存時に引き回す）
   collectionOf?: string | null;
   relations?: { to: string; type: string }[] | null;

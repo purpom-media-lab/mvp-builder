@@ -8,8 +8,8 @@
 
 export type OouiForDiagram = {
   name: string;
-  attributes?: string[] | null;
-  actions?: string[] | null;
+  attributes?: { name: string; label?: string | null }[] | null;
+  actions?: { name: string; label?: string | null }[] | null;
   relations?: { to: string; type?: string | null }[] | null;
 };
 
@@ -60,11 +60,11 @@ export function oouiToClassDiagram(objects: OouiForDiagram[]): string {
     const id = ids.get(o.name) ?? "C";
     lines.push(`  class ${id}["${label(o.name)}"] {`);
     for (const a of o.attributes ?? []) {
-      const m = member(a);
+      const m = member(a.label || a.name);
       if (m) lines.push(`    +${m}`);
     }
     for (const act of o.actions ?? []) {
-      const m = member(act);
+      const m = member(act.label || act.name);
       if (m) lines.push(`    +${m}()`);
     }
     lines.push(`  }`);

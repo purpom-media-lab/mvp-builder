@@ -21,12 +21,21 @@ export const useCasesSchema = z.object({
   ),
 });
 
+/** プロパティ/アクション項目（英名＋日本語名を併記） */
+const oouiTerm = z.object({
+  name: z.string().describe("英語の識別子（例: leadScore）"),
+  label: z.string().describe("日本語の表示名（例: 確度スコア）"),
+});
 export const oouiSchema = z.object({
   objects: z.array(
     z.object({
       name: z.string().describe("オブジェクト名（名詞・日本語）"),
-      attributes: z.array(z.string()).describe("属性（英語の識別子）"),
-      actions: z.array(z.string()).describe("アクション（動詞・英語の識別子）"),
+      attributes: z
+        .array(oouiTerm)
+        .describe("属性（英名 name と 日本語名 label を両方）"),
+      actions: z
+        .array(oouiTerm)
+        .describe("アクション（動詞。英名 name と 日本語名 label を両方）"),
       collectionOf: z
         .string()
         .nullable()

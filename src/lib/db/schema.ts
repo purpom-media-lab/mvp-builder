@@ -97,8 +97,9 @@ export const oouiObjects = pgTable("ooui_objects", {
     .notNull()
     .references(() => projects.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
-  attributes: jsonb("attributes").$type<string[]>(),
-  actions: jsonb("actions").$type<string[]>(),
+  // 英名 name + 日本語名 label を併記（旧データは string[] のことがある）
+  attributes: jsonb("attributes").$type<{ name: string; label?: string }[]>(),
+  actions: jsonb("actions").$type<{ name: string; label?: string }[]>(),
   collectionOf: text("collection_of"),
   relations: jsonb("relations").$type<{ to: string; type: string }[]>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
