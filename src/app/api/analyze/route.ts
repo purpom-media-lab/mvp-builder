@@ -16,6 +16,7 @@ import {
 } from "@/lib/ai/steps";
 import { getSessionUser } from "@/lib/auth/session";
 import { saveStepResult, type StepKey } from "@/lib/projects";
+import { streamJsonWithHeartbeat } from "@/lib/stream-keepalive";
 
 export const runtime = "nodejs";
 // 各工程のAI生成は30〜110秒かかることがあるため、Vercel関数の上限を引き上げる
@@ -69,16 +70,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "context is required" }, { status: 400 });
   }
 
-  try {
+  // ハートビートで接続を維持しながら生成（アイドル切断＝タイムアウトを抑制）。
+  // 完了時に { result, saved } を、失敗時に { error } を最終JSONとして流す。
+  return streamJsonWithHeartbeat(async () => {
     const result = await fn({ context, provider, modelId });
     // プロジェクトに紐付いていれば保存（所有権は saveStepResult 内で検証）
     let saved = false;
     if (projectId) {
       saved = await saveStepResult(user.id, projectId, step, result);
     }
-    return NextResponse.json({ result, saved });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Generation failed";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+    return { result, saved };
+  });
 }

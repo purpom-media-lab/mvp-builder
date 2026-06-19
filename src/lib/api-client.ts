@@ -134,6 +134,37 @@ export async function streamPost(
   return acc;
 }
 
+/**
+ * ハートビート・キープアライブ応答（streamJsonWithHeartbeat）を受け取り、
+ * 先頭の空白を捨てて最終 JSON を返す。接続が維持されるのでタイムアウトしにくい。
+ * サーバ側が `{ error }` を返した場合はそれを投げる（postJson と同じ使い心地）。
+ */
+export async function postJsonKeepalive<T = unknown>(
+  url: string,
+  body: unknown,
+  opts: { timeoutMs?: number; onPing?: () => void } = {},
+): Promise<T> {
+  const raw = await streamPost(url, body, {
+    timeoutMs: opts.timeoutMs,
+    onChunk: () => opts.onPing?.(),
+  });
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    throw new Error("生成に失敗しました（空の応答）。もう一度お試しください。");
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    throw new Error("生成結果の解析に失敗しました。もう一度お試しください。");
+  }
+  if (parsed && typeof parsed === "object" && "error" in parsed) {
+    const msg = String((parsed as { error: unknown }).error);
+    throw new Error(msg || "生成に失敗しました。もう一度お試しください。");
+  }
+  return parsed as T;
+}
+
 /** モデル出力（コードフェンス等が混ざる場合あり）から HTML 本体だけ取り出す */
 export function extractHtmlFromText(text: string): string {
   let t = text.trim();

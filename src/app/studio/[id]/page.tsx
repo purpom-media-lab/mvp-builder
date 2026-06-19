@@ -9,7 +9,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { DEFAULT_PROVIDER, MODEL_CATALOG } from "@/lib/ai/catalog";
-import { postJson } from "@/lib/api-client";
+import { postJsonKeepalive } from "@/lib/api-client";
 import {
   AiConsultPanel,
   type OrchestrateResponse,
@@ -294,7 +294,7 @@ export default function ProjectDetailPage() {
     setLoading(step);
     setError(null);
     try {
-      const data = await postJson<{
+      const data = await postJsonKeepalive<{
         result: {
           actors?: ActorView[];
           useCases?: UseCaseView[];
