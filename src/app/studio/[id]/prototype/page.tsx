@@ -19,6 +19,11 @@ import {
   type ModelSelection,
   ModelSelector,
 } from "@/components/model-selector";
+import {
+  getModelForStep,
+  loadModelPrefs,
+  type ModelPrefs,
+} from "@/lib/model-prefs";
 import { AiGenerating } from "@/components/ai-generating";
 import { LoadingOverlay } from "@/components/spinner";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -45,6 +50,7 @@ export default function PrototypePage() {
     provider: DEFAULT_PROVIDER,
     modelId: MODEL_CATALOG[DEFAULT_PROVIDER].defaultModel,
   });
+  const [modelPrefs, setModelPrefs] = useState<ModelPrefs>({});
 
   const [name, setName] = useState("");
   const [summary, setSummary] = useState("");
@@ -118,6 +124,12 @@ export default function PrototypePage() {
     };
   }, [id]);
 
+  // 工程ごとのモデル設定を localStorage から復元
+  useEffect(() => {
+    if (!id) return;
+    setModelPrefs(loadModelPrefs(id));
+  }, [id]);
+
   // ストリーム受信完了後に HTML を確実に永続化する（onFinish 依存をやめる）。
   // 失敗してもプレビュー表示は維持し、エラー表示はしない（保存はベストエフォート）。
   async function persistHtml(finalHtml: string) {
@@ -148,10 +160,11 @@ export default function PrototypePage() {
     const engineUsed = override?.engine ?? engine;
     setLoading("prototype");
     setError(null);
+    const protoModel = getModelForStep(modelPrefs, "prototype", model);
     const payload = {
       engine: engineUsed,
-      provider: model.provider,
-      modelId: model.modelId,
+      provider: protoModel.provider,
+      modelId: protoModel.modelId,
       projectId: id,
       projectName: name,
       summary,
@@ -261,8 +274,8 @@ export default function PrototypePage() {
           mode: "update",
           instruction,
           currentHtml: html,
-          provider: model.provider,
-          modelId: model.modelId,
+          provider: getModelForStep(modelPrefs, "prototype", model).provider,
+          modelId: getModelForStep(modelPrefs, "prototype", model).modelId,
           projectId: id,
           projectName: name,
         },
@@ -295,8 +308,8 @@ export default function PrototypePage() {
           engine: "aws",
           mode: "realize",
           currentHtml: html,
-          provider: model.provider,
-          modelId: model.modelId,
+          provider: getModelForStep(modelPrefs, "prototype", model).provider,
+          modelId: getModelForStep(modelPrefs, "prototype", model).modelId,
           projectId: id,
           projectName: name,
         },

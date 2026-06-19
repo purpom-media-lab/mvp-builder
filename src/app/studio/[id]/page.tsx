@@ -20,6 +20,12 @@ import {
   type ModelSelection,
   ModelSelector,
 } from "@/components/model-selector";
+import { ModelPrefsDialog } from "@/components/model-prefs-dialog";
+import {
+  getModelForStep,
+  loadModelPrefs,
+  type ModelPrefs,
+} from "@/lib/model-prefs";
 import { Modal } from "@/components/modal";
 import { AiGenerating } from "@/components/ai-generating";
 import { LoadingOverlay } from "@/components/spinner";
@@ -127,6 +133,9 @@ export default function ProjectDetailPage() {
     provider: DEFAULT_PROVIDER,
     modelId: MODEL_CATALOG[DEFAULT_PROVIDER].defaultModel,
   });
+  // 工程ごとのモデル設定（localStorage、projectId 単位）
+  const [modelPrefs, setModelPrefs] = useState<ModelPrefs>({});
+  const [prefsOpen, setPrefsOpen] = useState(false);
 
   const [name, setName] = useState("");
   const [summary, setSummary] = useState("");
@@ -268,6 +277,12 @@ export default function ProjectDetailPage() {
     };
   }, [id]);
 
+  // 工程ごとのモデル設定を localStorage から復元
+  useEffect(() => {
+    if (!id) return;
+    setModelPrefs(loadModelPrefs(id));
+  }, [id]);
+
   function buildContext(): string {
     return [
       `# プロジェクト: ${name || "(未設定)"}`,
@@ -293,6 +308,8 @@ export default function ProjectDetailPage() {
   async function runStep(step: StepKey) {
     setLoading(step);
     setError(null);
+    // この工程に割り当てられたモデル（未設定なら既定にフォールバック）
+    const stepModel = getModelForStep(modelPrefs, step, model);
     try {
       const data = await postJsonKeepalive<{
         result: {
@@ -309,8 +326,8 @@ export default function ProjectDetailPage() {
       }>("/api/analyze", {
         step,
         context: buildContext(),
-        provider: model.provider,
-        modelId: model.modelId,
+        provider: stepModel.provider,
+        modelId: stepModel.modelId,
         projectId: id,
       });
       const r = data.result;
@@ -340,6 +357,10 @@ export default function ProjectDetailPage() {
   async function runFullPipeline() {
     setLoading("full");
     setError(null);
+    // 各工程に割り当てられたモデルのマップを作って送る（未設定は既定に解決）
+    const modelByStep = Object.fromEntries(
+      STEPS.map((s) => [s.key, getModelForStep(modelPrefs, s.key, model)]),
+    ) as Record<StepKey, ModelSelection>;
     try {
       const data = await postJsonKeepalive<{
         results: Record<string, unknown>;
@@ -347,6 +368,7 @@ export default function ProjectDetailPage() {
         projectId: id,
         provider: model.provider,
         modelId: model.modelId,
+        modelByStep,
       });
       applyOrchestrate({ results: data.results } as OrchestrateResponse);
     } catch (e) {
@@ -494,6 +516,14 @@ export default function ProjectDetailPage() {
         right={
           <div className="flex items-center gap-3">
             <ModelSelector value={model} onChange={setModel} />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setPrefsOpen(true)}
+              title="工程ごとに使うモデル（速い/賢い）を設定します"
+            >
+              ⚙️ モデル設定
+            </Button>
             <Link
               href={`/studio/${id}/deck`}
               className={buttonVariants({ size: "sm", variant: "outline" })}
@@ -1927,6 +1957,17 @@ export default function ProjectDetailPage() {
             </CardContent>
           </Card>
         </Tabs>
+
+        {id && (
+          <ModelPrefsDialog
+            open={prefsOpen}
+            onClose={() => setPrefsOpen(false)}
+            projectId={id}
+            baseModel={model}
+            prefs={modelPrefs}
+            onSave={setModelPrefs}
+          />
+        )}
 
         <Modal
           open={diagramsOpen}

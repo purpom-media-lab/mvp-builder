@@ -15,6 +15,11 @@ import {
   type ModelSelection,
   ModelSelector,
 } from "@/components/model-selector";
+import {
+  getModelForStep,
+  loadModelPrefs,
+  type ModelPrefs,
+} from "@/lib/model-prefs";
 import { LoadingOverlay, Spinner } from "@/components/spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -107,6 +112,7 @@ export default function EngineerRequestPage() {
     provider: DEFAULT_PROVIDER,
     modelId: MODEL_CATALOG[DEFAULT_PROVIDER].defaultModel,
   });
+  const [modelPrefs, setModelPrefs] = useState<ModelPrefs>({});
 
   const [name, setName] = useState("");
   const [brief, setBrief] = useState<EngineerBrief>(EMPTY_BRIEF);
@@ -150,6 +156,12 @@ export default function EngineerRequestPage() {
     };
   }, [id]);
 
+  // 工程ごとのモデル設定を localStorage から復元
+  useEffect(() => {
+    if (!id) return;
+    setModelPrefs(loadModelPrefs(id));
+  }, [id]);
+
   function update<K extends keyof EngineerBrief>(
     key: K,
     value: EngineerBrief[K],
@@ -161,13 +173,14 @@ export default function EngineerRequestPage() {
   async function generateBrief() {
     setLoading("generate");
     setError(null);
+    const reqModel = getModelForStep(modelPrefs, "engineer-request", model);
     try {
       const data = await postJsonKeepalive<{ brief: Partial<EngineerBrief> }>(
         "/api/engineer-request/generate",
         {
           projectId: id,
-          provider: model.provider,
-          modelId: model.modelId,
+          provider: reqModel.provider,
+          modelId: reqModel.modelId,
         },
       );
       setBrief({ ...EMPTY_BRIEF, ...data.brief });

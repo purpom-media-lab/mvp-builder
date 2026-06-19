@@ -17,6 +17,8 @@ interface Body {
   projectId?: string;
   provider?: LlmProvider;
   modelId?: string;
+  /** 工程ごとのモデル指定（任意）。各工程でこれを最優先で使う。 */
+  modelByStep?: Record<string, { provider?: LlmProvider; modelId?: string }>;
 }
 
 export async function POST(req: Request) {
@@ -53,6 +55,7 @@ export async function POST(req: Request) {
       baseContext,
       provider: body.provider,
       modelId: body.modelId,
+      modelByStep: body.modelByStep,
       onStepDone: async (step, result) => {
         await saveStepResult(
           user.id,

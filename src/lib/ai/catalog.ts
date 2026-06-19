@@ -41,3 +41,13 @@ export const FAST_MODEL: Record<LlmProvider, string> = {
   openai: "gpt-4o-mini",
   gemini: "gemini-2.5-flash",
 };
+
+/**
+ * 各プロバイダの「賢さ優先」モデル。
+ * 品質を最優先したい工程に使う（「賢さ優先プリセット」など）。
+ */
+export const SMART_MODEL: Record<LlmProvider, string> = {
+  claude: "claude-opus-4-8",
+  openai: "gpt-4o",
+  gemini: "gemini-2.5-pro",
+};

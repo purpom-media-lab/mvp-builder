@@ -77,6 +77,11 @@ export interface PipelineOptions {
   baseContext: string;
   provider?: LlmProvider;
   modelId?: string;
+  /**
+   * 工程ごとのモデル指定（任意）。指定があれば各工程でこれを最優先で使う。
+   * 無い工程は従来どおり provider/modelId（軽い工程は FAST_MODEL）にフォールバック。
+   */
+  modelByStep?: Partial<Record<StepKey, { provider?: LlmProvider; modelId?: string }>>;
   /** 各工程の完了ごとに呼ばれる（保存などに使う）。 */
   onStepDone?: (step: StepKey, result: unknown) => Promise<void> | void;
 }
@@ -97,12 +102,16 @@ export async function runPipelineParallel(
       wave.map(async (step) => {
         const role = STEP_ROLES[step];
         const roledContext = `あなたは新規事業開発チームの「${role}」です。担当領域の専門家として、最高品質で作成してください。\n\n${ctxSnapshot}`;
-        const modelId = FAST_STEPS.has(step)
-          ? FAST_MODEL[opts.provider ?? "claude"]
-          : opts.modelId;
+        // 工程ごとの明示モデルを最優先。無ければ従来どおり
+        // （軽い工程は FAST_MODEL、それ以外は選択中の modelId）。
+        const pref = opts.modelByStep?.[step];
+        const provider = pref?.provider ?? opts.provider;
+        const modelId =
+          pref?.modelId ??
+          (FAST_STEPS.has(step) ? FAST_MODEL[provider ?? "claude"] : opts.modelId);
         const result = await STEP_FNS[step]({
           context: roledContext,
-          provider: opts.provider,
+          provider,
           modelId,
         });
         await opts.onStepDone?.(step, result);

@@ -86,11 +86,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "context is required" }, { status: 400 });
   }
 
-  // 軽い抽出系の工程は高速モデルで実行して体感を速くする。
-  // スコープ/モデリング等の品質が重要な工程は選択中のモデルのまま。
-  const effectiveModelId = FAST_STEPS.has(step)
-    ? FAST_MODEL[provider ?? DEFAULT_PROVIDER]
-    : modelId;
+  // 明示モデルが来たらそれを最優先（工程ごとのモデル設定を尊重）。
+  // 明示が無い場合のみ、軽い抽出系の工程は高速モデルで実行して体感を速くする
+  // （スコープ/モデリング等の品質が重要な工程は modelId のまま）。
+  const effectiveModelId =
+    modelId ?? (FAST_STEPS.has(step) ? FAST_MODEL[provider ?? DEFAULT_PROVIDER] : modelId);
 
   // ハートビートで接続を維持しながら生成（アイドル切断＝タイムアウトを抑制）。
   // 完了時に { result, saved } を、失敗時に { error } を最終JSONとして流す。

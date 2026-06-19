@@ -14,6 +14,11 @@ import {
   type ModelSelection,
   ModelSelector,
 } from "@/components/model-selector";
+import {
+  getModelForStep,
+  loadModelPrefs,
+  type ModelPrefs,
+} from "@/lib/model-prefs";
 import { SlideDeck } from "@/components/slide-deck";
 import { AiGenerating } from "@/components/ai-generating";
 import { PageLoading } from "@/components/spinner";
@@ -27,6 +32,7 @@ export default function DeckPage() {
     provider: DEFAULT_PROVIDER,
     modelId: MODEL_CATALOG[DEFAULT_PROVIDER].defaultModel,
   });
+  const [modelPrefs, setModelPrefs] = useState<ModelPrefs>({});
   const [name, setName] = useState("");
   const [deck, setDeck] = useState<SlideData[] | null>(null);
   const [theme, setTheme] = useState<DeckTheme>({});
@@ -63,14 +69,21 @@ export default function DeckPage() {
     };
   }, [id]);
 
+  // 工程ごとのモデル設定を localStorage から復元
+  useEffect(() => {
+    if (!id) return;
+    setModelPrefs(loadModelPrefs(id));
+  }, [id]);
+
   async function generate() {
     setLoading(true);
     setError(null);
+    const deckModel = getModelForStep(modelPrefs, "deck", model);
     try {
       const data = await postJsonKeepalive<{ deck: SlideData[] }>("/api/deck", {
         projectId: id,
-        provider: model.provider,
-        modelId: model.modelId,
+        provider: deckModel.provider,
+        modelId: deckModel.modelId,
       });
       setDeck(data.deck);
     } catch (e) {

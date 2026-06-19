@@ -16,6 +16,11 @@ import {
   type ModelSelection,
   ModelSelector,
 } from "@/components/model-selector";
+import {
+  getModelForStep,
+  loadModelPrefs,
+  type ModelPrefs,
+} from "@/lib/model-prefs";
 import { LoadingOverlay, Spinner } from "@/components/spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -112,6 +117,7 @@ export default function DesignRequestPage() {
     provider: DEFAULT_PROVIDER,
     modelId: MODEL_CATALOG[DEFAULT_PROVIDER].defaultModel,
   });
+  const [modelPrefs, setModelPrefs] = useState<ModelPrefs>({});
 
   const [name, setName] = useState("");
   const [brief, setBrief] = useState<DesignBrief>(EMPTY_BRIEF);
@@ -176,6 +182,12 @@ export default function DesignRequestPage() {
     };
   }, [id]);
 
+  // 工程ごとのモデル設定を localStorage から復元
+  useEffect(() => {
+    if (!id) return;
+    setModelPrefs(loadModelPrefs(id));
+  }, [id]);
+
   function update<K extends keyof DesignBrief>(key: K, value: DesignBrief[K]) {
     setBrief((b) => ({ ...b, [key]: value }));
   }
@@ -184,13 +196,14 @@ export default function DesignRequestPage() {
   async function generateBrief() {
     setLoading("generate");
     setError(null);
+    const reqModel = getModelForStep(modelPrefs, "design-request", model);
     try {
       const data = await postJsonKeepalive<{ brief: Partial<DesignBrief> }>(
         "/api/design-request/generate",
         {
           projectId: id,
-          provider: model.provider,
-          modelId: model.modelId,
+          provider: reqModel.provider,
+          modelId: reqModel.modelId,
         },
       );
       setBrief({ ...EMPTY_BRIEF, ...data.brief });
@@ -309,14 +322,15 @@ export default function DesignRequestPage() {
     setRefinedHtml(null);
     setRefinedDemoUrl(null);
     try {
+      const refineModel = getModelForStep(modelPrefs, "design-request", model);
       const data = await postJsonKeepalive<{
         html?: string | null;
         demoUrl?: string | null;
       }>("/api/design-request/refine", {
         projectId: id,
         engine: "aws",
-        provider: model.provider,
-        modelId: model.modelId,
+        provider: refineModel.provider,
+        modelId: refineModel.modelId,
         figmaUrl: figmaUrl.trim() || undefined,
         pdfName: pdfName.trim() || undefined,
         pdfData: pdfData ?? undefined,
