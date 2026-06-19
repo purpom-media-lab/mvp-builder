@@ -133,6 +133,12 @@ export default function DesignRequestPage() {
   const [error, setError] = useState<string | null>(null);
   const [loadingProject, setLoadingProject] = useState(true);
 
+  // メール送信
+  const [designerEmail, setDesignerEmail] = useState("");
+  const [sendResult, setSendResult] = useState<
+    { sent: boolean; reason?: string } | null
+  >(null);
+
   // 初期ロード: プロジェクト名 + 既存のリファイン依頼
   useEffect(() => {
     if (!id) return;
@@ -225,6 +231,33 @@ export default function DesignRequestPage() {
     setError(null);
     try {
       await save("requested");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "エラー");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  // 2b) メールでデザイナーに依頼を送信
+  async function sendByEmail() {
+    const to = designerEmail.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+      setError("有効なメールアドレスを入力してください");
+      return;
+    }
+    setLoading("send");
+    setError(null);
+    setSendResult(null);
+    try {
+      const res = await fetch("/api/design-request/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: id, to, brief }),
+      });
+      const data = (await res.json()) as { sent?: boolean; reason?: string; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "送信に失敗しました");
+      setSendResult({ sent: !!data.sent, reason: data.reason });
+      if (data.sent) setStatus("requested");
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラー");
     } finally {
@@ -468,6 +501,61 @@ export default function DesignRequestPage() {
               {briefToMarkdown(brief)}
             </pre>
           </details>
+
+          {/* メールでデザイナーに送信 */}
+          <div className="space-y-3 rounded-lg border border-border bg-card/40 p-4">
+            <div>
+              <h3 className="text-sm font-semibold">メールで依頼を送信</h3>
+              <p className="text-xs text-muted-foreground">
+                デザイナーのメールアドレスを入力すると、上のブリーフ（全文）をメールで送信します。
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Input
+                type="email"
+                value={designerEmail}
+                onChange={(e) => {
+                  setDesignerEmail(e.target.value);
+                  setSendResult(null);
+                }}
+                placeholder="designer@example.com"
+                className="sm:flex-1"
+              />
+              <Button
+                onClick={sendByEmail}
+                disabled={loading !== null || !designerEmail.trim()}
+                className="shrink-0"
+              >
+                {loading === "send" ? (
+                  <>
+                    <Spinner className="h-3.5 w-3.5" />
+                    送信中…
+                  </>
+                ) : (
+                  "メールで依頼を送信"
+                )}
+              </Button>
+            </div>
+
+            {sendResult?.sent && (
+              <div className="rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400">
+                {designerEmail.trim()} に依頼メールを送信しました。
+              </div>
+            )}
+            {sendResult && !sendResult.sent && (
+              <div className="rounded-md bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-500">
+                {sendResult.reason === "not-configured" ? (
+                  <>
+                    メール送信が設定されていません。お手数ですが「ブリーフをコピー」または「Markdownをダウンロード」して、デザイナーへ直接共有してください。
+                  </>
+                ) : (
+                  <>
+                    送信に失敗しました（{sendResult.reason ?? "unknown"}）。コピー / ダウンロードでの共有をお試しください。
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </section>
 
         {/* ステップ3: 成果物でブラッシュアップ */}

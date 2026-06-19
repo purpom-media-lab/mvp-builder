@@ -336,6 +336,50 @@ export const designBriefSchema = z.object({
   deadline: z.string().describe("納期（例: 2週間後 / 未定）"),
 });
 
+/** エンジニア連携: 開発依頼（開発仕様書/チケット）の「依頼項目（エンジニアブリーフ）」 */
+export const engineerBriefSchema = z.object({
+  productName: z.string().describe("プロダクト名"),
+  overview: z
+    .string()
+    .describe("背景・目的（なぜ作るのか、何を解決するのか。1-3文）"),
+  functionalRequirements: z
+    .string()
+    .describe(
+      "機能要件（MVPで実装する機能の一覧と概要。箇条書き・改行区切りで具体的に）",
+    ),
+  screens: z
+    .string()
+    .describe("主要画面（画面名と役割。ナビ/ワイヤーから。改行区切り可）"),
+  dataModel: z
+    .string()
+    .describe(
+      "データ設計（主要エンティティと関係。データ設計工程から。改行区切り可）",
+    ),
+  apiEndpoints: z
+    .string()
+    .describe(
+      "主要API（想定するエンドポイント。例: POST /leads など。改行区切り可）",
+    ),
+  nonFunctional: z
+    .string()
+    .describe("非機能要件（認証/権限/性能/セキュリティなど。改行区切り可）"),
+  suggestedStack: z
+    .string()
+    .describe("推奨技術スタック（フロント/バック/DB/インフラなど）"),
+  milestones: z
+    .string()
+    .describe("マイルストーン/フェーズ（開発の段階と目安。改行区切り可）"),
+  acceptanceCriteria: z
+    .string()
+    .describe("受け入れ条件（完成と判断する条件。改行区切り可）"),
+  deliverable: z
+    .enum(["repo", "spec"])
+    .describe(
+      "希望する成果物形式（repo=動くコード/リポジトリ / spec=開発仕様書）",
+    ),
+  deadline: z.string().describe("納期（例: 1ヶ月後 / 未定）"),
+});
+
 export type ActorsOutput = z.infer<typeof actorsSchema>;
 export type UseCasesOutput = z.infer<typeof useCasesSchema>;
 export type OouiOutput = z.infer<typeof oouiSchema>;
@@ -350,3 +394,4 @@ export type GrowthOutput = z.infer<typeof growthSchema>;
 export type BrandOutput = z.infer<typeof brandSchema>;
 export type OrchestratePlan = z.infer<typeof orchestratePlanSchema>;
 export type DesignBriefOutput = z.infer<typeof designBriefSchema>;
+export type EngineerBriefOutput = z.infer<typeof engineerBriefSchema>;

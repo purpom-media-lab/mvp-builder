@@ -42,3 +42,6 @@ next-env.d.ts
 
 # playwright mcp temp
 .playwright-mcp/
+
+# 作業用一時ファイル（スクショ等）
+tmp/

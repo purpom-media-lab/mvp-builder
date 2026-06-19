@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>LEAN QUEST AI — ご紹介</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Geist:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  /* ============================================================
+     LEAN QUEST AI — intro deck
+     Brand tokens pulled from src/app/globals.css (.dark)
+     ============================================================ */
+  :root {
+    --background: #181231;
+    --background-2: #1d1640;
+    --foreground: #eceaf8;
+    --card: #221b45;
+    --primary: #8b82f5;
+    --primary-deep: #4f46e5;
+    --primary-foreground: #191234;
+    --secondary: #2c2552;
+    --muted: #271f4a;
+    --muted-foreground: #a9a3c9;
+    --accent: #e29ad2;
+    --accent-soft: #f3d9ec;
+    --border: rgba(255, 255, 255, 0.12);
+    --chart-1: #8b82f5;
+    --chart-2: #a99bf7;
+    --chart-3: #e29ad2;
+    --chart-4: #6fa8f2;
+    --radius: 0.85rem;
+    --r-2xl: calc(var(--radius) * 1.7);
+    --r-3xl: calc(var(--radius) * 2.1);
+    --font-heading: "Plus Jakarta Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+    --font-sans: "Geist", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body { height: 100%; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--background);
+    color: var(--foreground);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* ---------- night-sky backdrop + star field ---------- */
+  .sky {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    background-image:
+      radial-gradient(1100px 620px at 80% -10%, color-mix(in srgb, var(--primary) 22%, transparent), transparent 60%),
+      radial-gradient(760px 520px at 6% 6%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 58%),
+      linear-gradient(160deg, #1c1440 0%, var(--background) 55%, #14102a 100%);
+  }
+  .stars {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+      radial-gradient(1.5px 1.5px at 18% 24%, color-mix(in srgb, var(--primary) 70%, transparent) 50%, transparent),
+      radial-gradient(1.4px 1.4px at 67% 14%, color-mix(in srgb, var(--primary) 55%, transparent) 50%, transparent),
+      radial-gradient(1.8px 1.8px at 84% 40%, color-mix(in srgb, var(--accent) 70%, transparent) 50%, transparent),
+      radial-gradient(1.3px 1.3px at 41% 70%, color-mix(in srgb, var(--primary) 50%, transparent) 50%, transparent),
+      radial-gradient(1.6px 1.6px at 12% 78%, color-mix(in srgb, var(--primary) 55%, transparent) 50%, transparent),
+      radial-gradient(1.4px 1.4px at 92% 76%, color-mix(in srgb, var(--accent) 55%, transparent) 50%, transparent),
+      radial-gradient(1.3px 1.3px at 54% 32%, color-mix(in srgb, var(--primary) 45%, transparent) 50%, transparent);
+    background-repeat: no-repeat;
+    opacity: 0.9;
+  }
+
+  /* ---------- deck / slide structure ---------- */
+  .deck { position: relative; z-index: 1; height: 100%; }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    padding: clamp(1.75rem, 5vw, 5.5rem);
+    padding-bottom: clamp(4.5rem, 8vh, 7rem);
+  }
+  .slide.is-active { display: flex; }
+  .slide.is-active .reveal { animation: rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
+  .slide.is-active .reveal:nth-child(2) { animation-delay: 0.06s; }
+  .slide.is-active .reveal:nth-child(3) { animation-delay: 0.12s; }
+  .slide.is-active .reveal:nth-child(4) { animation-delay: 0.18s; }
+  .slide.is-active .reveal:nth-child(5) { animation-delay: 0.24s; }
+  .slide.is-active .reveal:nth-child(6) { animation-delay: 0.30s; }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .inner { width: 100%; max-width: 1080px; margin: 0 auto; }
+
+  /* ---------- typography & shared bits ---------- */
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 0.72rem;
+    color: var(--primary);
+  }
+  .eyebrow::before {
+    content: "";
+    width: 1.5rem;
+    height: 1px;
+    background: currentColor;
+    opacity: 0.6;
+  }
+
+  h1, h2, h3 { font-family: var(--font-heading); font-weight: 800; letter-spacing: -0.01em; line-height: 1.12; }
+  .display { font-size: clamp(2.4rem, 6.2vw, 4.6rem); font-weight: 800; }
+  .h-lead { font-size: clamp(1.9rem, 4.4vw, 3.1rem); }
+  .grad { color: var(--primary); }
+  .num {
+    color: transparent;
+    background: linear-gradient(120deg, var(--primary) 0%, var(--accent) 95%);
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
+  .lead {
+    font-size: clamp(1rem, 1.6vw, 1.25rem);
+    line-height: 1.75;
+    color: var(--muted-foreground);
+    max-width: 44ch;
+  }
+  .lead strong { color: var(--foreground); font-weight: 600; }
+  .muted { color: var(--muted-foreground); }
+
+  .pill {
+    display: inline-block;
+    border-radius: 999px;
+    background: var(--secondary);
+    color: var(--foreground);
+    border: 1px solid var(--border);
+    padding: 0.32rem 0.8rem;
+    font-size: 0.82rem;
+    line-height: 1;
+  }
+  .pill-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+
+  /* ---------- brand wordmark ---------- */
+  .wordmark { display: inline-flex; align-items: center; gap: 0.6rem; }
+  .wordmark img { height: 1.55rem; width: auto; }
+  .wordmark .name {
+    font-family: var(--font-heading);
+    font-weight: 800;
+    font-size: 1.18rem;
+    letter-spacing: -0.01em;
+  }
+  .wordmark .name .ai { color: var(--primary); }
+
+  /* ---------- panels / cards ---------- */
+  .panel {
+    border: 1px solid var(--border);
+    border-radius: var(--r-2xl);
+    background: color-mix(in srgb, var(--card) 88%, transparent);
+    box-shadow: 0 18px 46px -26px rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(2px);
+  }
+  .icon-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.6rem;
+    height: 2.6rem;
+    border-radius: 0.85rem;
+    background: color-mix(in srgb, var(--primary) 16%, transparent);
+    color: var(--primary);
+    flex-shrink: 0;
+  }
+  .icon-chip svg { width: 1.35rem; height: 1.35rem; }
+
+  .grid { display: grid; gap: clamp(0.85rem, 1.6vw, 1.25rem); }
+  .g-3 { grid-template-columns: repeat(3, 1fr); }
+  .g-2 { grid-template-columns: repeat(2, 1fr); }
+
+  /* ---------- cover ---------- */
+  .cover-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1.5rem;
+    margin-top: 2.5rem;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    border-radius: 999px;
+    background: var(--primary-deep);
+    color: #fff;
+    font-weight: 600;
+    padding: 0.85rem 1.6rem;
+    box-shadow: 0 14px 30px -12px color-mix(in srgb, var(--primary-deep) 70%, transparent);
+  }
+  .btn svg { width: 1.15rem; height: 1.15rem; }
+
+  /* ---------- problem loop ---------- */
+  .loop {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(0.75rem, 2vw, 1.5rem);
+    flex-wrap: wrap;
+  }
+  .loop-node {
+    border: 1px solid var(--border);
+    border-radius: var(--r-2xl);
+    background: color-mix(in srgb, var(--card) 80%, transparent);
+    padding: 1.25rem 1.4rem;
+    max-width: 17rem;
+    text-align: center;
+  }
+  .loop-node .t { font-family: var(--font-heading); font-weight: 700; font-size: 1.08rem; }
+  .loop-node .d { color: var(--muted-foreground); font-size: 0.9rem; margin-top: 0.35rem; line-height: 1.55; }
+  .loop-arrow { color: var(--accent); font-size: 1.7rem; line-height: 1; }
+
+  /* ---------- method 100 -> 10 ---------- */
+  .method-row { display: flex; align-items: center; gap: clamp(1rem, 4vw, 3.5rem); flex-wrap: wrap; }
+  .big-num { font-family: var(--font-heading); font-weight: 800; line-height: 1; }
+  .big-num .v { font-size: clamp(3.4rem, 9vw, 7rem); display: block; }
+  .big-num .k { font-size: 0.95rem; color: var(--muted-foreground); letter-spacing: 0.12em; text-transform: uppercase; font-family: var(--font-sans); font-weight: 600; }
+  .arrow-x { color: var(--primary); font-size: clamp(2rem, 5vw, 3.2rem); }
+
+  /* ---------- phases ---------- */
+  .phase { padding: 1.4rem 1.4rem 1.5rem; display: flex; flex-direction: column; gap: 0.85rem; position: relative; }
+  .phase .top { display: flex; align-items: center; justify-content: space-between; }
+  .phase .ph-no { font-family: var(--font-heading); font-weight: 700; font-size: 0.82rem; color: color-mix(in srgb, var(--muted-foreground) 75%, transparent); }
+  .phase h3 { font-size: 1.22rem; }
+  .phase p { color: var(--muted-foreground); font-size: 0.92rem; line-height: 1.6; }
+  .phase .pill-row { margin-top: auto; padding-top: 0.3rem; }
+  .phase .pill { background: color-mix(in srgb, var(--secondary) 85%, transparent); font-size: 0.74rem; padding: 0.26rem 0.62rem; }
+
+  /* ---------- feature lists ---------- */
+  .feat { padding: 1.3rem 1.4rem; display: flex; gap: 1rem; align-items: flex-start; }
+  .feat h3 { font-size: 1.1rem; margin-bottom: 0.35rem; }
+  .feat p { color: var(--muted-foreground); font-size: 0.9rem; line-height: 1.6; }
+  .feat .tags { margin-top: 0.7rem; }
+  .feat .tags .pill { font-size: 0.72rem; padding: 0.24rem 0.6rem; background: color-mix(in srgb, var(--secondary) 80%, transparent); }
+
+  /* ---------- LLM ---------- */
+  .llm-row { display: flex; flex-wrap: wrap; gap: 1rem; }
+  .llm-card { flex: 1 1 12rem; padding: 1.4rem; text-align: center; }
+  .llm-card .dot { width: 0.65rem; height: 0.65rem; border-radius: 999px; display: inline-block; margin-bottom: 0.75rem; }
+  .llm-card h3 { font-size: 1.15rem; }
+  .llm-card p { color: var(--muted-foreground); font-size: 0.85rem; margin-top: 0.3rem; }
+
+  /* ---------- before / after ---------- */
+  .ba { display: grid; grid-template-columns: 1fr auto 1fr; align-items: stretch; gap: clamp(0.75rem, 2vw, 1.6rem); }
+  .ba .col { padding: 1.4rem 1.5rem; }
+  .ba .before { background: color-mix(in srgb, var(--muted) 70%, transparent); }
+  .ba .after { border-color: color-mix(in srgb, var(--primary) 45%, transparent); background: color-mix(in srgb, var(--primary) 12%, var(--card)); }
+  .ba .tag { font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700; }
+  .ba .before .tag { color: var(--muted-foreground); }
+  .ba .after .tag { color: var(--primary); }
+  .ba ul { list-style: none; margin-top: 0.9rem; display: flex; flex-direction: column; gap: 0.6rem; }
+  .ba li { font-size: 0.92rem; line-height: 1.5; display: flex; gap: 0.55rem; }
+  .ba li::before { content: "—"; color: var(--muted-foreground); }
+  .ba .after li::before { content: "✦"; color: var(--accent); }
+  .ba .mid { display: flex; align-items: center; color: var(--primary); font-size: 1.8rem; }
+
+  /* ---------- closing ---------- */
+  .close-center { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 1.3rem; }
+
+  /* ---------- compass mark (motif, used once on cover) ---------- */
+  .compass {
+    position: relative;
+    width: clamp(8rem, 22vw, 13rem);
+    height: clamp(8rem, 22vw, 13rem);
+    flex-shrink: 0;
+  }
+  .compass .ring { position: absolute; inset: 0; border-radius: 999px; border: 1px solid var(--border); }
+  .compass .ring.r2 { inset: 12%; border-color: color-mix(in srgb, var(--primary) 30%, transparent); }
+  .compass .ring.r3 { inset: 26%; border-color: color-mix(in srgb, var(--primary) 18%, transparent); }
+  .compass .glow { position: absolute; inset: 18%; border-radius: 999px; background: radial-gradient(circle at 40% 35%, color-mix(in srgb, var(--primary) 38%, transparent), transparent 70%); filter: blur(6px); }
+  .compass .needle {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    animation: spin 26s linear infinite;
+  }
+  .compass .needle svg { width: 56%; height: 56%; color: var(--primary); }
+  .compass .tick { position: absolute; width: 2px; height: 9px; background: color-mix(in srgb, var(--primary) 55%, transparent); left: 50%; top: 4%; transform-origin: 50% calc(50vw); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---------- chrome: progress + counter + nav ---------- */
+  .progress {
+    position: fixed; top: 0; left: 0; height: 3px;
+    background: linear-gradient(90deg, var(--primary), var(--accent));
+    width: 0; z-index: 30;
+    transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--primary) 70%, transparent);
+  }
+  .counter {
+    position: fixed; right: clamp(1rem, 3vw, 2.4rem); bottom: clamp(1rem, 3vh, 1.8rem);
+    z-index: 30; font-family: var(--font-heading); font-weight: 700;
+    font-size: 0.95rem; color: var(--muted-foreground);
+    display: flex; align-items: center; gap: 0.45rem;
+  }
+  .counter .cur { color: var(--foreground); }
+  .nav {
+    position: fixed; left: clamp(1rem, 3vw, 2.4rem); bottom: clamp(0.9rem, 3vh, 1.7rem);
+    z-index: 30; display: flex; gap: 0.5rem;
+  }
+  .nav button {
+    width: 2.4rem; height: 2.4rem; border-radius: 999px;
+    border: 1px solid var(--border); background: color-mix(in srgb, var(--card) 70%, transparent);
+    color: var(--foreground); cursor: pointer; font-size: 1rem; line-height: 1;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: background 0.2s, transform 0.1s;
+    backdrop-filter: blur(4px);
+  }
+  .nav button:hover { background: var(--secondary); }
+  .nav button:active { transform: translateY(1px); }
+  .hint {
+    position: fixed; left: 50%; bottom: clamp(0.9rem, 3vh, 1.7rem); transform: translateX(-50%);
+    z-index: 30; font-size: 0.74rem; color: color-mix(in srgb, var(--muted-foreground) 75%, transparent);
+    letter-spacing: 0.04em;
+  }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 860px) {
+    .g-3, .g-2, .ba { grid-template-columns: 1fr; }
+    .ba { grid-template-rows: auto auto auto; }
+    .ba .mid { transform: rotate(90deg); justify-content: center; }
+    .lead { max-width: none; }
+    .compass { display: none; }
+    .hint { display: none; }
+    .method-row { gap: 1.2rem; }
+  }
+  @media (max-width: 560px) {
+    .loop-arrow { transform: rotate(90deg); }
+    .wordmark .name { font-size: 1rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+    .slide.is-active .reveal { animation: none; opacity: 1; transform: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="sky" aria-hidden="true"></div>
+  <div class="stars" aria-hidden="true"></div>
+  <div class="progress" id="progress"></div>
+
+  <main class="deck" id="deck">
+
+    <!-- 1. COVER -->
+    <section class="slide is-active" aria-label="表紙">
+      <div class="inner" style="display:flex;align-items:center;justify-content:space-between;gap:2.5rem;flex-wrap:wrap;">
+        <div style="flex:1 1 26rem;min-width:18rem;">
+          <div class="wordmark reveal" style="margin-bottom:1.6rem;">
+            <img src="../leanquest-mark.svg" alt="LEAN QUEST" style="filter:brightness(0) invert(0.92);" />
+            <span class="name">LEAN&nbsp;QUEST&nbsp;<span class="ai">AI</span></span>
+          </div>
+          <p class="eyebrow reveal">新規事業 — MVP スコープ設計</p>
+          <h1 class="display reveal" style="margin-top:1.1rem;">
+            やりたいこと<span class="num">100</span>を、<br />最初の<span class="num">10</span>へ。
+          </h1>
+          <p class="lead reveal" style="margin-top:1.5rem;">
+            体験を可視化し、スコープを絞り、KPI とブランドまで決めて動く MVP に。
+            <strong>冒険の一歩目を、確かなものに。</strong>
+          </p>
+          <div class="cover-foot reveal">
+            <span class="btn">Studio を開く</span>
+            <span class="muted" style="font-size:0.88rem;">LLM は Claude / OpenAI / Gemini を切り替え可能</span>
+          </div>
+        </div>
+        <div class="compass reveal" aria-hidden="true" id="compass">
+          <div class="glow"></div>
+          <div class="ring"></div><div class="ring r2"></div><div class="ring r3"></div>
+          <div class="needle">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" fill="currentColor" stroke="none"/></svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. PROBLEM -->
+    <section class="slide" aria-label="課題">
+      <div class="inner">
+        <p class="eyebrow reveal">課題</p>
+        <h2 class="h-lead reveal" style="margin-top:1rem;max-width:20ch;">
+          最初に作る機能を、<span class="grad">絞り切れない。</span>
+        </h2>
+        <p class="lead reveal" style="margin-top:1.1rem;">
+          多くの新規事業は「決められない循環」で止まる。可視化されないまま機能を盛り込み、検証が遅れる。
+        </p>
+        <div class="loop reveal" style="margin-top:2.4rem;">
+          <div class="loop-node">
+            <div class="t">体験が見えない</div>
+            <div class="d">ユーザーが誰で、どう使うのかが曖昧なまま。</div>
+          </div>
+          <span class="loop-arrow">→</span>
+          <div class="loop-node">
+            <div class="t">機能を絞れない</div>
+            <div class="d">優先順位がつかず、あれもこれもと膨らむ。</div>
+          </div>
+          <span class="loop-arrow">→</span>
+          <div class="loop-node">
+            <div class="t">前に進めない</div>
+            <div class="d">作るものが決まらず、検証も始まらない。</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. METHOD 100 -> 10 -->
+    <section class="slide" aria-label="メソッド">
+      <div class="inner">
+        <p class="eyebrow reveal">メソッド</p>
+        <h2 class="h-lead reveal" style="margin-top:1rem;">体験を可視化して、スコープを確定する。</h2>
+        <div class="method-row reveal" style="margin-top:2.2rem;">
+          <div class="big-num">
+            <span class="v" style="color:var(--muted-foreground);">100</span>
+            <span class="k">やりたいこと</span>
+          </div>
+          <span class="arrow-x">➜</span>
+          <div class="big-num">
+            <span class="v num">10</span>
+            <span class="k">最初に作る</span>
+          </div>
+        </div>
+        <p class="lead reveal" style="margin-top:2rem;max-width:52ch;">
+          アクター・ユースケース・モデリング・ジャーニーで体験を見える化。
+          影響度 × 工数で並べ替え、<strong>含む機能を 10 以下に確定</strong>する。小さく試して、確信を持って前へ。
+        </p>
+      </div>
+    </section>
+
+    <!-- 4. THREE PHASES -->
+    <section class="slide" aria-label="3フェーズ">
+      <div class="inner">
+        <p class="eyebrow reveal">プロセス</p>
+        <h2 class="h-lead reveal" style="margin-top:1rem;">構想からプロダクトまで、3 フェーズで伴走。</h2>
+        <div class="grid g-3 reveal" style="margin-top:2rem;">
+          <article class="panel phase">
+            <div class="top">
+              <span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
+              <span class="ph-no">Phase 01</span>
+            </div>
+            <h3>スコープ設計</h3>
+            <p>体験を可視化し、やりたいこと100から最初に作る10を見出す。</p>
+            <div class="pill-row">
+              <span class="pill">確定スコープ</span><span class="pill">UIデザイン</span><span class="pill">ユースケース</span><span class="pill">KPI</span><span class="pill">トーンマナー</span>
+            </div>
+          </article>
+          <article class="panel phase">
+            <div class="top">
+              <span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg></span>
+              <span class="ph-no">Phase 02</span>
+            </div>
+            <h3>MVP 構築</h3>
+            <p>絞ったスコープを、動くMVPとして素早く形にする。</p>
+            <div class="pill-row">
+              <span class="pill">動くMVP</span><span class="pill">ソース一式</span><span class="pill">運用ドキュメント</span>
+            </div>
+          </article>
+          <article class="panel phase">
+            <div class="top">
+              <span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7h6v6"/><path d="m22 7-8.5 8.5-5-5L2 17"/></svg></span>
+              <span class="ph-no">Phase 03</span>
+            </div>
+            <h3>継続改善・伴走</h3>
+            <p>使いながら反応を見て、次のスコープを決めていく。</p>
+            <div class="pill-row">
+              <span class="pill">拡張版MVP</span><span class="pill">次アクション提案</span><span class="pill">投資判断資料</span>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. FEATURES (1) ANALYZE & DESIGN -->
+    <section class="slide" aria-label="主要機能 分析と設計">
+      <div class="inner">
+        <p class="eyebrow reveal">主要機能 ①</p>
+        <h2 class="h-lead reveal" style="margin-top:1rem;">体験を分析し、つくりを設計する。</h2>
+        <div class="grid g-2 reveal" style="margin-top:2rem;">
+          <article class="panel feat">
+            <span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7a4 4 0 1 0-8 0"/><circle cx="12" cy="7" r="4"/><path d="M5.5 21a8.38 8.38 0 0 1 13 0"/></svg></span>
+            <div>
+              <h3>分析</h3>
+              <p>アクター・ユースケース・モデリング(OOUI)・ジャーニーで、誰がどう使うかを可視化する。</p>
+              <div class="pill-row tags"><span class="pill">アクター</span><span class="pill">ユースケース</span><span class="pill">OOUIモデリング</span><span class="pill">ジャーニー</span></div>
+            </div>
+          </article>
+          <article class="panel feat">
+            <span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></span>
+            <div>
+              <h3>設計</h3>
+              <p>ナビゲーション・ワイヤー・データ設計・バックエンドまで、作る前に骨格を固める。</p>
+              <div class="pill-row tags"><span class="pill">ナビ設計</span><span class="pill">ワイヤー</span><span class="pill">データ設計</span><span class="pill">バックエンド</span></div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. FEATURES (2) MVP DEFINITION -->
+    <section class="slide" aria-label="主要機能 MVP定義">
+      <div class="inner">
+        <p class="eyebrow reveal">主要機能 ②</p>
+        <h2 class="h-lead reveal" style="margin-top:1rem;">スコープを確定し、計画に落とす。</h2>
+        <div class="grid g-3 reveal" style="margin-top:2rem;">
+          <article class="panel feat" style="flex-direction:column;">
+            <span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="13" y="8" width="3" height="10"/></svg></span>
+            <div>
+              <h3>MVP スコープ確定</h3>
+              <p>影響度 × 工数で優先順位を判断。初期開発・運用・学習コストを見て、含む機能を 10 以下に絞る。</p>
+            </div>
+          </article>
+          <article class="panel feat" style="flex-direction:column;">
+            <span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span>
+            <div>
+              <h3>KPI ＋ グロース計画</h3>
+              <p>追うべき指標を定め、成長の道筋とアクションをセットで設計する。</p>
+            </div>
+          </article>
+          <article class="panel feat" style="flex-direction:column;">
+            <span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="6.5" cy="11.5" r="2.5"/><circle cx="17" cy="14" r="2.5"/><path d="M2 21s2-4 5-4M22 21s-1.5-4-5-4"/></svg></span>
+            <div>
+              <h3>ブランド / デザイン</h3>
+              <p>ブランド名・タグライン・配色・トーンマナーを決め、世界観まで一気通貫で。</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. FEATURES (3) PROTOTYPE & HANDOFF -->
+    <section class="slide" aria-label="主要機能 プロトタイプと連携">
+      <div class="inner">
+        <p class="eyebrow reveal">主要機能 ③</p>
+        <h2 class="h-lead reveal" style="margin-top:1rem;">動くプロトタイプと、渡せる成果物。</h2>
+        <div class="grid g-3 reveal" style="margin-top:2rem;">
+          <article class="panel feat" style="flex-direction:column;">
+            <span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></svg></span>
+            <div>
+              <h3>プロトタイプ化</h3>
+              <p>AWS プレビューで素早く形に。さらに v0 で本格的なプロトタイプへ育てる。</p>
+            </div>
+          </article>
+          <article class="panel feat" style="flex-direction:column;">
+            <span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg></span>
+            <div>
+              <h3>デザイナー連携</h3>
+              <p>定義したスコープ・ブランドをデザイナーへ受け渡し、制作へスムーズに接続。</p>
+            </div>
+          </article>
+          <article class="panel feat" style="flex-direction:column;">
+            <span class="icon-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/></svg></span>
+            <div>
+              <h3>提案資料の自動生成</h3>
+              <p>分析からブランドまでを 1 枚のスライドデッキに。投資判断・社内提案にそのまま使える。</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. LLM FLEXIBILITY -->
+    <section class="slide" aria-label="AIの柔軟性">
+      <div class="inner">
+        <p class="eyebrow reveal">AI エンジン</p>
+        <h2 class="h-lead reveal" style="margin-top:1rem;">最適な LLM を、用途に合わせて。</h2>
+        <p class="lead reveal" style="margin-top:1.1rem;">主要モデルを切り替えながら、各ステップの生成品質を引き出す。結果は自動で保存。</p>
+        <div class="llm-row reveal" style="margin-top:2.2rem;">
+          <article class="panel llm-card">
+            <span class="dot" style="background:var(--chart-1);"></span>
+            <h3>Claude</h3>
+            <p>緻密な分析・設計と長文の構造化に。</p>
+          </article>
+          <article class="panel llm-card">
+            <span class="dot" style="background:var(--chart-4);"></span>
+            <h3>OpenAI</h3>
+            <p>幅広いタスクをバランス良く。</p>
+          </article>
+          <article class="panel llm-card">
+            <span class="dot" style="background:var(--chart-3);"></span>
+            <h3>Gemini</h3>
+            <p>マルチモーダルと発散の探索に。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. BEFORE / AFTER -->
+    <section class="slide" aria-label="提供価値">
+      <div class="inner">
+        <p class="eyebrow reveal">提供価値</p>
+        <h2 class="h-lead reveal" style="margin-top:1rem;">「決められない」を、「進める」に。</h2>
+        <div class="ba reveal" style="margin-top:2rem;">
+          <article class="panel col before">
+            <span class="tag">Before</span>
+            <ul>
+              <li>体験が曖昧で機能を盛り込みすぎる</li>
+              <li>優先順位がつかず着手できない</li>
+              <li>KPI もブランドも後回し</li>
+              <li>検証が始まらず時間だけ過ぎる</li>
+            </ul>
+          </article>
+          <div class="mid">➜</div>
+          <article class="panel col after">
+            <span class="tag">After</span>
+            <ul>
+              <li>体験が可視化され10機能に確定</li>
+              <li>影響度×工数で迷わず判断</li>
+              <li>KPI・グロース・ブランドまで一気通貫</li>
+              <li>動くMVPと提案資料で前に進む</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10. CLOSING -->
+    <section class="slide" aria-label="クロージング">
+      <div class="inner close-center">
+        <div class="wordmark reveal">
+          <img src="../leanquest-mark.svg" alt="LEAN QUEST" style="filter:brightness(0) invert(0.92);" />
+          <span class="name">LEAN&nbsp;QUEST&nbsp;<span class="ai">AI</span></span>
+        </div>
+        <h2 class="display reveal" style="font-size:clamp(2rem,5.4vw,3.8rem);">冒険の一歩目を、<br /><span class="num">確かなものに。</span></h2>
+        <p class="lead reveal" style="text-align:center;max-width:46ch;">
+          あいまいな構想を、最初の MVP へ。やりたいこと100を、最初の10へ絞り込む。
+        </p>
+        <div class="reveal" style="display:flex;gap:0.8rem;flex-wrap:wrap;justify-content:center;align-items:center;">
+          <span class="btn">Studio を開く</span>
+          <span class="muted" style="font-size:0.88rem;">Claude / OpenAI / Gemini 対応</span>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <div class="nav">
+    <button id="prev" aria-label="前のスライド">‹</button>
+    <button id="next" aria-label="次のスライド">›</button>
+  </div>
+  <div class="hint">← / → / Space でスライド送り</div>
+  <div class="counter"><span class="cur" id="cur">1</span> / <span id="total">10</span></div>
+
+  <script>
+    (function () {
+      var slides = Array.prototype.slice.call(document.querySelectorAll(".slide"));
+      var total = slides.length;
+      var i = 0;
+      var progress = document.getElementById("progress");
+      var curEl = document.getElementById("cur");
+      var totalEl = document.getElementById("total");
+      totalEl.textContent = String(total);
+
+      function render() {
+        slides.forEach(function (s, idx) { s.classList.toggle("is-active", idx === i); });
+        curEl.textContent = String(i + 1);
+        progress.style.width = ((i + 1) / total) * 100 + "%";
+      }
+      function go(n) { i = Math.max(0, Math.min(total - 1, n)); render(); }
+      function next() { go(i + 1); }
+      function prev() { go(i - 1); }
+
+      document.getElementById("next").addEventListener("click", next);
+      document.getElementById("prev").addEventListener("click", prev);
+
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "ArrowRight" || e.key === "PageDown") { e.preventDefault(); next(); }
+        else if (e.key === "ArrowLeft" || e.key === "PageUp") { e.preventDefault(); prev(); }
+        else if (e.key === " ") { e.preventDefault(); e.shiftKey ? prev() : next(); }
+        else if (e.key === "Home") { e.preventDefault(); go(0); }
+        else if (e.key === "End") { e.preventDefault(); go(total - 1); }
+      });
+
+      // click / tap to advance (ignore the nav controls)
+      document.getElementById("deck").addEventListener("click", function (e) {
+        if (e.target.closest(".nav") || e.target.closest("button")) return;
+        next();
+      });
+
+      // swipe on touch devices
+      var sx = 0, sy = 0;
+      document.addEventListener("touchstart", function (e) { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
+      document.addEventListener("touchend", function (e) {
+        var dx = e.changedTouches[0].clientX - sx;
+        var dy = e.changedTouches[0].clientY - sy;
+        if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) { dx < 0 ? next() : prev(); }
+      }, { passive: true });
+
+      render();
+    })();
+  </script>
+</body>
+</html>

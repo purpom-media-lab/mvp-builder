@@ -12,6 +12,7 @@ import {
   chatMessages,
   dataModelEntities,
   designRequests,
+  engineerRequests,
   journeys,
   kpiMetrics,
   navigationItems,
@@ -29,6 +30,7 @@ import type {
   BrandOutput,
   DataModelOutput,
   DesignBriefOutput,
+  EngineerBriefOutput,
   GrowthOutput,
   JourneyOutput,
   KpiOutput,
@@ -582,5 +584,56 @@ export async function loadDesignRequest(ownerId: string, projectId: string) {
     .select()
     .from(designRequests)
     .where(eq(designRequests.projectId, projectId));
+  return row ?? null;
+}
+
+/** エンジニア連携: 開発依頼（エンジニアブリーフ）。所有権が無ければ null。
+ *  1プロジェクト1行を部分マージで洗い替え（brief だけ保存→後から status 更新、等）。 */
+export async function saveEngineerRequest(
+  ownerId: string,
+  projectId: string,
+  data: {
+    brief?: EngineerBriefOutput | null;
+    status?: "draft" | "requested";
+  },
+) {
+  const owned = await getOwnedProject(ownerId, projectId);
+  if (!owned) return null;
+
+  const existing = (
+    await db
+      .select()
+      .from(engineerRequests)
+      .where(eq(engineerRequests.projectId, projectId))
+  )[0];
+
+  const brief =
+    data.brief !== undefined ? data.brief : (existing?.brief ?? null);
+
+  const merged = {
+    projectId,
+    brief,
+    // deliverable / deadline は brief から派生（一覧・検索用の冗長カラム）
+    deliverable: brief?.deliverable ?? existing?.deliverable ?? "repo",
+    deadline: brief?.deadline ?? existing?.deadline ?? null,
+    status: data.status ?? existing?.status ?? "draft",
+    updatedAt: new Date(),
+  };
+
+  await db
+    .delete(engineerRequests)
+    .where(eq(engineerRequests.projectId, projectId));
+  const [row] = await db.insert(engineerRequests).values(merged).returning();
+  return row;
+}
+
+/** エンジニア連携: 開発依頼を読み込む。所有権が無ければ null（未作成なら null）。 */
+export async function loadEngineerRequest(ownerId: string, projectId: string) {
+  const owned = await getOwnedProject(ownerId, projectId);
+  if (!owned) return null;
+  const [row] = await db
+    .select()
+    .from(engineerRequests)
+    .where(eq(engineerRequests.projectId, projectId));
   return row ?? null;
 }

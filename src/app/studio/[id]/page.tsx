@@ -492,6 +492,7 @@ export default function ProjectDetailPage() {
             </p>
             <Link
               href={`/studio/${id}/intake`}
+              title="ジョブ理論（JTBD）で「状況・成し遂げたい進歩」を整理し、機能の取捨選択とMVPの絞り込みに役立てます"
               className={buttonVariants({ size: "sm", variant: "outline" })}
             >
               🧭 ジョブ理論で要望を深掘り

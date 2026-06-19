@@ -418,6 +418,12 @@ export default function PrototypePage() {
                 >
                   デザイナーに依頼 →
                 </Link>
+                <Link
+                  href={`/studio/${id}/engineer-request`}
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
+                >
+                  エンジニアに依頼 →
+                </Link>
               </>
             )}
           </div>

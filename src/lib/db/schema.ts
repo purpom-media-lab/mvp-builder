@@ -312,6 +312,39 @@ export const designRequests = pgTable("design_requests", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+/**
+ * エンジニア連携（開発依頼）。
+ * プロトタイプ完成後、エンジニアに渡す開発依頼（開発仕様書/チケット）を保存する。
+ * プロジェクトの分析・設計結果から MVP を実装に落とすための依頼項目を
+ * 1 プロジェクト 1 行で持つ。
+ */
+export const engineerRequests = pgTable("engineer_requests", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  // 依頼項目（エンジニアブリーフ）。engineerBriefSchema の構造化出力をそのまま保存
+  brief: jsonb("brief").$type<{
+    productName: string;
+    overview: string;
+    functionalRequirements: string;
+    screens: string;
+    dataModel: string;
+    apiEndpoints: string;
+    nonFunctional: string;
+    suggestedStack: string;
+    milestones: string;
+    acceptanceCriteria: string;
+    deliverable: "repo" | "spec";
+    deadline: string;
+  }>(),
+  deliverable: text("deliverable").notNull().default("repo"), // repo | spec
+  deadline: text("deadline"),
+  status: text("status").notNull().default("draft"), // draft | requested
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const invitationStatus = pgEnum("invitation_status", [
   "pending",
   "accepted",
