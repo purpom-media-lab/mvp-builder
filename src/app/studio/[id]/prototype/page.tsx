@@ -118,6 +118,22 @@ export default function PrototypePage() {
     };
   }, [id]);
 
+  // ストリーム受信完了後に HTML を確実に永続化する（onFinish 依存をやめる）。
+  // 失敗してもプレビュー表示は維持し、エラー表示はしない（保存はベストエフォート）。
+  async function persistHtml(finalHtml: string) {
+    if (!id || !finalHtml) return;
+    try {
+      await postJson("/api/prototype", {
+        mode: "save",
+        projectId: id,
+        projectName: name,
+        currentHtml: finalHtml,
+      });
+    } catch {
+      // 保存失敗は致命的でないため握りつぶす（次回保存時に再永続化される）
+    }
+  }
+
   async function generatePrototype(override?: {
     actors?: ActorView[];
     useCases?: UseCaseView[];
@@ -182,10 +198,13 @@ export default function PrototypePage() {
         const raw = await streamPost("/api/prototype", payload, {
           onChunk: (acc) => setGenChars(acc.length),
         });
-        setHtml(extractHtmlFromText(raw));
+        const finalHtml = extractHtmlFromText(raw);
+        setHtml(finalHtml);
         setDemoUrl(null);
         setShareUrl(null);
         setShareError(null);
+        // 受信完了後に確実に保存（別画面遷移後も復元できるように）
+        await persistHtml(finalHtml);
       } else {
         // v0 エンジンはホスティング込みで JSON を返す
         const data = await postJson<{
@@ -249,10 +268,45 @@ export default function PrototypePage() {
         },
         { onChunk: (acc) => setGenChars(acc.length) },
       );
-      setHtml(extractHtmlFromText(raw));
+      const finalHtml = extractHtmlFromText(raw);
+      setHtml(finalHtml);
       setShareUrl(null);
       setShareError(null);
       setInstruction("");
+      await persistHtml(finalHtml);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "エラー");
+    } finally {
+      setLoading(null);
+      setGenChars(0);
+    }
+  }
+
+  // 本実装: プレビューHTMLを LQ SDK で実データ保存・一覧する版に書き換える（ストリーミング）。
+  async function realizePrototype() {
+    if (!html) return;
+    setLoading("realize");
+    setError(null);
+    try {
+      setGenChars(0);
+      const raw = await streamPost(
+        "/api/prototype",
+        {
+          engine: "aws",
+          mode: "realize",
+          currentHtml: html,
+          provider: model.provider,
+          modelId: model.modelId,
+          projectId: id,
+          projectName: name,
+        },
+        { onChunk: (acc) => setGenChars(acc.length) },
+      );
+      const finalHtml = extractHtmlFromText(raw);
+      setHtml(finalHtml);
+      setShareUrl(null);
+      setShareError(null);
+      await persistHtml(finalHtml);
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラー");
     } finally {
@@ -398,6 +452,34 @@ export default function PrototypePage() {
                 >
                   {loading === "host" ? "ホスティング中…" : "ホスティング"}
                 </Button>
+
+                <span className="mx-1 h-5 w-px bg-border" />
+
+                {/* 本実装: プレビューを実データ保存できる動くMVPに変換する */}
+                {html && (
+                  <Button
+                    size="sm"
+                    onClick={realizePrototype}
+                    disabled={loading !== null || chatBusy}
+                  >
+                    {loading === "realize"
+                      ? "本実装生成中…"
+                      : "本実装（データ保存を有効化）"}
+                  </Button>
+                )}
+                {html && (
+                  <a
+                    href={`/run/${id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={buttonVariants({
+                      variant: "outline",
+                      size: "sm",
+                    })}
+                  >
+                    公開URLを開く ↗
+                  </a>
+                )}
                 <Button
                   size="sm"
                   variant="outline"
@@ -506,10 +588,16 @@ export default function PrototypePage() {
 
           {/* プレビュー */}
           <div className="relative flex-1 overflow-hidden bg-muted/40 p-3">
-            {loading === "prototype" && (
+            {(loading === "prototype" || loading === "realize") && (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/70 backdrop-blur-sm">
                 <AiGenerating
-                  label={engine === "v0" ? "本格プロトタイプ" : "プレビュー"}
+                  label={
+                    loading === "realize"
+                      ? "本実装"
+                      : engine === "v0"
+                        ? "本格プロトタイプ"
+                        : "プレビュー"
+                  }
                   messages={
                     engine === "v0"
                       ? [

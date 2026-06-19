@@ -637,3 +637,32 @@ export async function loadEngineerRequest(ownerId: string, projectId: string) {
     .where(eq(engineerRequests.projectId, projectId));
   return row ?? null;
 }
+
+/**
+ * 公開ランタイム用: projectId が実在するかだけを確認する（所有権チェック無し）。
+ * 「本実装」ホスティング/データAPI は公開なので、所有者を問わず存在判定だけ行う。
+ */
+export async function projectExists(projectId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(eq(projects.id, projectId));
+  return Boolean(row);
+}
+
+/**
+ * 公開ランタイム用: 保存済みプロトタイプ HTML を所有権チェック無しで読む。
+ * 公開ホスティング(`/run/[projectId]`)で配信するために使う。
+ * プロジェクトが無い場合は null、HTML 未生成の場合は { exists, html: null } を返す。
+ */
+export async function loadPrototypeHtmlPublic(
+  projectId: string,
+): Promise<{ exists: boolean; html: string | null }> {
+  const exists = await projectExists(projectId);
+  if (!exists) return { exists: false, html: null };
+  const [row] = await db
+    .select({ html: prototypes.html })
+    .from(prototypes)
+    .where(eq(prototypes.projectId, projectId));
+  return { exists: true, html: row?.html ?? null };
+}

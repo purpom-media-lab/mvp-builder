@@ -90,6 +90,46 @@ export function streamPrototypeHtml(
   });
 }
 
+const REALIZE_SYSTEM = `あなたは熟練のフロントエンドエンジニアです。与えられた「プレビュー用の単一HTMLプロトタイプ」を、モックデータの代わりに実データを保存・一覧表示する「本実装」版に書き換えます。
+
+データ層の使い方（重要）:
+- データの保存・読み出し・削除は、外部から注入される LQ SDK だけを使うこと。
+  - 一覧取得: window.LQ.db('コレクション名').list().then(records => ...) // records は [{id, data, createdAt}]
+  - 作成:     window.LQ.db('コレクション名').create({ ...フィールド })       // 作成レコードを返す
+  - 削除:     window.LQ.db('コレクション名').remove(id)
+- LQ SDK は配信時にホスト側が <script> で注入する。**自分で window.LQ を定義したり、<script>でSDKを実装してはいけない**。呼び出すだけ。
+- DOMContentLoaded など読み込み後に list() を呼び、取得した実データで一覧を描画する（ハードコードのモック配列は廃止）。
+- フォーム送信時は create() を呼び、成功後に list() で再描画する（楽観的更新でも可）。削除ボタンは remove() を呼ぶ。
+- コレクション名は画面/オブジェクトごとに分け、英数字・ハイフン・アンダースコアのみ（例: 'tasks', 'contacts'）。
+
+厳守事項:
+- 出力は完全な HTML ドキュメント 1 つのみ。説明文・マークダウン・コードフェンス(\`\`\`)は一切付けない。
+- <!DOCTYPE html> から始め </html> で終わる。
+- 既存の CDN 読み込み（Tailwind 等）・レイアウト・画面遷移・世界観は維持する。データの出所だけを LQ SDK に差し替える。
+- 非同期処理は async/await もしくは Promise で扱い、エラー時もUIが壊れないようにする。
+- 日本語 UI。差分ではなく完全な HTML 全文を返す。`;
+
+/**
+ * プレビュー HTML を「本実装」（LQ SDK で実データ保存・一覧）版に書き換える（ストリーミング）。
+ * 既存の作法に合わせて streamText + extractHtml。onComplete で保存する。
+ */
+export function realizePrototypeHtml(
+  currentHtml: string,
+  provider?: LlmProvider,
+  modelId?: string,
+  onComplete?: OnComplete,
+) {
+  return streamText({
+    model: resolveModel(provider, modelId),
+    system: REALIZE_SYSTEM,
+    prompt: `## 現在のHTML（プレビュー）\n${currentHtml}\n\n上記を、LQ SDK でデータを保存・一覧表示する本実装版に書き換えて、完全なHTML全文を返してください。`,
+    temperature: 0.4,
+    onFinish: async ({ text }) => {
+      await onComplete?.(extractHtml(text));
+    },
+  });
+}
+
 /** 既存 HTML に修正指示を反映する版（ストリーミング）。 */
 export function streamUpdatePrototypeHtml(
   currentHtml: string,

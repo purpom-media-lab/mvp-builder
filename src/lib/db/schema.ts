@@ -7,6 +7,7 @@
  */
 import {
   boolean,
+  index,
   integer,
   jsonb,
   pgEnum,
@@ -363,3 +364,26 @@ export const invitations = pgTable("invitations", {
   acceptedAt: timestamp("accepted_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+/**
+ * 共有マルチテナントの「本実装」データストア。
+ * 各プロジェクト(=公開MVP)のフォーム等のデータをここに保存する。
+ * ownerKey は匿名ブラウザID（Phase2 でエンドユーザIDに拡張予定）。
+ */
+export const mvpRecords = pgTable(
+  "mvp_records",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    collection: text("collection").notNull(),
+    ownerKey: text("owner_key"),
+    data: jsonb("data").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => [
+    index("mvp_records_project_collection_idx").on(t.projectId, t.collection),
+  ],
+);
