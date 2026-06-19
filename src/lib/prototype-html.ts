@@ -6,7 +6,7 @@
  * 変換する。バックエンド不要なので S3 等のホスティングなしに iframe srcDoc で
  * そのままプレビューできる。
  */
-import { generateText } from "ai";
+import { generateText, streamText } from "ai";
 import { resolveModel, type LlmProvider } from "./ai/models";
 import { buildPrototypePrompt, type PrototypeContext } from "./v0";
 
@@ -64,4 +64,47 @@ export async function updatePrototypeHtml(
     temperature: 0.5,
   });
   return extractHtml(text);
+}
+
+type OnComplete = (html: string) => Promise<void> | void;
+
+/**
+ * 生成をストリーミングで返す版。逐次トークンを流すので長時間でも接続が切れにくい。
+ * 完了時に onComplete(整形済みHTML) で保存などを行う。`toTextStreamResponse()` で
+ * そのままレスポンス化する。
+ */
+export function streamPrototypeHtml(
+  ctx: PrototypeContext,
+  provider?: LlmProvider,
+  modelId?: string,
+  onComplete?: OnComplete,
+) {
+  return streamText({
+    model: resolveModel(provider, modelId),
+    system: SYSTEM,
+    prompt: buildPrototypePrompt(ctx),
+    temperature: 0.6,
+    onFinish: async ({ text }) => {
+      await onComplete?.(extractHtml(text));
+    },
+  });
+}
+
+/** 既存 HTML に修正指示を反映する版（ストリーミング）。 */
+export function streamUpdatePrototypeHtml(
+  currentHtml: string,
+  instruction: string,
+  provider?: LlmProvider,
+  modelId?: string,
+  onComplete?: OnComplete,
+) {
+  return streamText({
+    model: resolveModel(provider, modelId),
+    system: UPDATE_SYSTEM,
+    prompt: `## 現在のHTML\n${currentHtml}\n\n## 修正指示\n${instruction}`,
+    temperature: 0.5,
+    onFinish: async ({ text }) => {
+      await onComplete?.(extractHtml(text));
+    },
+  });
 }

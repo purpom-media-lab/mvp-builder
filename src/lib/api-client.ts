@@ -58,3 +58,88 @@ export async function postJson<T = unknown>(
 
   return (await res.json()) as T;
 }
+
+/**
+ * text/plain のストリーミング応答を読み、チャンク到着ごとに onChunk(累積, 差分) を
+ * 呼びつつ全文を返す。逐次データが流れるので長時間生成でも接続が切れにくく、
+ * 進捗を表示できる。タイムアウト/エラーは postJson と同じ方針で投げる。
+ */
+export async function streamPost(
+  url: string,
+  body: unknown,
+  opts: {
+    timeoutMs?: number;
+    onChunk?: (acc: string, delta: string) => void;
+  } = {},
+): Promise<string> {
+  const timeoutMs = opts.timeoutMs ?? 310_000;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+  } catch (e) {
+    clearTimeout(timer);
+    if (e instanceof DOMException && e.name === "AbortError") {
+      throw new Error(
+        "生成がタイムアウトしました。時間をおいて、もう一度お試しください。",
+      );
+    }
+    throw new Error(
+      "通信エラーが発生しました。接続を確認して、もう一度お試しください。",
+    );
+  }
+
+  if (!res.ok || !res.body) {
+    clearTimeout(timer);
+    let serverMsg = "";
+    try {
+      const d = (await res.json()) as { error?: string };
+      serverMsg = d?.error ?? "";
+    } catch {
+      // 非JSON
+    }
+    throw new Error(
+      serverMsg || `生成に失敗しました（HTTP ${res.status}）。もう一度お試しください。`,
+    );
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let acc = "";
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const delta = decoder.decode(value, { stream: true });
+      acc += delta;
+      opts.onChunk?.(acc, delta);
+    }
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      throw new Error(
+        "生成がタイムアウトしました。時間をおいて、もう一度お試しください。",
+      );
+    }
+    throw new Error("通信が途中で切断されました。もう一度お試しください。");
+  } finally {
+    clearTimeout(timer);
+  }
+  return acc;
+}
+
+/** モデル出力（コードフェンス等が混ざる場合あり）から HTML 本体だけ取り出す */
+export function extractHtmlFromText(text: string): string {
+  let t = text.trim();
+  const fence = t.match(/```(?:html)?\s*([\s\S]*?)```/i);
+  if (fence) t = fence[1].trim();
+  const start = t.search(/<!DOCTYPE html>|<html[\s>]/i);
+  if (start > 0) t = t.slice(start);
+  return t.trim();
+}

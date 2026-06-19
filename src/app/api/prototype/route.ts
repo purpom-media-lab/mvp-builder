@@ -3,8 +3,8 @@ import { getSessionUser } from "@/lib/auth/session";
 import type { LlmProvider } from "@/lib/ai/models";
 import { savePrototype } from "@/lib/projects";
 import {
-  generatePrototypeHtml,
-  updatePrototypeHtml,
+  streamPrototypeHtml,
+  streamUpdatePrototypeHtml,
 } from "@/lib/prototype-html";
 import { isS3Configured, publishHtml } from "@/lib/s3-publish";
 import { createPrototype, type PrototypeContext } from "@/lib/v0";
@@ -74,21 +74,29 @@ export async function POST(req: Request) {
     }
 
     // AWS エンジン: Claude で自己完結 HTML プレビューを生成（ホスティングはしない）。
-    // 生成した HTML は保存し、再読込で復元できるようにする。
+    // ストリーミングで逐次返す（長時間でも接続が切れにくい）。完了時に保存する。
     if (body.engine === "aws") {
-      const html =
+      const onComplete = async (html: string) => {
+        if (body.projectId) {
+          await savePrototype(user.id, body.projectId, { html });
+        }
+      };
+      const result =
         body.mode === "update" && body.currentHtml?.trim()
-          ? await updatePrototypeHtml(
+          ? streamUpdatePrototypeHtml(
               body.currentHtml,
               body.instruction ?? "",
               body.provider,
               body.modelId,
+              onComplete,
             )
-          : await generatePrototypeHtml(body, body.provider, body.modelId);
-      if (body.projectId) {
-        await savePrototype(user.id, body.projectId, { html });
-      }
-      return NextResponse.json({ html });
+          : streamPrototypeHtml(
+              body,
+              body.provider,
+              body.modelId,
+              onComplete,
+            );
+      return result.toTextStreamResponse();
     }
 
     // v0 エンジン: 生成にホスティングが含まれる（v0 がホストする）。

@@ -9,7 +9,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DEFAULT_PROVIDER, MODEL_CATALOG } from "@/lib/ai/catalog";
-import { postJson } from "@/lib/api-client";
+import { extractHtmlFromText, postJson, streamPost } from "@/lib/api-client";
 import {
   AiConsultPanel,
   type OrchestrateResponse,
@@ -79,6 +79,8 @@ export default function PrototypePage() {
   const [chatBusy, setChatBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingProject, setLoadingProject] = useState(true);
+  // ストリーミング生成の進捗（受信文字数）
+  const [genChars, setGenChars] = useState(0);
 
   useEffect(() => {
     if (!id) return;
@@ -130,64 +132,78 @@ export default function PrototypePage() {
     const engineUsed = override?.engine ?? engine;
     setLoading("prototype");
     setError(null);
+    const payload = {
+      engine: engineUsed,
+      provider: model.provider,
+      modelId: model.modelId,
+      projectId: id,
+      projectName: name,
+      summary,
+      actors: aData,
+      useCases: ucData.map((u) => ({
+        goal: u.goal,
+        description: u.description,
+      })),
+      oouiObjects: oData.map((o) => ({
+        name: o.name,
+        attributes: (o.attributes ?? []).map((a) => a.label ?? a.name),
+      })),
+      navigation: navData.map((n) => ({
+        label: n.label,
+        targetObject: n.targetObject,
+        screenType: n.screenType,
+        parent: n.parent,
+      })),
+      mvpStatement,
+      // スコープ確定済みなら MVP に含む機能だけを実装対象に渡す
+      scope: scope
+        .filter((f) => f.includedInMvp)
+        .map((f) => ({ name: f.name, description: f.description })),
+      kpis: kpi
+        ? [kpi.northStar, ...kpi.supporting]
+            .filter((m): m is KpiMetricView => !!m)
+            .map((m) => ({ name: m.name, target: m.target }))
+        : undefined,
+      brand: brand
+        ? {
+            brandName: brand.brandName,
+            tagline: brand.tagline,
+            tone: brand.tone,
+            palette: brand.palette,
+            typography: brand.typography,
+            logoDirection: brand.logoDirection,
+          }
+        : undefined,
+    };
     try {
-      const data = await postJson<{
-        demoUrl?: string | null;
-        html?: string;
-        shareUrl?: string;
-        shareError?: string;
-      }>("/api/prototype", {
-          engine: engineUsed,
-          provider: model.provider,
-          modelId: model.modelId,
-          projectId: id,
-          projectName: name,
-          summary,
-          actors: aData,
-          useCases: ucData.map((u) => ({
-            goal: u.goal,
-            description: u.description,
-          })),
-          oouiObjects: oData.map((o) => ({
-            name: o.name,
-            attributes: (o.attributes ?? []).map((a) => a.label ?? a.name),
-          })),
-          navigation: navData.map((n) => ({
-            label: n.label,
-            targetObject: n.targetObject,
-            screenType: n.screenType,
-            parent: n.parent,
-          })),
-          mvpStatement,
-          // スコープ確定済みなら MVP に含む機能だけを実装対象に渡す
-          scope: scope
-            .filter((f) => f.includedInMvp)
-            .map((f) => ({ name: f.name, description: f.description })),
-          kpis: kpi
-            ? [kpi.northStar, ...kpi.supporting]
-                .filter((m): m is KpiMetricView => !!m)
-                .map((m) => ({ name: m.name, target: m.target }))
-            : undefined,
-          brand: brand
-            ? {
-                brandName: brand.brandName,
-                tagline: brand.tagline,
-                tone: brand.tone,
-                palette: brand.palette,
-                typography: brand.typography,
-                logoDirection: brand.logoDirection,
-              }
-            : undefined,
-        },
-      );
-      setDemoUrl(data.demoUrl ?? null);
-      if (data.html !== undefined) setHtml(data.html);
-      setShareUrl(data.shareUrl ?? data.demoUrl ?? null);
-      setShareError(data.shareError ?? null);
+      if (engineUsed === "aws") {
+        // ストリーミング: 逐次トークンを受信し、進捗（文字数）を表示
+        setGenChars(0);
+        const raw = await streamPost("/api/prototype", payload, {
+          onChunk: (acc) => setGenChars(acc.length),
+        });
+        setHtml(extractHtmlFromText(raw));
+        setDemoUrl(null);
+        setShareUrl(null);
+        setShareError(null);
+      } else {
+        // v0 エンジンはホスティング込みで JSON を返す
+        const data = await postJson<{
+          demoUrl?: string | null;
+          html?: string;
+          shareUrl?: string;
+          shareError?: string;
+        }>("/api/prototype", payload);
+        setDemoUrl(data.demoUrl ?? null);
+        if (data.html !== undefined) setHtml(data.html);
+        setShareUrl(data.shareUrl ?? data.demoUrl ?? null);
+        setShareError(data.shareError ?? null);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラー");
     } finally {
       setLoading(null);
+      setGenChars(0);
     }
   }
 
@@ -218,28 +234,30 @@ export default function PrototypePage() {
     setLoading("prototype");
     setError(null);
     try {
-      const data = await postJson<{
-        html?: string;
-        shareUrl?: string;
-        shareError?: string;
-      }>("/api/prototype", {
-        engine: "aws",
-        mode: "update",
-        instruction,
-        currentHtml: html,
-        provider: model.provider,
-        modelId: model.modelId,
-        projectId: id,
-        projectName: name,
-      });
-      setHtml(data.html ?? null);
-      setShareUrl(data.shareUrl ?? null);
-      setShareError(data.shareError ?? null);
+      setGenChars(0);
+      const raw = await streamPost(
+        "/api/prototype",
+        {
+          engine: "aws",
+          mode: "update",
+          instruction,
+          currentHtml: html,
+          provider: model.provider,
+          modelId: model.modelId,
+          projectId: id,
+          projectName: name,
+        },
+        { onChunk: (acc) => setGenChars(acc.length) },
+      );
+      setHtml(extractHtmlFromText(raw));
+      setShareUrl(null);
+      setShareError(null);
       setInstruction("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラー");
     } finally {
       setLoading(null);
+      setGenChars(0);
     }
   }
 
@@ -489,7 +507,7 @@ export default function PrototypePage() {
           {/* プレビュー */}
           <div className="relative flex-1 overflow-hidden bg-muted/40 p-3">
             {loading === "prototype" && (
-              <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/70 backdrop-blur-sm">
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/70 backdrop-blur-sm">
                 <AiGenerating
                   label={engine === "v0" ? "本格プロトタイプ" : "プレビュー"}
                   messages={
@@ -508,6 +526,11 @@ export default function PrototypePage() {
                         ]
                   }
                 />
+                {engine === "aws" && genChars > 0 && (
+                  <p className="text-xs tabular-nums text-muted-foreground">
+                    生成中… {genChars.toLocaleString()} 文字
+                  </p>
+                )}
               </div>
             )}
             {demoUrl ? (
