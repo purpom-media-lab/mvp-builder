@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth/session";
+import { sendInviteEmail } from "@/lib/email";
 import {
   createInvitation,
   listInvitations,
@@ -35,7 +36,9 @@ export async function POST(req: Request) {
     const invitation = await createInvitation(user.id, body.email);
     const base = process.env.NEXT_PUBLIC_APP_URL ?? "";
     const inviteUrl = `${base}/invite/${invitation.token}`;
-    return NextResponse.json({ invitation, inviteUrl });
+    // メール送信（未設定なら no-op。失敗してもリンクは返す）
+    const email = await sendInviteEmail(body.email, inviteUrl);
+    return NextResponse.json({ invitation, inviteUrl, emailSent: email.sent });
   } catch (e) {
     const message = e instanceof Error ? e.message : "招待の作成に失敗しました";
     return NextResponse.json({ error: message }, { status: 400 });

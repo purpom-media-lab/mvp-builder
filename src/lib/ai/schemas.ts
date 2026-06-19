@@ -307,6 +307,35 @@ export const orchestratePlanSchema = z.object({
     .describe("ユーザーへの短い日本語の返答（何をするか・何が変わるか）"),
 });
 
+/** デザイナー連携: リファイン依頼の「依頼項目（デザインブリーフ）」 */
+export const designBriefSchema = z.object({
+  productName: z.string().describe("プロダクト名"),
+  overview: z.string().describe("プロダクトの概要（1-2文）"),
+  objective: z
+    .string()
+    .describe("リファインの目的（このリファインで何を良くしたいか）"),
+  targetUsers: z
+    .string()
+    .describe("ターゲット/ペルソナ（主要アクターから。改行区切り可）"),
+  scopeScreens: z
+    .string()
+    .describe("対象画面・スコープ（ナビ/ワイヤーから対象とする画面。改行区切り可）"),
+  brand: z
+    .string()
+    .describe("ブランド指定（配色HEX・トーンマナー・ロゴ方向。brand設計から）"),
+  references: z
+    .string()
+    .describe("参考デザイン・トンマナ参照（URLや説明。改行区切り可）"),
+  constraints: z
+    .string()
+    .describe("制約（アクセシビリティ/ブランドガイド/技術など。改行区切り可）"),
+  emphasis: z.string().describe("重視点・改善要望（特に良くしてほしい点）"),
+  deliverable: z
+    .enum(["figma", "pdf"])
+    .describe("希望する成果物形式（figma=Figmaデータ / pdf=PDF）"),
+  deadline: z.string().describe("納期（例: 2週間後 / 未定）"),
+});
+
 export type ActorsOutput = z.infer<typeof actorsSchema>;
 export type UseCasesOutput = z.infer<typeof useCasesSchema>;
 export type OouiOutput = z.infer<typeof oouiSchema>;
@@ -320,3 +349,4 @@ export type KpiOutput = z.infer<typeof kpiSchema>;
 export type GrowthOutput = z.infer<typeof growthSchema>;
 export type BrandOutput = z.infer<typeof brandSchema>;
 export type OrchestratePlan = z.infer<typeof orchestratePlanSchema>;
+export type DesignBriefOutput = z.infer<typeof designBriefSchema>;

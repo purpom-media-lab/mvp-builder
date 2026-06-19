@@ -38,6 +38,7 @@ export default function MembersPage() {
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [email, setEmail] = useState("");
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [emailSent, setEmailSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -81,6 +82,7 @@ export default function MembersPage() {
       return;
     }
     setInviteUrl(d.inviteUrl);
+    setEmailSent(!!d.emailSent);
     setEmail("");
     refresh();
   }
@@ -126,7 +128,13 @@ export default function MembersPage() {
           {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
           {inviteUrl && (
             <div className="mt-3 rounded-md bg-muted p-3 text-sm">
-              <p className="mb-1 font-medium">招待リンク（本人に共有してください）</p>
+              {emailSent ? (
+                <p className="mb-1 font-medium text-primary">
+                  ✅ 招待メールを送信しました（届かない場合は下のリンクを共有）
+                </p>
+              ) : (
+                <p className="mb-1 font-medium">招待リンク（本人に共有してください）</p>
+              )}
               <div className="flex items-center gap-2">
                 <code className="flex-1 truncate rounded bg-background px-2 py-1 text-xs">
                   {inviteUrl}

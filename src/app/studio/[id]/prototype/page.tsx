@@ -5,6 +5,7 @@
  * 分析データは /api/projects/[id] から取得して生成に使う。統合チャットからの
  * 自動再分析→UI再生成にも対応。
  */
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DEFAULT_PROVIDER, MODEL_CATALOG } from "@/lib/ai/catalog";
@@ -18,7 +19,7 @@ import {
   ModelSelector,
 } from "@/components/model-selector";
 import { LoadingOverlay } from "@/components/spinner";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   ResizableHandle,
@@ -405,6 +406,15 @@ export default function PrototypePage() {
                 >
                   {loading === "publish" ? "引き継ぎ中…" : "公開・引き継ぎ"}
                 </Button>
+
+                <span className="mx-1 h-5 w-px bg-border" />
+
+                <Link
+                  href={`/studio/${id}/design-request`}
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
+                >
+                  デザイナーに依頼 →
+                </Link>
               </>
             )}
           </div>

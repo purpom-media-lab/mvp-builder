@@ -278,6 +278,40 @@ export const prototypes = pgTable("prototypes", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+/**
+ * デザイナー連携（リファイン依頼）。
+ * プロトタイプ完成後、デザイナーに渡すデザインブリーフ（依頼項目）を保存し、
+ * デザイナーが作った成果物（Figma URL / PDF）を参照してプロトタイプを
+ * ブラッシュアップ（再生成）するための情報を 1 プロジェクト 1 行で持つ。
+ */
+export const designRequests = pgTable("design_requests", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  // 依頼項目（デザインブリーフ）。designBriefSchema の構造化出力をそのまま保存
+  brief: jsonb("brief").$type<{
+    productName: string;
+    overview: string;
+    objective: string;
+    targetUsers: string;
+    scopeScreens: string;
+    brand: string;
+    references: string;
+    constraints: string;
+    emphasis: string;
+    deliverable: "figma" | "pdf";
+    deadline: string;
+  }>(),
+  status: text("status").notNull().default("draft"), // draft | requested | received
+  figmaUrl: text("figma_url"), // デザイナー成果物（Figma URL）
+  pdfName: text("pdf_name"), // デザイナー成果物（PDF ファイル名）
+  pdfData: text("pdf_data"), // PDF を base64 で保持（任意）
+  refinedNote: text("refined_note"), // リファイン時の補足メモ
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const invitationStatus = pgEnum("invitation_status", [
   "pending",
   "accepted",

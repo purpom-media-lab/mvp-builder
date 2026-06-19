@@ -144,6 +144,16 @@ export interface PrototypeContext {
     logoDirection?: string | null;
   } | null;
   requirement?: string;
+  /**
+   * デザイナー連携: リファインの参照デザイン。
+   * v1 は「参照ベースの再生成」（Figma URL / PDF を見て UI を洗練する指示を注入）。
+   * TODO: Figma→コードの完全自動化や Figma MCP 連携は将来対応（現状スコープ外）。
+   */
+  refineReference?: {
+    type: "figma" | "pdf";
+    url?: string;
+    note?: string;
+  };
 }
 
 /** パイプライン成果物 → v0 への生成プロンプトを組み立てる */
@@ -239,6 +249,19 @@ export function buildPrototypePrompt(ctx: PrototypeContext): string {
     }
     if (b.logoDirection) brandLines.push(`- ロゴ方向: ${b.logoDirection}`);
     lines.push(...brandLines);
+  }
+  if (ctx.refineReference) {
+    const r = ctx.refineReference;
+    const refLines: string[] = [
+      "",
+      "## デザイナーによるリファイン（最優先で反映すること）",
+      r.type === "figma"
+        ? `- デザイナーが Figma でUIを作り込みました。次の Figma を参照デザインとして、レイアウト・余白・配色・コンポーネントの質感をこのデザインに寄せてUIを洗練してください: ${r.url ?? "(URL未指定)"}`
+        : `- デザイナーが PDF でデザイン案を作成しました。その PDF のビジュアル（レイアウト・余白・配色・コンポーネントの質感）に寄せてUIを洗練してください${r.url ? `（参照: ${r.url}）` : "（PDFは別途共有）"}。`,
+      "- 機能・画面構成・モックデータの内容は維持しつつ、見た目の完成度（タイポグラフィ・間隔・階層・余白・配色の一貫性）をプロ品質に引き上げること。",
+    ];
+    if (r.note) refLines.push(`- デザイナー/依頼者からの補足: ${r.note}`);
+    lines.push(...refLines);
   }
   if (ctx.requirement) {
     lines.push("", "## 追加の要望", ctx.requirement);

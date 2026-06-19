@@ -11,6 +11,7 @@ import {
   brandDesign,
   chatMessages,
   dataModelEntities,
+  designRequests,
   journeys,
   kpiMetrics,
   navigationItems,
@@ -27,6 +28,7 @@ import type {
   BackendSpecOutput,
   BrandOutput,
   DataModelOutput,
+  DesignBriefOutput,
   GrowthOutput,
   JourneyOutput,
   KpiOutput,
@@ -522,4 +524,63 @@ export async function savePrototype(
     .set({ status: "generating", updatedAt: new Date() })
     .where(eq(projects.id, projectId));
   return row;
+}
+
+/** デザイナー連携: リファイン依頼（デザインブリーフ＋成果物参照）。所有権が無ければ null。
+ *  1プロジェクト1行を部分マージで洗い替え（brief だけ保存→後から成果物URLを追記、等）。 */
+export async function saveDesignRequest(
+  ownerId: string,
+  projectId: string,
+  data: {
+    brief?: DesignBriefOutput | null;
+    status?: "draft" | "requested" | "received";
+    figmaUrl?: string | null;
+    pdfName?: string | null;
+    pdfData?: string | null;
+    refinedNote?: string | null;
+  },
+) {
+  const owned = await getOwnedProject(ownerId, projectId);
+  if (!owned) return null;
+
+  const existing = (
+    await db
+      .select()
+      .from(designRequests)
+      .where(eq(designRequests.projectId, projectId))
+  )[0];
+
+  const merged = {
+    projectId,
+    brief: data.brief !== undefined ? data.brief : (existing?.brief ?? null),
+    status: data.status ?? existing?.status ?? "draft",
+    figmaUrl:
+      data.figmaUrl !== undefined ? data.figmaUrl : (existing?.figmaUrl ?? null),
+    pdfName:
+      data.pdfName !== undefined ? data.pdfName : (existing?.pdfName ?? null),
+    pdfData:
+      data.pdfData !== undefined ? data.pdfData : (existing?.pdfData ?? null),
+    refinedNote:
+      data.refinedNote !== undefined
+        ? data.refinedNote
+        : (existing?.refinedNote ?? null),
+    updatedAt: new Date(),
+  };
+
+  await db
+    .delete(designRequests)
+    .where(eq(designRequests.projectId, projectId));
+  const [row] = await db.insert(designRequests).values(merged).returning();
+  return row;
+}
+
+/** デザイナー連携: リファイン依頼を読み込む。所有権が無ければ null（未作成なら undefined 相当の null）。 */
+export async function loadDesignRequest(ownerId: string, projectId: string) {
+  const owned = await getOwnedProject(ownerId, projectId);
+  if (!owned) return null;
+  const [row] = await db
+    .select()
+    .from(designRequests)
+    .where(eq(designRequests.projectId, projectId));
+  return row ?? null;
 }

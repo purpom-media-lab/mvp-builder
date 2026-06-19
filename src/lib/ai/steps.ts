@@ -11,6 +11,7 @@ import {
   backendSpecSchema,
   brandSchema,
   dataModelSchema,
+  designBriefSchema,
   growthSchema,
   journeySchema,
   kpiSchema,
@@ -174,6 +175,19 @@ export function generateGrowth({ context, provider, modelId }: StepArgs) {
     modelId,
     system:
       "あなたはグロース戦略の専門家です。確定したKPIを伸ばすためのグロース計画を設計します。model=どうやって成長を生むか（グロースモデル/ループ）、levers=主要なグロースレバー、experiments=優先度順の施策/実験(3〜5個、仮説hypothesis・動かす指標metric・工数effortを付与)、milestones=【四半期ごとにざっくり】。period は『Q1』『Q2』…のように四半期で、target にその四半期の到達目標を、3〜4四半期分・時系列で。細かい月次にはせず四半期単位の大枠でよい。KPIと一貫させ、すべて日本語で。",
+    prompt: context,
+  });
+}
+
+/** デザイナー連携: リファイン依頼の「依頼項目（デザインブリーフ）」を下書きする */
+export function generateDesignBrief({ context, provider, modelId }: StepArgs) {
+  return generateStructured({
+    schema: designBriefSchema,
+    provider,
+    modelId,
+    temperature: 0.4,
+    system:
+      "あなたはプロダクトデザインのディレクターです。完成したMVPプロトタイプとプロジェクトの分析結果（ブランド/スコープ/アクター/ユースケース/ナビゲーション/ワイヤー）をもとに、外部のデザイナーにUIのブラッシュアップ（リファイン）を依頼するための『デザインブリーフ（依頼項目）』を日本語で下書きしてください。\n各項目は具体的かつ簡潔に: productName/overview=プロダクト名と概要、objective=このリファインで何を良くしたいか、targetUsers=ターゲット/ペルソナ（主要アクターから）、scopeScreens=対象画面・スコープ（ナビゲーション/ワイヤーの主要画面から）、brand=配色HEX・トーンマナー・ロゴ方向（ブランド設計から具体的に）、references=参考になりそうなデザインの方向性、constraints=制約（アクセシビリティ/ブランドガイド/技術）、emphasis=特に重視・改善してほしい点、deliverable=成果物形式（figma を既定に）、deadline=納期（不明なら『未定』）。情報が無い項目も、文脈から妥当な推測で具体的に埋めること。",
     prompt: context,
   });
 }
