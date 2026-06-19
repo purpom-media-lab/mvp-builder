@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DEFAULT_PROVIDER, MODEL_CATALOG } from "@/lib/ai/catalog";
+import { postJson } from "@/lib/api-client";
 import {
   AiConsultPanel,
   type OrchestrateResponse,
@@ -130,10 +131,12 @@ export default function PrototypePage() {
     setLoading("prototype");
     setError(null);
     try {
-      const res = await fetch("/api/prototype", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const data = await postJson<{
+        demoUrl?: string | null;
+        html?: string;
+        shareUrl?: string;
+        shareError?: string;
+      }>("/api/prototype", {
           engine: engineUsed,
           provider: model.provider,
           modelId: model.modelId,
@@ -175,11 +178,8 @@ export default function PrototypePage() {
                 logoDirection: brand.logoDirection,
               }
             : undefined,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok)
-        throw new Error(data.error ?? "プロトタイプ生成に失敗しました");
+        },
+      );
       setDemoUrl(data.demoUrl ?? null);
       if (data.html !== undefined) setHtml(data.html);
       setShareUrl(data.shareUrl ?? data.demoUrl ?? null);
@@ -198,19 +198,13 @@ export default function PrototypePage() {
     setError(null);
     setShareError(null);
     try {
-      const res = await fetch("/api/prototype", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          engine: "aws",
-          mode: "host",
-          currentHtml: html,
-          projectId: id,
-          projectName: name,
-        }),
+      const data = await postJson<{ shareUrl?: string }>("/api/prototype", {
+        engine: "aws",
+        mode: "host",
+        currentHtml: html,
+        projectId: id,
+        projectName: name,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "ホスティングに失敗しました");
       setShareUrl(data.shareUrl ?? null);
     } catch (e) {
       setShareError(e instanceof Error ? e.message : "エラー");
@@ -224,22 +218,20 @@ export default function PrototypePage() {
     setLoading("prototype");
     setError(null);
     try {
-      const res = await fetch("/api/prototype", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          engine: "aws",
-          mode: "update",
-          instruction,
-          currentHtml: html,
-          provider: model.provider,
-          modelId: model.modelId,
-          projectId: id,
-          projectName: name,
-        }),
+      const data = await postJson<{
+        html?: string;
+        shareUrl?: string;
+        shareError?: string;
+      }>("/api/prototype", {
+        engine: "aws",
+        mode: "update",
+        instruction,
+        currentHtml: html,
+        provider: model.provider,
+        modelId: model.modelId,
+        projectId: id,
+        projectName: name,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "更新に失敗しました");
       setHtml(data.html ?? null);
       setShareUrl(data.shareUrl ?? null);
       setShareError(data.shareError ?? null);

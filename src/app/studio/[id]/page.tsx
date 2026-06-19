@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { DEFAULT_PROVIDER, MODEL_CATALOG } from "@/lib/ai/catalog";
+import { postJson } from "@/lib/api-client";
 import {
   AiConsultPanel,
   type OrchestrateResponse,
@@ -293,34 +294,41 @@ export default function ProjectDetailPage() {
     setLoading(step);
     setError(null);
     try {
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          step,
-          context: buildContext(),
-          provider: model.provider,
-          modelId: model.modelId,
-          projectId: id,
-        }),
+      const data = await postJson<{
+        result: {
+          actors?: ActorView[];
+          useCases?: UseCaseView[];
+          objects?: OouiView[];
+          journeys?: JourneyView[];
+          items?: NavView[];
+          screens?: WireframeView[];
+          entities?: DataModelView[];
+          features?: ScopeFeatureView[];
+          mvpStatement?: string;
+        };
+      }>("/api/analyze", {
+        step,
+        context: buildContext(),
+        provider: model.provider,
+        modelId: model.modelId,
+        projectId: id,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "生成に失敗しました");
-      if (step === "actors") setActors(data.result.actors);
-      if (step === "usecases") setUseCases(data.result.useCases);
-      if (step === "ooui") setOoui(data.result.objects);
-      if (step === "journey") setJourney(data.result.journeys);
-      if (step === "navigation") setNav(data.result.items);
-      if (step === "wireframe") setWireframe(data.result.screens);
-      if (step === "datamodel") setDataModel(data.result.entities);
-      if (step === "backend") setBackend(data.result);
+      const r = data.result;
+      if (step === "actors") setActors(r.actors ?? null);
+      if (step === "usecases") setUseCases(r.useCases ?? null);
+      if (step === "ooui") setOoui(r.objects ?? null);
+      if (step === "journey") setJourney(r.journeys ?? null);
+      if (step === "navigation") setNav(r.items ?? null);
+      if (step === "wireframe") setWireframe(r.screens ?? null);
+      if (step === "datamodel") setDataModel(r.entities ?? null);
+      if (step === "backend") setBackend(data.result as unknown as BackendView);
       if (step === "scope") {
-        setScope(data.result.features);
-        setMvpStatement(data.result.mvpStatement ?? "");
+        setScope(r.features ?? null);
+        setMvpStatement(r.mvpStatement ?? "");
       }
-      if (step === "kpi") setKpi(data.result);
-      if (step === "growth") setGrowth(data.result);
-      if (step === "brand") setBrand(data.result);
+      if (step === "kpi") setKpi(data.result as unknown as KpiData);
+      if (step === "growth") setGrowth(data.result as unknown as GrowthPlanView);
+      if (step === "brand") setBrand(data.result as unknown as BrandView);
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラー");
     } finally {
@@ -433,6 +441,18 @@ export default function ProjectDetailPage() {
         <AiGenerating
           label={STEPS.find((s) => s.key === activeTab)?.label}
         />
+      )}
+      {error && loading === null && (
+        <div className="flex items-start justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+          <span>⚠️ {error}</span>
+          <button
+            type="button"
+            onClick={() => runStep(activeTab)}
+            className="shrink-0 font-semibold underline underline-offset-2 hover:opacity-80"
+          >
+            再試行
+          </button>
+        </div>
       )}
     </div>
   );
