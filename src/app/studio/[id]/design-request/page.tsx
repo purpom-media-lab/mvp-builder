@@ -10,6 +10,7 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DEFAULT_PROVIDER, MODEL_CATALOG } from "@/lib/ai/catalog";
+import { postJsonKeepalive } from "@/lib/api-client";
 import { GlobalHeader } from "@/components/global-header";
 import {
   type ModelSelection,
@@ -184,17 +185,14 @@ export default function DesignRequestPage() {
     setLoading("generate");
     setError(null);
     try {
-      const res = await fetch("/api/design-request/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const data = await postJsonKeepalive<{ brief: Partial<DesignBrief> }>(
+        "/api/design-request/generate",
+        {
           projectId: id,
           provider: model.provider,
           modelId: model.modelId,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "生成に失敗しました");
+        },
+      );
       setBrief({ ...EMPTY_BRIEF, ...data.brief });
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラー");
@@ -311,22 +309,19 @@ export default function DesignRequestPage() {
     setRefinedHtml(null);
     setRefinedDemoUrl(null);
     try {
-      const res = await fetch("/api/design-request/refine", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectId: id,
-          engine: "aws",
-          provider: model.provider,
-          modelId: model.modelId,
-          figmaUrl: figmaUrl.trim() || undefined,
-          pdfName: pdfName.trim() || undefined,
-          pdfData: pdfData ?? undefined,
-          note: note || undefined,
-        }),
+      const data = await postJsonKeepalive<{
+        html?: string | null;
+        demoUrl?: string | null;
+      }>("/api/design-request/refine", {
+        projectId: id,
+        engine: "aws",
+        provider: model.provider,
+        modelId: model.modelId,
+        figmaUrl: figmaUrl.trim() || undefined,
+        pdfName: pdfName.trim() || undefined,
+        pdfData: pdfData ?? undefined,
+        note: note || undefined,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "ブラッシュアップに失敗しました");
       setRefinedHtml(data.html ?? null);
       setRefinedDemoUrl(data.demoUrl ?? null);
       setStatus("received");

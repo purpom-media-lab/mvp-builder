@@ -16,6 +16,7 @@ import {
   savePrototype,
 } from "@/lib/projects";
 import { generatePrototypeHtml } from "@/lib/prototype-html";
+import { streamJsonWithHeartbeat } from "@/lib/stream-keepalive";
 import { createPrototype, type PrototypeContext } from "@/lib/v0";
 
 export const runtime = "nodejs";
@@ -115,14 +116,16 @@ export async function POST(req: Request) {
     ? { type: "figma", url: body.figmaUrl?.trim(), note: body.note }
     : { type: "pdf", url: body.pdfName?.trim(), note: body.note };
 
-  try {
+  const projectId = body.projectId;
+  // ハートビートで接続維持しながら生成（タイムアウト抑制）
+  return streamJsonWithHeartbeat(async () => {
     const ctx = buildPrototypeContext(artifacts, refineReference);
     const engine = body.engine ?? "aws";
 
     let result: { html?: string; demoUrl?: string | null };
     if (engine === "v0") {
       const r = await createPrototype(ctx);
-      await savePrototype(user.id, body.projectId, {
+      await savePrototype(user.id, projectId, {
         v0ChatId: r.chatId,
         demoUrl: r.demoUrl,
       });
@@ -133,12 +136,12 @@ export async function POST(req: Request) {
         body.provider,
         body.modelId,
       );
-      await savePrototype(user.id, body.projectId, { html });
+      await savePrototype(user.id, projectId, { html });
       result = { html };
     }
 
     // 依頼の状態を「成果物受領（received）」に更新し、成果物参照を保存
-    await saveDesignRequest(user.id, body.projectId, {
+    await saveDesignRequest(user.id, projectId, {
       status: "received",
       figmaUrl: hasFigma ? (body.figmaUrl?.trim() ?? null) : null,
       pdfName: hasPdf ? (body.pdfName?.trim() ?? null) : null,
@@ -146,10 +149,6 @@ export async function POST(req: Request) {
       refinedNote: body.note ?? null,
     });
 
-    return NextResponse.json(result);
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "ブラッシュアップに失敗しました";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+    return result;
+  });
 }

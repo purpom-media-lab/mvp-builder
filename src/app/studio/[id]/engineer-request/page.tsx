@@ -9,6 +9,7 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DEFAULT_PROVIDER, MODEL_CATALOG } from "@/lib/ai/catalog";
+import { postJsonKeepalive } from "@/lib/api-client";
 import { GlobalHeader } from "@/components/global-header";
 import {
   type ModelSelection,
@@ -161,17 +162,14 @@ export default function EngineerRequestPage() {
     setLoading("generate");
     setError(null);
     try {
-      const res = await fetch("/api/engineer-request/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const data = await postJsonKeepalive<{ brief: Partial<EngineerBrief> }>(
+        "/api/engineer-request/generate",
+        {
           projectId: id,
           provider: model.provider,
           modelId: model.modelId,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "生成に失敗しました");
+        },
+      );
       setBrief({ ...EMPTY_BRIEF, ...data.brief });
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラー");

@@ -8,6 +8,7 @@
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DEFAULT_PROVIDER, MODEL_CATALOG } from "@/lib/ai/catalog";
+import { postJsonKeepalive } from "@/lib/api-client";
 import { GlobalHeader } from "@/components/global-header";
 import {
   type ModelSelection,
@@ -66,18 +67,12 @@ export default function DeckPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/deck", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectId: id,
-          provider: model.provider,
-          modelId: model.modelId,
-        }),
+      const data = await postJsonKeepalive<{ deck: SlideData[] }>("/api/deck", {
+        projectId: id,
+        provider: model.provider,
+        modelId: model.modelId,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "資料生成に失敗しました");
-      setDeck(data.deck as SlideData[]);
+      setDeck(data.deck);
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラー");
     } finally {

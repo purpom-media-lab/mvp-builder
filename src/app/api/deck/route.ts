@@ -3,6 +3,7 @@ import { generateDeck } from "@/lib/ai/deck";
 import type { LlmProvider } from "@/lib/ai/models";
 import { getSessionUser } from "@/lib/auth/session";
 import { getProjectWithArtifacts, saveDeck } from "@/lib/projects";
+import { streamJsonWithHeartbeat } from "@/lib/stream-keepalive";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -69,17 +70,15 @@ export async function POST(req: Request) {
   if (!project)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  try {
+  const projectId = body.projectId;
+  // ハートビートで接続維持しながら生成（タイムアウト抑制）
+  return streamJsonWithHeartbeat(async () => {
     const deck = await generateDeck(
       buildDeckContext(project),
       body.provider,
       body.modelId,
     );
-    await saveDeck(user.id, body.projectId, deck);
-    return NextResponse.json({ deck });
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "資料生成に失敗しました";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+    await saveDeck(user.id, projectId, deck);
+    return { deck };
+  });
 }

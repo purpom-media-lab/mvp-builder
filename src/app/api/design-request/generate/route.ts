@@ -9,6 +9,7 @@ import type { LlmProvider } from "@/lib/ai/catalog";
 import { generateDesignBrief } from "@/lib/ai/steps";
 import { getSessionUser } from "@/lib/auth/session";
 import { getProjectWithArtifacts } from "@/lib/projects";
+import { streamJsonWithHeartbeat } from "@/lib/stream-keepalive";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -63,16 +64,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
   }
 
-  try {
+  // ハートビートで接続維持しながら生成（タイムアウト抑制）
+  return streamJsonWithHeartbeat(async () => {
     const brief = await generateDesignBrief({
       context: buildBriefContext(artifacts),
       provider: body.provider,
       modelId: body.modelId,
     });
-    return NextResponse.json({ brief });
-  } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "デザインブリーフ生成に失敗しました";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+    return { brief };
+  });
 }
