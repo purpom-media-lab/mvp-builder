@@ -366,6 +366,43 @@
     ai-shimmer 2.4s linear infinite;
 }
 
+/* ============================================================
+   Pixel hero loader — 勇者が冒険するドット絵 (.pixel-hero / .ph-*)
+   ============================================================ */
+@keyframes ph-bounce {
+  0% { transform: translateY(0); }
+  50% { transform: translateY(-0.7px); }
+  100% { transform: translateY(0); }
+}
+@keyframes ph-walk-a {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+@keyframes ph-walk-b {
+  0%, 49% { opacity: 0; }
+  50%, 100% { opacity: 1; }
+}
+@keyframes ph-ground {
+  from { transform: translateX(0); }
+  to { transform: translateX(-4px); }
+}
+@keyframes ph-twinkle {
+  0%, 100% { opacity: 0.12; }
+  50% { opacity: 1; }
+}
+.pixel-hero svg { overflow: visible; }
+.ph-hero {
+  animation: ph-bounce 0.5s steps(2, end) infinite;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+.ph-legA { animation: ph-walk-a 0.5s steps(1, end) infinite; }
+.ph-legB { animation: ph-walk-b 0.5s steps(1, end) infinite; }
+.ph-ground { animation: ph-ground 0.5s linear infinite; }
+.ph-star { animation: ph-twinkle 1.6s ease-in-out infinite; }
+.ph-star2 { animation-delay: 0.5s; }
+.ph-star3 { animation-delay: 1s; }
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -374,3 +411,5 @@
     transition-duration: 0.001ms !important;
   }
 }
+
+/* pixel-hero loader */

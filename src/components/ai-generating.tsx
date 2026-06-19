@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { PixelHero } from "@/components/pixel-hero";
 import { cn } from "@/lib/utils";
 
 /** 生成中に順番に切り替わる“探索ログ”風メッセージ */
@@ -46,7 +47,7 @@ export function AiGenerating({
         className,
       )}
     >
-      <Compass />
+      <PixelHero size={64} className="shrink-0" />
       <div className="min-w-0">
         <p className="text-sm font-semibold text-foreground">
           AIが{label ? `${label}を` : ""}生成しています
@@ -59,24 +60,6 @@ export function AiGenerating({
           {messages[i]}…
         </p>
       </div>
-    </div>
-  );
-}
-
-/** コンパス＋周回する星のアニメーション本体 */
-function Compass() {
-  return (
-    <div className="ai-gen-compass" aria-hidden>
-      <span className="ai-gen-aura" />
-      <span className="ai-gen-track" />
-      <span className="ai-gen-sweep" />
-      <span className="ai-gen-core" />
-      <span className="ai-gen-orbit">
-        <span className="ai-gen-star" />
-      </span>
-      <span className="ai-gen-orbit ai-gen-orbit-2">
-        <span className="ai-gen-star ai-gen-star-sm" />
-      </span>
     </div>
   );
 }
