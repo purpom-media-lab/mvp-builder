@@ -18,6 +18,7 @@ import {
   type ModelSelection,
   ModelSelector,
 } from "@/components/model-selector";
+import { AiGenerating } from "@/components/ai-generating";
 import { LoadingOverlay } from "@/components/spinner";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -486,7 +487,29 @@ export default function PrototypePage() {
           )}
 
           {/* プレビュー */}
-          <div className="flex-1 overflow-hidden bg-muted/40 p-3">
+          <div className="relative flex-1 overflow-hidden bg-muted/40 p-3">
+            {loading === "prototype" && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/70 backdrop-blur-sm">
+                <AiGenerating
+                  label={engine === "v0" ? "本格プロトタイプ" : "プレビュー"}
+                  messages={
+                    engine === "v0"
+                      ? [
+                          "コンポーネントを設計しています",
+                          "画面を組み立てています",
+                          "スタイルを調整しています",
+                          "仕上げています",
+                        ]
+                      : [
+                          "ブランドを反映しています",
+                          "画面を描いています",
+                          "レイアウトを整えています",
+                          "もうすぐ表示します",
+                        ]
+                  }
+                />
+              </div>
+            )}
             {demoUrl ? (
               <iframe
                 src={demoUrl}

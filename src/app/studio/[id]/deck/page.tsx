@@ -14,6 +14,7 @@ import {
   ModelSelector,
 } from "@/components/model-selector";
 import { SlideDeck } from "@/components/slide-deck";
+import { AiGenerating } from "@/components/ai-generating";
 import { PageLoading } from "@/components/spinner";
 import { Button } from "@/components/ui/button";
 import type { DeckTheme, SlideData } from "@/lib/slides/types";
@@ -150,7 +151,17 @@ export default function DeckPage() {
           {loadingProject ? (
             <PageLoading label="読み込み中…" />
           ) : loading ? (
-            <PageLoading label="提案資料を生成中… しばらくお待ちください" />
+            <div className="flex min-h-[40vh] items-center justify-center">
+              <AiGenerating
+                label="提案資料"
+                messages={[
+                  "ストーリーを組み立てています",
+                  "要点をスライドに落とし込んでいます",
+                  "構成を整えています",
+                  "仕上げています",
+                ]}
+              />
+            </div>
           ) : deck ? (
             <SlideDeck slides={deck} theme={theme} />
           ) : (

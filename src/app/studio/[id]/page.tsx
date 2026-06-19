@@ -20,7 +20,8 @@ import {
   ModelSelector,
 } from "@/components/model-selector";
 import { Modal } from "@/components/modal";
-import { LoadingOverlay, Spinner } from "@/components/spinner";
+import { AiGenerating } from "@/components/ai-generating";
+import { LoadingOverlay } from "@/components/spinner";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -423,10 +424,9 @@ export default function ProjectDetailPage() {
             : "AIで生成"}
       </Button>
       {loading === activeTab && (
-        <div className="flex items-center gap-2.5 rounded-lg border bg-muted/40 px-3 py-3 text-sm text-muted-foreground">
-          <Spinner className="h-4 w-4 shrink-0 text-primary" />
-          AIがコンテンツを生成中です… しばらくお待ちください
-        </div>
+        <AiGenerating
+          label={STEPS.find((s) => s.key === activeTab)?.label}
+        />
       )}
     </div>
   );

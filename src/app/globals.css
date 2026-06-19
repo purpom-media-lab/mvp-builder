@@ -212,6 +212,160 @@
   box-shadow: 0 4px 14px -4px color-mix(in oklch, var(--primary) 60%, transparent);
 }
 
+/* ============================================================
+   AI generation loader — quest/compass motif (.ai-gen-*)
+   ============================================================ */
+@keyframes ai-sweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes ai-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes ai-aura {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.08);
+  }
+}
+@keyframes ai-shimmer {
+  to {
+    background-position: -200% center;
+  }
+}
+@keyframes ai-rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ai-gen-compass {
+  position: relative;
+  width: 3.25rem;
+  height: 3.25rem;
+  flex-shrink: 0;
+}
+/* rotating conic "compass sweep" ring */
+.ai-gen-sweep {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    color-mix(in oklch, var(--primary) 12%, transparent) 180deg,
+    color-mix(in oklch, var(--primary) 65%, transparent) 320deg,
+    var(--primary) 360deg
+  );
+  -webkit-mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 4px),
+    #000 calc(100% - 3.5px)
+  );
+  mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 4px),
+    #000 calc(100% - 3.5px)
+  );
+  animation: ai-sweep 1.15s linear infinite;
+}
+/* faint full ring under the sweep */
+.ai-gen-track {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 3.5px solid color-mix(in oklch, var(--primary) 14%, transparent);
+}
+/* glowing core */
+.ai-gen-core {
+  position: absolute;
+  inset: 32%;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle at 35% 30%,
+    color-mix(in oklch, var(--primary) 35%, white),
+    var(--primary)
+  );
+  box-shadow: 0 0 16px -2px color-mix(in oklch, var(--primary) 70%, transparent);
+  animation: ai-aura 2.2s ease-in-out infinite;
+}
+/* breathing aura halo */
+.ai-gen-aura {
+  position: absolute;
+  inset: -28%;
+  border-radius: 9999px;
+  background: radial-gradient(
+    circle,
+    color-mix(in oklch, var(--primary) 32%, transparent),
+    transparent 68%
+  );
+  filter: blur(5px);
+  animation: ai-aura 2.6s ease-in-out infinite;
+}
+/* orbiting star */
+.ai-gen-orbit {
+  position: absolute;
+  inset: -2px;
+  animation: ai-orbit 2.8s linear infinite;
+}
+.ai-gen-orbit-2 {
+  animation-duration: 4.2s;
+  animation-direction: reverse;
+  inset: 4px;
+}
+.ai-gen-star {
+  position: absolute;
+  top: -2.5px;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  margin-left: -3px;
+  border-radius: 9999px;
+  background: color-mix(in oklch, var(--accent) 80%, var(--primary));
+  box-shadow: 0 0 9px color-mix(in oklch, var(--accent) 85%, transparent);
+}
+.ai-gen-star-sm {
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  top: -1.5px;
+  background: color-mix(in oklch, var(--primary) 70%, white);
+}
+/* shimmering status line */
+.ai-gen-msg {
+  background: linear-gradient(
+    100deg,
+    color-mix(in oklch, var(--foreground) 70%, transparent) 0%,
+    color-mix(in oklch, var(--foreground) 70%, transparent) 30%,
+    var(--primary) 50%,
+    color-mix(in oklch, var(--foreground) 70%, transparent) 70%,
+    color-mix(in oklch, var(--foreground) 70%, transparent) 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: ai-shimmer 2.4s linear infinite;
+}
+.ai-gen-msg-enter {
+  animation:
+    ai-rise 0.4s ease,
+    ai-shimmer 2.4s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
