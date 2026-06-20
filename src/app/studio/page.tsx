@@ -51,6 +51,9 @@ type Project = {
   summary?: string | null;
   status?: string | null;
   updatedAt?: string | null;
+  hasPrototype?: boolean;
+  recordCount?: number;
+  endUserCount?: number;
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -89,6 +92,23 @@ export default function ProjectListPage() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  async function remove(p: Project) {
+    if (
+      !window.confirm(
+        `「${p.name}」を削除しますか？\n分析・プロトタイプ・保存データ・エンドユーザーもすべて削除され、元に戻せません。`,
+      )
+    )
+      return;
+    setDeletingId(p.id);
+    try {
+      const res = await fetch(`/api/projects/${p.id}`, { method: "DELETE" });
+      if (res.ok) setProjects((prev) => prev.filter((x) => x.id !== p.id));
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   async function create() {
     if (!name.trim()) {
@@ -176,8 +196,11 @@ export default function ProjectListPage() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {projects.map((p) => (
-              <Link key={p.id} href={`/studio/${p.id}`}>
-                <Card className="h-full gap-3 ring-border transition-colors hover:ring-primary/50">
+              <Card
+                key={p.id}
+                className="flex h-full flex-col gap-3 ring-border transition-colors hover:ring-primary/50"
+              >
+                <Link href={`/studio/${p.id}`} className="flex-1">
                   <CardHeader>
                     <CardTitle className="truncate">{p.name}</CardTitle>
                   </CardHeader>
@@ -196,8 +219,37 @@ export default function ProjectListPage() {
                       </span>
                     </div>
                   </CardContent>
-                </Card>
-              </Link>
+                </Link>
+                {/* 管理フッター: 公開MVP / 利用状況 / 削除 */}
+                <CardContent className="flex items-center justify-between gap-2 border-t pt-3 text-xs">
+                  <div className="flex items-center gap-3 text-muted-foreground">
+                    {p.hasPrototype ? (
+                      <a
+                        href={`/run/${p.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-medium text-primary hover:underline"
+                        title="公開中のMVPを開く"
+                      >
+                        🔌 公開MVP ↗
+                      </a>
+                    ) : (
+                      <span className="text-muted-foreground/60">未公開</span>
+                    )}
+                    <span title="エンドユーザー数">👤 {p.endUserCount ?? 0}</span>
+                    <span title="保存データ数">🗃 {p.recordCount ?? 0}</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    disabled={deletingId === p.id}
+                    onClick={() => remove(p)}
+                  >
+                    {deletingId === p.id ? "削除中…" : "削除"}
+                  </Button>
+                </CardContent>
+              </Card>
             ))}
           </div>
         )}

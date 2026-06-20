@@ -3,7 +3,7 @@
  *
  * すべて ownerId（Better Auth user.id）でスコープし、他ユーザーのデータに触れさせない。
  */
-import { and, desc, eq } from "drizzle-orm";
+import { and, count, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   actors,
@@ -15,6 +15,8 @@ import {
   engineerRequests,
   journeys,
   kpiMetrics,
+  mvpEndUsers,
+  mvpRecords,
   navigationItems,
   oouiObjects,
   projects,
@@ -70,6 +72,54 @@ export async function listProjects(ownerId: string) {
     .from(projects)
     .where(eq(projects.ownerId, ownerId))
     .orderBy(desc(projects.updatedAt));
+}
+
+/**
+ * MVP管理用: プロジェクト一覧に「公開MVPの有無・エンドユーザー数・保存データ数」を付与。
+ */
+export async function listProjectsWithStats(ownerId: string) {
+  const rows = await listProjects(ownerId);
+  if (!rows.length) return [];
+  const ids = rows.map((r) => r.id);
+
+  const [protoRows, recCounts, userCounts] = await Promise.all([
+    db
+      .select({ projectId: prototypes.projectId })
+      .from(prototypes)
+      .where(
+        and(inArray(prototypes.projectId, ids), isNotNull(prototypes.html)),
+      ),
+    db
+      .select({ projectId: mvpRecords.projectId, c: count() })
+      .from(mvpRecords)
+      .where(inArray(mvpRecords.projectId, ids))
+      .groupBy(mvpRecords.projectId),
+    db
+      .select({ projectId: mvpEndUsers.projectId, c: count() })
+      .from(mvpEndUsers)
+      .where(inArray(mvpEndUsers.projectId, ids))
+      .groupBy(mvpEndUsers.projectId),
+  ]);
+
+  const hasHtml = new Set(protoRows.map((p) => p.projectId));
+  const recMap = new Map(recCounts.map((r) => [r.projectId, Number(r.c)]));
+  const userMap = new Map(userCounts.map((r) => [r.projectId, Number(r.c)]));
+
+  return rows.map((r) => ({
+    ...r,
+    hasPrototype: hasHtml.has(r.id),
+    recordCount: recMap.get(r.id) ?? 0,
+    endUserCount: userMap.get(r.id) ?? 0,
+  }));
+}
+
+/** プロジェクト削除（所有者検証つき）。関連テーブルは FK cascade で消える。 */
+export async function deleteProject(ownerId: string, projectId: string) {
+  const res = await db
+    .delete(projects)
+    .where(and(eq(projects.id, projectId), eq(projects.ownerId, ownerId)))
+    .returning({ id: projects.id });
+  return res.length > 0;
 }
 
 /** 入力ソース種別（source_documents.type と対応） */

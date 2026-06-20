@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth/session";
-import { createProject, listProjects } from "@/lib/projects";
+import { createProject, listProjectsWithStats } from "@/lib/projects";
 import { extractFromPdf, extractFromUrl } from "@/lib/source-extract";
 
 export const runtime = "nodejs";
@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   const user = await getSessionUser(req.headers);
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const rows = await listProjects(user.id);
+  const rows = await listProjectsWithStats(user.id);
   return NextResponse.json({ projects: rows });
 }
 
