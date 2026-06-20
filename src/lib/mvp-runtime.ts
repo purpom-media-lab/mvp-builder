@@ -157,11 +157,23 @@ export async function deleteRecord(
 }
 
 /**
- * 配信する素の JS SDK。ビルド不要の文字列。`window.LQ.db(collection)` を提供する。
- *   - .list()        → そのコレクションのレコード配列（data の配列）
- *   - .create(data)  → 1件作成（作成レコードを返す）
- *   - .remove(id)    → 1件削除
- * ownerKey は localStorage の匿名UUID。PROJECT_ID は配信時に埋め込む。
+ * 配信する素の JS SDK。ビルド不要の文字列。PROJECT_ID は配信時に埋め込む。
+ *
+ *   window.LQ.db(collection)
+ *     - .list(opts)    → レコード配列。opts.mine=true で自分の分だけ（認証時=ログインユーザー、
+ *                        未認証=匿名ブラウザID）。
+ *     - .create(data)  → 1件作成（作成レコードを返す）
+ *     - .remove(id)    → 1件削除
+ *   window.LQ.auth
+ *     - .signup(email, password, name?) → 登録してログイン（トークンを保存）
+ *     - .signin(email, password)        → ログイン（トークンを保存）
+ *     - .signout()                      → ログアウト（トークン破棄）
+ *     - .user()                         → 現在のユーザー {id,email,name} or null（/me 結果をキャッシュ）
+ *   window.LQ.storage
+ *     - .upload(file) → S3 にアップロードして { url } を返す
+ *
+ * 認証トークンは localStorage("lq_token") に保存し、db/storage の各 fetch に
+ * Authorization: Bearer を付与する。認証時はサーバ側で ownerKey=ユーザーID に上書きされる。
  *
  * projectId は UUID（route 側で実在チェック済み）のみが渡る前提だが、
  * 念のため JSON.stringify で安全に埋め込む（XSS/ブレイクアウト防止）。
@@ -171,6 +183,24 @@ export function buildRuntimeSdk(projectId: string): string {
   return `(function(){
   var PROJECT_ID = ${pid};
   var BASE = "/api/run/" + PROJECT_ID + "/data/";
+  var AUTH_BASE = "/api/run/" + PROJECT_ID + "/auth/";
+  var UPLOAD_URL = "/api/run/" + PROJECT_ID + "/upload";
+  var TOKEN_KEY = "lq_token";
+  var userCache; // /me のキャッシュ（undefined=未取得, null=未ログイン）
+
+  function getToken(){
+    try { return localStorage.getItem(TOKEN_KEY); } catch (e) { return null; }
+  }
+  function setToken(t){
+    try { if (t) localStorage.setItem(TOKEN_KEY, t); else localStorage.removeItem(TOKEN_KEY); } catch (e) {}
+    userCache = undefined; // トークン変化でキャッシュ無効化
+  }
+  function authHeaders(extra){
+    var h = extra || {};
+    var t = getToken();
+    if (t) h["authorization"] = "Bearer " + t;
+    return h;
+  }
   function ownerKey(){
     try {
       var k = localStorage.getItem("lq_owner_key");
@@ -188,26 +218,80 @@ export function buildRuntimeSdk(projectId: string): string {
     return {
       list: function(opts){
         var url = BASE + col;
-        if (opts && opts.mine && key) url += "?owner=" + encodeURIComponent(key);
-        return fetch(url, { headers: { "accept": "application/json" } })
+        if (opts && opts.mine) {
+          // 認証時はサーバが token から所有者を解決（mine=1）。未認証は匿名キーで絞る。
+          url += getToken() ? "?mine=1" : (key ? "?owner=" + encodeURIComponent(key) : "");
+        }
+        return fetch(url, { headers: authHeaders({ "accept": "application/json" }) })
           .then(function(r){ return r.json(); })
           .then(function(j){ return (j && j.records) ? j.records : []; });
       },
       create: function(data){
         return fetch(BASE + col, {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: authHeaders({ "content-type": "application/json" }),
           body: JSON.stringify({ data: data, ownerKey: key })
         }).then(function(r){ return r.json(); });
       },
       remove: function(id){
         var url = BASE + col + "?id=" + encodeURIComponent(id);
-        if (key) url += "&owner=" + encodeURIComponent(key);
-        return fetch(url, { method: "DELETE" })
+        if (!getToken() && key) url += "&owner=" + encodeURIComponent(key);
+        return fetch(url, { method: "DELETE", headers: authHeaders() })
           .then(function(r){ return r.json(); });
       }
     };
   }
-  window.LQ = { db: db, projectId: PROJECT_ID };
+
+  function postAuth(path, body){
+    return fetch(AUTH_BASE + path, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body)
+    }).then(function(r){
+      return r.json().then(function(j){
+        if (!r.ok) throw new Error((j && j.error) || "リクエストに失敗しました");
+        return j;
+      });
+    });
+  }
+  var auth = {
+    signup: function(email, password, name){
+      return postAuth("signup", { email: email, password: password, name: name }).then(function(j){
+        setToken(j.token); userCache = j.user || null; return j.user;
+      });
+    },
+    signin: function(email, password){
+      return postAuth("signin", { email: email, password: password }).then(function(j){
+        setToken(j.token); userCache = j.user || null; return j.user;
+      });
+    },
+    signout: function(){ setToken(null); userCache = null; },
+    token: function(){ return getToken(); },
+    user: function(){
+      if (userCache !== undefined) return Promise.resolve(userCache);
+      if (!getToken()) { userCache = null; return Promise.resolve(null); }
+      return fetch(AUTH_BASE + "me", { headers: authHeaders({ "accept": "application/json" }) })
+        .then(function(r){ return r.ok ? r.json() : null; })
+        .then(function(j){ userCache = (j && j.user) ? j.user : null; if (!userCache) setToken(null); return userCache; })
+        .catch(function(){ return null; });
+    }
+  };
+
+  var storage = {
+    upload: function(file){
+      var fd = new FormData();
+      fd.append("file", file);
+      if (!getToken()) { var k = ownerKey(); if (k) fd.append("ownerKey", k); }
+      return fetch(UPLOAD_URL, { method: "POST", headers: authHeaders(), body: fd })
+        .then(function(r){
+          return r.json().then(function(j){
+            if (!r.ok) throw new Error((j && j.error) || "アップロードに失敗しました");
+            return j; // { url, name, size, contentType }
+          });
+        });
+    }
+  };
+
+  window.LQ = { db: db, auth: auth, storage: storage, projectId: PROJECT_ID };
 })();`;
 }

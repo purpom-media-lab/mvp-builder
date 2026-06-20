@@ -9,6 +9,7 @@
  * 注意: 現状エンドユーザー認証は無い（ownerKey は匿名ブラウザID）。Phase2 で追加予定。
  */
 import { NextResponse } from "next/server";
+import { authedUserId } from "@/lib/mvp-auth";
 import {
   createRecord,
   deleteRecord,
@@ -54,7 +55,14 @@ export async function GET(req: Request, { params }: Ctx) {
   if (!r.ok) return r.res;
 
   const url = new URL(req.url);
-  const owner = sanitizeOwnerKey(url.searchParams.get("owner"));
+  // 認証済みなら ownerKey = エンドユーザーID（mine 指定時のみ自分に絞る）。
+  // 未認証は従来どおり匿名 owner クエリで絞る。
+  const auth = authedUserId(req, r.projectId);
+  const owner = auth
+    ? url.searchParams.get("mine")
+      ? auth
+      : null
+    : sanitizeOwnerKey(url.searchParams.get("owner"));
   try {
     const records = await listRecords(r.projectId, r.collection, owner);
     return NextResponse.json({ records });
@@ -78,8 +86,11 @@ export async function POST(req: Request, { params }: Ctx) {
   if (!valid.ok) {
     return NextResponse.json({ error: valid.error }, { status: 400 });
   }
-  const owner =
-    typeof body.ownerKey === "string"
+  // 認証済みなら所有者は必ずエンドユーザーID（クライアント指定の ownerKey は無視）。
+  const auth = authedUserId(req, r.projectId);
+  const owner = auth
+    ? auth
+    : typeof body.ownerKey === "string"
       ? sanitizeOwnerKey(body.ownerKey)
       : null;
 
@@ -105,7 +116,9 @@ export async function DELETE(req: Request, { params }: Ctx) {
   if (!id) {
     return NextResponse.json({ error: "id is required" }, { status: 400 });
   }
-  const owner = sanitizeOwnerKey(url.searchParams.get("owner"));
+  // 認証済みは自分の行のみ削除可能。未認証は従来どおり匿名 owner で絞る。
+  const auth = authedUserId(req, r.projectId);
+  const owner = auth ? auth : sanitizeOwnerKey(url.searchParams.get("owner"));
 
   try {
     const ok = await deleteRecord(r.projectId, r.collection, id, owner);

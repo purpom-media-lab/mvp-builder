@@ -14,6 +14,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -385,5 +386,29 @@ export const mvpRecords = pgTable(
   },
   (t) => [
     index("mvp_records_project_collection_idx").on(t.projectId, t.collection),
+  ],
+);
+
+/**
+ * 公開MVPのエンドユーザー（Phase2）。
+ * ビルダー利用者(better-auth の users)とは別の、各公開MVPにサインアップする
+ * エンドユーザーを projectId スコープで保持する。
+ * 同一プロジェクト内で email はユニーク（プロジェクトをまたげば同一 email 可）。
+ * passwordHash は scrypt(salt 付き) のハッシュ文字列。
+ */
+export const mvpEndUsers = pgTable(
+  "mvp_end_users",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    passwordHash: text("password_hash").notNull(),
+    name: text("name"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("mvp_end_users_project_email_idx").on(t.projectId, t.email),
   ],
 );

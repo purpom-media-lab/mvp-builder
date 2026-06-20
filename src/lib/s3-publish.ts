@@ -43,6 +43,31 @@ export function isS3Configured(): boolean {
   return Boolean(bucket && cloudfrontDomain);
 }
 
+/**
+ * 任意のオブジェクト（バイナリ可）を key に配置し、CloudFront 上の公開 URL を返す。
+ * アップロード（画像・一般ファイル）など publishHtml 以外の用途で使う汎用版。
+ */
+export async function putObject(
+  key: string,
+  body: Buffer | Uint8Array | string,
+  contentType: string,
+): Promise<string> {
+  if (!bucket || !cloudfrontDomain) {
+    throw new Error("S3_BUCKET / CLOUDFRONT_DOMAIN が未設定です");
+  }
+  await s3().send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+      // key は uuid で一意なので長期キャッシュで問題ない
+      CacheControl: "public, max-age=31536000, immutable",
+    }),
+  );
+  return `https://${cloudfrontDomain}/${key}`;
+}
+
 /** HTML を key に配置し、CloudFront 上の公開 URL を返す */
 export async function publishHtml(key: string, html: string): Promise<string> {
   if (!bucket || !cloudfrontDomain) {
