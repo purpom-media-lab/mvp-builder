@@ -20,6 +20,7 @@ import {
   getModelForStep,
   loadModelPrefs,
   type ModelPrefs,
+  recordUsage,
 } from "@/lib/model-prefs";
 import { LoadingOverlay, Spinner } from "@/components/spinner";
 import { Button } from "@/components/ui/button";
@@ -197,6 +198,8 @@ export default function DesignRequestPage() {
     setLoading("generate");
     setError(null);
     const reqModel = getModelForStep(modelPrefs, "design-request", model);
+    const t0 = performance.now();
+    let ok = false;
     try {
       const data = await postJsonKeepalive<{ brief: Partial<DesignBrief> }>(
         "/api/design-request/generate",
@@ -207,9 +210,17 @@ export default function DesignRequestPage() {
         },
       );
       setBrief({ ...EMPTY_BRIEF, ...data.brief });
+      ok = true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラー");
     } finally {
+      recordUsage(id, {
+        step: "design-request",
+        provider: reqModel.provider,
+        modelId: reqModel.modelId,
+        ms: performance.now() - t0,
+        ok,
+      });
       setLoading(null);
     }
   }
@@ -321,8 +332,10 @@ export default function DesignRequestPage() {
     setError(null);
     setRefinedHtml(null);
     setRefinedDemoUrl(null);
+    const refineModel = getModelForStep(modelPrefs, "design-request", model);
+    const t0 = performance.now();
+    let ok = false;
     try {
-      const refineModel = getModelForStep(modelPrefs, "design-request", model);
       const data = await postJsonKeepalive<{
         html?: string | null;
         demoUrl?: string | null;
@@ -339,9 +352,17 @@ export default function DesignRequestPage() {
       setRefinedHtml(data.html ?? null);
       setRefinedDemoUrl(data.demoUrl ?? null);
       setStatus("received");
+      ok = true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラー");
     } finally {
+      recordUsage(id, {
+        step: "design-request",
+        provider: refineModel.provider,
+        modelId: refineModel.modelId,
+        ms: performance.now() - t0,
+        ok,
+      });
       setLoading(null);
     }
   }

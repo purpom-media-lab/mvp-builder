@@ -23,6 +23,7 @@ import {
   getModelForStep,
   loadModelPrefs,
   type ModelPrefs,
+  recordUsage,
 } from "@/lib/model-prefs";
 import { AiGenerating } from "@/components/ai-generating";
 import { LoadingOverlay } from "@/components/spinner";
@@ -161,6 +162,9 @@ export default function PrototypePage() {
     setLoading("prototype");
     setError(null);
     const protoModel = getModelForStep(modelPrefs, "prototype", model);
+    // 利用ログ計測（best-effort）
+    const t0 = performance.now();
+    let ok = false;
     const payload = {
       engine: engineUsed,
       provider: protoModel.provider,
@@ -231,9 +235,17 @@ export default function PrototypePage() {
         setShareUrl(data.shareUrl ?? data.demoUrl ?? null);
         setShareError(data.shareError ?? null);
       }
+      ok = true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラー");
     } finally {
+      recordUsage(id, {
+        step: "prototype",
+        provider: protoModel.provider,
+        modelId: protoModel.modelId,
+        ms: performance.now() - t0,
+        ok,
+      });
       setLoading(null);
       setGenChars(0);
     }
@@ -300,6 +312,9 @@ export default function PrototypePage() {
     if (!html) return;
     setLoading("realize");
     setError(null);
+    const realizeModel = getModelForStep(modelPrefs, "prototype", model);
+    const t0 = performance.now();
+    let ok = false;
     try {
       setGenChars(0);
       const raw = await streamPost(
@@ -308,8 +323,8 @@ export default function PrototypePage() {
           engine: "aws",
           mode: "realize",
           currentHtml: html,
-          provider: getModelForStep(modelPrefs, "prototype", model).provider,
-          modelId: getModelForStep(modelPrefs, "prototype", model).modelId,
+          provider: realizeModel.provider,
+          modelId: realizeModel.modelId,
           projectId: id,
           projectName: name,
         },
@@ -320,9 +335,17 @@ export default function PrototypePage() {
       setShareUrl(null);
       setShareError(null);
       await persistHtml(finalHtml);
+      ok = true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラー");
     } finally {
+      recordUsage(id, {
+        step: "prototype",
+        provider: realizeModel.provider,
+        modelId: realizeModel.modelId,
+        ms: performance.now() - t0,
+        ok,
+      });
       setLoading(null);
       setGenChars(0);
     }

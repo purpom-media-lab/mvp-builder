@@ -7,6 +7,7 @@
  */
 import { useEffect, useState } from "react";
 import { type LlmProvider, MODEL_CATALOG, PROVIDERS } from "@/lib/ai/catalog";
+import { postJson } from "@/lib/api-client";
 import { Modal } from "@/components/modal";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,14 +19,26 @@ import {
 } from "@/components/ui/select";
 import type { ModelSelection } from "@/components/model-selector";
 import {
+  ALL_PREF_KEYS,
   buildPreset,
   defaultModelForKey,
+  getUsageStats,
   type ModelPref,
   type ModelPrefs,
   PREF_GROUPS,
   type PrefKey,
   saveModelPrefs,
+  summarizeStepUsage,
+  type UsageStats,
 } from "@/lib/model-prefs";
+
+/** /api/optimize-models が返す 1 工程ぶんの推奨。 */
+interface Recommendation {
+  step: string;
+  provider: LlmProvider;
+  modelId: string;
+  rationale: string;
+}
 
 interface Props {
   open: boolean;
@@ -45,12 +58,18 @@ function PrefRow({
   value,
   isSet,
   onChange,
+  usage,
+  rationale,
 }: {
   label: string;
   prefKey: PrefKey;
   value: ModelPref;
   isSet: boolean;
   onChange: (key: PrefKey, value: ModelPref) => void;
+  /** この工程の利用統計（履歴が無ければ null）。 */
+  usage: { count: number; avgMs: number; okRate: number } | null;
+  /** AI最適化が付けた推奨理由（あれば表示）。 */
+  rationale?: string;
 }) {
   const models = MODEL_CATALOG[value.provider].models;
   return (
@@ -60,6 +79,18 @@ function PrefRow({
         {isSet ? null : (
           <span className="ml-1 text-[0.65rem] text-muted-foreground">（既定）</span>
         )}
+        <span className="block text-[0.65rem] text-muted-foreground">
+          {usage
+            ? `平均 ${usage.avgMs.toLocaleString()}ms・${usage.count}回・成功 ${Math.round(
+                usage.okRate * 100,
+              )}%`
+            : "履歴なし"}
+        </span>
+        {rationale ? (
+          <span className="block text-[0.65rem] leading-tight text-primary/80">
+            💡 {rationale}
+          </span>
+        ) : null}
       </span>
       <Select
         value={value.provider}
@@ -111,14 +142,71 @@ export function ModelPrefsDialog({
   onSave,
 }: Props) {
   const [draft, setDraft] = useState<ModelPrefs>(prefs);
+  // 利用統計（開くたびに localStorage から再集計）
+  const [usageStats, setUsageStats] = useState<UsageStats>({});
+  // AI最適化の状態
+  const [optimizing, setOptimizing] = useState(false);
+  const [optError, setOptError] = useState<string | null>(null);
+  const [optimized, setOptimized] = useState(false);
+  // 工程キー -> 推奨理由
+  const [rationales, setRationales] = useState<Record<string, string>>({});
 
   // モーダルを開くたびに現在の設定で初期化する
   useEffect(() => {
-    if (open) setDraft(prefs);
-  }, [open, prefs]);
+    if (open) {
+      setDraft(prefs);
+      setUsageStats(getUsageStats(projectId));
+      setOptError(null);
+      setOptimized(false);
+      setRationales({});
+    }
+  }, [open, prefs, projectId]);
 
   function setKey(key: PrefKey, value: ModelPref) {
     setDraft((d) => ({ ...d, [key]: value }));
+  }
+
+  // 利用履歴＋工程性質から、AIに工程ごとの最適モデルを提案させる
+  async function optimizeFromUsage() {
+    setOptimizing(true);
+    setOptError(null);
+    try {
+      const stats = getUsageStats(projectId);
+      setUsageStats(stats);
+      const data = await postJson<{ recommendations: Recommendation[] }>(
+        "/api/optimize-models",
+        {
+          stats,
+          steps: ALL_PREF_KEYS,
+          providers: PROVIDERS,
+          provider: baseModel.provider,
+          modelId: baseModel.modelId,
+        },
+      );
+      const recs = data.recommendations ?? [];
+      if (!recs.length) {
+        setOptError("提案が得られませんでした。もう一度お試しください。");
+        return;
+      }
+      setDraft((d) => {
+        const next = { ...d };
+        for (const r of recs) {
+          next[r.step as PrefKey] = {
+            provider: r.provider,
+            modelId: r.modelId,
+          };
+        }
+        return next;
+      });
+      setRationales(
+        Object.fromEntries(recs.map((r) => [r.step, r.rationale])),
+      );
+      setOptimized(true);
+    } catch (e) {
+      setOptError(e instanceof Error ? e.message : "最適化に失敗しました");
+    } finally {
+      setOptimizing(false);
+    }
   }
 
   function applyPreset(kind: "fast" | "smart") {
@@ -150,10 +238,32 @@ export function ModelPrefsDialog({
           <Button size="sm" variant="outline" onClick={() => applyPreset("smart")}>
             🧠 賢さ優先プリセット
           </Button>
+          <Button
+            size="sm"
+            onClick={optimizeFromUsage}
+            disabled={optimizing}
+            title="この端末の利用履歴（速度・成功率）と工程の性質から、AIが工程ごとの最適モデルを提案します"
+          >
+            {optimizing ? "最適化中…" : "🤖 利用履歴からAIで最適化"}
+          </Button>
           <Button size="sm" variant="ghost" onClick={resetToDefault}>
             既定に戻す
           </Button>
         </div>
+
+        {optError && (
+          <div className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            {optError}
+          </div>
+        )}
+        {optimized && !optError && (
+          <div className="rounded-md bg-primary/10 px-3 py-2 text-xs text-primary">
+            AIが各工程に推奨モデルを設定しました。内容を確認して「保存」してください。
+          </div>
+        )}
+        <p className="text-[0.7rem] text-muted-foreground">
+          履歴が少ない工程は、工程の性質（軽い抽出系 / 重い推論系）とモデル特性をもとに提案されます。
+        </p>
 
         <div className="space-y-4">
           {PREF_GROUPS.map((group) => (
@@ -170,6 +280,8 @@ export function ModelPrefsDialog({
                     isSet={!!draft[key]}
                     value={draft[key] ?? defaultModelForKey(key, baseModel)}
                     onChange={setKey}
+                    usage={summarizeStepUsage(usageStats, key)}
+                    rationale={rationales[key]}
                   />
                 ))}
               </div>

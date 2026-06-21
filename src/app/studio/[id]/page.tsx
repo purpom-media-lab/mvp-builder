@@ -25,6 +25,7 @@ import {
   getModelForStep,
   loadModelPrefs,
   type ModelPrefs,
+  recordUsage,
 } from "@/lib/model-prefs";
 import { Modal } from "@/components/modal";
 import { AiGenerating } from "@/components/ai-generating";
@@ -310,6 +311,9 @@ export default function ProjectDetailPage() {
     setError(null);
     // この工程に割り当てられたモデル（未設定なら既定にフォールバック）
     const stepModel = getModelForStep(modelPrefs, step, model);
+    // 利用ログ計測（成功/失敗・所要時間）。記録は best-effort で UI に影響させない。
+    const t0 = performance.now();
+    let ok = false;
     try {
       const data = await postJsonKeepalive<{
         result: {
@@ -346,9 +350,17 @@ export default function ProjectDetailPage() {
       if (step === "kpi") setKpi(data.result as unknown as KpiData);
       if (step === "growth") setGrowth(data.result as unknown as GrowthPlanView);
       if (step === "brand") setBrand(data.result as unknown as BrandView);
+      ok = true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラー");
     } finally {
+      recordUsage(id, {
+        step,
+        provider: stepModel.provider,
+        modelId: stepModel.modelId,
+        ms: performance.now() - t0,
+        ok,
+      });
       setLoading(null);
     }
   }
@@ -361,6 +373,9 @@ export default function ProjectDetailPage() {
     const modelByStep = Object.fromEntries(
       STEPS.map((s) => [s.key, getModelForStep(modelPrefs, s.key, model)]),
     ) as Record<StepKey, ModelSelection>;
+    // per-step の所要時間はクライアントで取れないため、全体を1件（step:"full"）で記録する。
+    const t0 = performance.now();
+    let ok = false;
     try {
       const data = await postJsonKeepalive<{
         results: Record<string, unknown>;
@@ -371,9 +386,17 @@ export default function ProjectDetailPage() {
         modelByStep,
       });
       applyOrchestrate({ results: data.results } as OrchestrateResponse);
+      ok = true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "一括生成に失敗しました");
     } finally {
+      recordUsage(id, {
+        step: "full",
+        provider: model.provider,
+        modelId: model.modelId,
+        ms: performance.now() - t0,
+        ok,
+      });
       setLoading(null);
     }
   }

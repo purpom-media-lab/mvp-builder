@@ -18,6 +18,7 @@ import {
   getModelForStep,
   loadModelPrefs,
   type ModelPrefs,
+  recordUsage,
 } from "@/lib/model-prefs";
 import { SlideDeck } from "@/components/slide-deck";
 import { AiGenerating } from "@/components/ai-generating";
@@ -79,6 +80,8 @@ export default function DeckPage() {
     setLoading(true);
     setError(null);
     const deckModel = getModelForStep(modelPrefs, "deck", model);
+    const t0 = performance.now();
+    let ok = false;
     try {
       const data = await postJsonKeepalive<{ deck: SlideData[] }>("/api/deck", {
         projectId: id,
@@ -86,9 +89,17 @@ export default function DeckPage() {
         modelId: deckModel.modelId,
       });
       setDeck(data.deck);
+      ok = true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラー");
     } finally {
+      recordUsage(id, {
+        step: "deck",
+        provider: deckModel.provider,
+        modelId: deckModel.modelId,
+        ms: performance.now() - t0,
+        ok,
+      });
       setLoading(false);
     }
   }

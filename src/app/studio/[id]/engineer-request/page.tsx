@@ -19,6 +19,7 @@ import {
   getModelForStep,
   loadModelPrefs,
   type ModelPrefs,
+  recordUsage,
 } from "@/lib/model-prefs";
 import { LoadingOverlay, Spinner } from "@/components/spinner";
 import { Button } from "@/components/ui/button";
@@ -174,6 +175,8 @@ export default function EngineerRequestPage() {
     setLoading("generate");
     setError(null);
     const reqModel = getModelForStep(modelPrefs, "engineer-request", model);
+    const t0 = performance.now();
+    let ok = false;
     try {
       const data = await postJsonKeepalive<{ brief: Partial<EngineerBrief> }>(
         "/api/engineer-request/generate",
@@ -184,9 +187,17 @@ export default function EngineerRequestPage() {
         },
       );
       setBrief({ ...EMPTY_BRIEF, ...data.brief });
+      ok = true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラー");
     } finally {
+      recordUsage(id, {
+        step: "engineer-request",
+        provider: reqModel.provider,
+        modelId: reqModel.modelId,
+        ms: performance.now() - t0,
+        ok,
+      });
       setLoading(null);
     }
   }
