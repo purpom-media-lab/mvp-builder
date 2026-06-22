@@ -27,6 +27,7 @@ import {
   type ModelPrefs,
   PREF_GROUPS,
   type PrefKey,
+  saveBaseModel,
   saveModelPrefs,
   summarizeStepUsage,
   type UsageStats,
@@ -44,11 +45,13 @@ interface Props {
   open: boolean;
   onClose: () => void;
   projectId: string;
-  /** 現在選択中のモデル（未設定キーの既定の基準）。 */
+  /** 基準モデル（プリセット・未設定工程の既定）。ダイアログ内で変更・永続化する。 */
   baseModel: ModelSelection;
   prefs: ModelPrefs;
-  /** 保存時に親へ反映。 */
+  /** 工程別設定を親へ反映。 */
   onSave: (prefs: ModelPrefs) => void;
+  /** 基準モデルの変更を親へ反映（次の生成からすぐ使われるように）。 */
+  onSaveBase: (base: ModelSelection) => void;
 }
 
 /** 1工程ぶんの provider/model セレクタ（設定済みかどうかも表示）。 */
@@ -140,8 +143,11 @@ export function ModelPrefsDialog({
   baseModel,
   prefs,
   onSave,
+  onSaveBase,
 }: Props) {
   const [draft, setDraft] = useState<ModelPrefs>(prefs);
+  // 基準モデル（プリセット・未設定工程の既定の基準）の編集ドラフト
+  const [baseDraft, setBaseDraft] = useState<ModelPref>(baseModel);
   // 利用統計（開くたびに localStorage から再集計）
   const [usageStats, setUsageStats] = useState<UsageStats>({});
   // AI最適化の状態
@@ -155,12 +161,13 @@ export function ModelPrefsDialog({
   useEffect(() => {
     if (open) {
       setDraft(prefs);
+      setBaseDraft(baseModel);
       setUsageStats(getUsageStats(projectId));
       setOptError(null);
       setOptimized(false);
       setRationales({});
     }
-  }, [open, prefs, projectId]);
+  }, [open, prefs, baseModel, projectId]);
 
   function setKey(key: PrefKey, value: ModelPref) {
     setDraft((d) => ({ ...d, [key]: value }));
@@ -179,8 +186,8 @@ export function ModelPrefsDialog({
           stats,
           steps: ALL_PREF_KEYS,
           providers: PROVIDERS,
-          provider: baseModel.provider,
-          modelId: baseModel.modelId,
+          provider: baseDraft.provider,
+          modelId: baseDraft.modelId,
         },
       );
       const recs = data.recommendations ?? [];
@@ -210,7 +217,7 @@ export function ModelPrefsDialog({
   }
 
   function applyPreset(kind: "fast" | "smart") {
-    setDraft(buildPreset(kind, baseModel));
+    setDraft(buildPreset(kind, baseDraft));
   }
 
   function resetToDefault() {
@@ -218,7 +225,9 @@ export function ModelPrefsDialog({
   }
 
   function save() {
+    saveBaseModel(projectId, baseDraft);
     saveModelPrefs(projectId, draft);
+    onSaveBase(baseDraft);
     onSave(draft);
     onClose();
   }
@@ -228,8 +237,55 @@ export function ModelPrefsDialog({
       <div className="space-y-4">
         <p className="text-xs text-muted-foreground">
           工程ごとに使うモデルを選べます。未設定の工程は、軽い工程は高速モデル・それ以外は
-          現在選択中のモデルが既定で使われます。設定はこのブラウザに保存されます。
+          下の「基準モデル」が既定で使われます。設定はこのブラウザに保存されます。
         </p>
+
+        {/* 基準モデル: プリセットと未設定工程の既定の基準（旧ヘッダーのセレクタを統合） */}
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2">
+          <span className="w-40 shrink-0 text-sm font-medium">
+            基準モデル
+            <span className="block text-[0.65rem] font-normal text-muted-foreground">
+              プリセット・未設定工程の既定
+            </span>
+          </span>
+          <Select
+            value={baseDraft.provider}
+            onValueChange={(v) => {
+              if (!v) return;
+              const provider = v as LlmProvider;
+              setBaseDraft({
+                provider,
+                modelId: MODEL_CATALOG[provider].defaultModel,
+              });
+            }}
+          >
+            <SelectTrigger size="sm" className="w-[150px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PROVIDERS.map((p) => (
+                <SelectItem key={p} value={p}>
+                  {MODEL_CATALOG[p].label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={baseDraft.modelId}
+            onValueChange={(v) => v && setBaseDraft({ ...baseDraft, modelId: v })}
+          >
+            <SelectTrigger size="sm" className="w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {MODEL_CATALOG[baseDraft.provider].models.map((m) => (
+                <SelectItem key={m} value={m}>
+                  {m}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
         <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="outline" onClick={() => applyPreset("fast")}>
@@ -278,7 +334,7 @@ export function ModelPrefsDialog({
                     label={label}
                     prefKey={key}
                     isSet={!!draft[key]}
-                    value={draft[key] ?? defaultModelForKey(key, baseModel)}
+                    value={draft[key] ?? defaultModelForKey(key, baseDraft)}
                     onChange={setKey}
                     usage={summarizeStepUsage(usageStats, key)}
                     rationale={rationales[key]}

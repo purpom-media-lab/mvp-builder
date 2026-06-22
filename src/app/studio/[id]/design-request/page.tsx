@@ -12,12 +12,11 @@ import { useEffect, useState } from "react";
 import { DEFAULT_PROVIDER, MODEL_CATALOG } from "@/lib/ai/catalog";
 import { postJsonKeepalive } from "@/lib/api-client";
 import { GlobalHeader } from "@/components/global-header";
-import {
-  type ModelSelection,
-  ModelSelector,
-} from "@/components/model-selector";
+import type { ModelSelection } from "@/components/model-selector";
+import { ModelPrefsDialog } from "@/components/model-prefs-dialog";
 import {
   getModelForStep,
+  loadBaseModel,
   loadModelPrefs,
   type ModelPrefs,
   recordUsage,
@@ -119,6 +118,7 @@ export default function DesignRequestPage() {
     modelId: MODEL_CATALOG[DEFAULT_PROVIDER].defaultModel,
   });
   const [modelPrefs, setModelPrefs] = useState<ModelPrefs>({});
+  const [prefsOpen, setPrefsOpen] = useState(false);
 
   const [name, setName] = useState("");
   const [brief, setBrief] = useState<DesignBrief>(EMPTY_BRIEF);
@@ -183,9 +183,10 @@ export default function DesignRequestPage() {
     };
   }, [id]);
 
-  // 工程ごとのモデル設定を localStorage から復元
+  // 基準モデルと工程ごとのモデル設定を localStorage から復元
   useEffect(() => {
     if (!id) return;
+    setModel(loadBaseModel(id));
     setModelPrefs(loadModelPrefs(id));
   }, [id]);
 
@@ -384,7 +385,16 @@ export default function DesignRequestPage() {
             {name || "…"} / デザイナーに依頼
           </span>
         }
-        right={<ModelSelector value={model} onChange={setModel} />}
+        right={
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setPrefsOpen(true)}
+            title="基準モデルと工程ごとのモデル（速い/賢い）を設定します"
+          >
+            ⚙️ モデル設定
+          </Button>
+        }
       />
 
       <main className="mx-auto w-full max-w-3xl flex-1 space-y-8 px-4 py-6 sm:px-6">
@@ -678,6 +688,17 @@ export default function DesignRequestPage() {
           )}
         </section>
       </main>
+      {id && (
+        <ModelPrefsDialog
+          open={prefsOpen}
+          onClose={() => setPrefsOpen(false)}
+          projectId={id}
+          baseModel={model}
+          prefs={modelPrefs}
+          onSave={setModelPrefs}
+          onSaveBase={setModel}
+        />
+      )}
     </div>
   );
 }

@@ -7,13 +7,25 @@
  * 後方互換: 設定が無ければ getModelForStep は「軽い工程=FAST_MODEL / それ以外=fallback」
  * という従来どおりの既定にフォールバックするため、完全に現状動作のままになる。
  */
-import { FAST_MODEL, type LlmProvider, SMART_MODEL } from "./ai/catalog";
+import {
+  DEFAULT_PROVIDER,
+  FAST_MODEL,
+  type LlmProvider,
+  MODEL_CATALOG,
+  SMART_MODEL,
+} from "./ai/catalog";
 import type { StepKey } from "./studio-types";
 
 export interface ModelPref {
   provider: LlmProvider;
   modelId: string;
 }
+
+/** 工程別設定の基準（プリセット・未設定工程の既定）に使うモデル。 */
+export const DEFAULT_BASE_MODEL: ModelPref = {
+  provider: DEFAULT_PROVIDER,
+  modelId: MODEL_CATALOG[DEFAULT_PROVIDER].defaultModel,
+};
 
 /** 12 工程に加えて、画面（機能）単位の設定キー。 */
 export type FeatureKey =
@@ -106,6 +118,39 @@ export function saveModelPrefs(projectId: string, prefs: ModelPrefs): void {
   if (typeof window === "undefined" || !projectId) return;
   try {
     window.localStorage.setItem(storageKey(projectId), JSON.stringify(prefs));
+  } catch {
+    // 保存失敗は致命的でないため握りつぶす
+  }
+}
+
+function baseStorageKey(projectId: string): string {
+  return `lq_model_base_${projectId}`;
+}
+
+/**
+ * 基準モデルを localStorage から読み込む（無ければ既定）。
+ * プリセット適用と未設定工程の既定（getModelForStep の fallback）に使う。
+ */
+export function loadBaseModel(projectId: string): ModelPref {
+  if (typeof window === "undefined" || !projectId) return DEFAULT_BASE_MODEL;
+  try {
+    const raw = window.localStorage.getItem(baseStorageKey(projectId));
+    if (!raw) return DEFAULT_BASE_MODEL;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && parsed.provider && parsed.modelId) {
+      return parsed as ModelPref;
+    }
+  } catch {
+    // 壊れた値は無視して既定扱い
+  }
+  return DEFAULT_BASE_MODEL;
+}
+
+/** 基準モデルを localStorage に保存する。 */
+export function saveBaseModel(projectId: string, base: ModelPref): void {
+  if (typeof window === "undefined" || !projectId) return;
+  try {
+    window.localStorage.setItem(baseStorageKey(projectId), JSON.stringify(base));
   } catch {
     // 保存失敗は致命的でないため握りつぶす
   }

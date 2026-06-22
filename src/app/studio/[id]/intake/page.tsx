@@ -6,15 +6,18 @@
  */
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { DEFAULT_PROVIDER, MODEL_CATALOG } from "@/lib/ai/catalog";
 import { GlobalHeader } from "@/components/global-header";
 import { JtbdChat } from "@/components/jtbd-chat";
+import type { ModelSelection } from "@/components/model-selector";
+import { ModelPrefsDialog } from "@/components/model-prefs-dialog";
 import {
-  type ModelSelection,
-  ModelSelector,
-} from "@/components/model-selector";
-import { buttonVariants } from "@/components/ui/button";
+  loadBaseModel,
+  loadModelPrefs,
+  type ModelPrefs,
+} from "@/lib/model-prefs";
+import { Button, buttonVariants } from "@/components/ui/button";
 
 export default function IntakePage() {
   const { id } = useParams<{ id: string }>();
@@ -22,7 +25,16 @@ export default function IntakePage() {
     provider: DEFAULT_PROVIDER,
     modelId: MODEL_CATALOG[DEFAULT_PROVIDER].defaultModel,
   });
+  const [modelPrefs, setModelPrefs] = useState<ModelPrefs>({});
+  const [prefsOpen, setPrefsOpen] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  // 基準モデルと工程ごとのモデル設定を localStorage から復元
+  useEffect(() => {
+    if (!id) return;
+    setModel(loadBaseModel(id));
+    setModelPrefs(loadModelPrefs(id));
+  }, [id]);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -35,7 +47,14 @@ export default function IntakePage() {
         }
         right={
           <div className="flex items-center gap-3">
-            <ModelSelector value={model} onChange={setModel} />
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setPrefsOpen(true)}
+              title="基準モデルと工程ごとのモデル（速い/賢い）を設定します"
+            >
+              ⚙️ モデル設定
+            </Button>
             {saved && (
               <Link
                 href={`/studio/${id}`}
@@ -69,6 +88,17 @@ export default function IntakePage() {
           />
         )}
       </main>
+      {id && (
+        <ModelPrefsDialog
+          open={prefsOpen}
+          onClose={() => setPrefsOpen(false)}
+          projectId={id}
+          baseModel={model}
+          prefs={modelPrefs}
+          onSave={setModelPrefs}
+          onSaveBase={setModel}
+        />
+      )}
     </div>
   );
 }
