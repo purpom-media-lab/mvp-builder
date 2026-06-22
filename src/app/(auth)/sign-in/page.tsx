@@ -47,6 +47,7 @@ export default function SignInPage() {
             required
             placeholder="メールアドレス"
             value={email}
+            autoComplete="email"
             onChange={(e) => setEmail(e.target.value)}
             className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
           />
@@ -55,6 +56,7 @@ export default function SignInPage() {
             required
             placeholder="パスワード"
             value={password}
+            autoComplete="current-password"
             onChange={(e) => setPassword(e.target.value)}
             className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
           />

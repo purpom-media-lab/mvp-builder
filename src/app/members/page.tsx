@@ -42,6 +42,12 @@ export default function MembersPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  // 招待一覧の各行ごとのリンクコピー済み表示
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  // 操作完了の簡易トースト（取消・コピーなど）
+  const [toast, setToast] = useState<string | null>(null);
+  // accepted/revoked の履歴は既定で隠す
+  const [showHistory, setShowHistory] = useState(false);
   const [loadingMembers, setLoadingMembers] = useState(true);
 
   useEffect(() => {
@@ -63,6 +69,18 @@ export default function MembersPage() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // トーストは数秒で自動的に消す
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2500);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  function inviteLink(token: string): string {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    return `${origin}/invite/${token}`;
+  }
 
   async function invite(e: React.FormEvent) {
     e.preventDefault();
@@ -87,8 +105,10 @@ export default function MembersPage() {
     refresh();
   }
 
-  async function revoke(id: string) {
+  async function revoke(id: string, target: string) {
+    if (!window.confirm(`${target} への招待を取り消しますか？`)) return;
     await fetch(`/api/invitations/${id}`, { method: "DELETE" });
+    setToast("招待を取り消しました");
     refresh();
   }
 
@@ -97,6 +117,15 @@ export default function MembersPage() {
     await navigator.clipboard.writeText(inviteUrl);
     setCopied(true);
   }
+
+  async function copyRowLink(inv: Invitation) {
+    await navigator.clipboard.writeText(inviteLink(inv.token));
+    setCopiedId(inv.id);
+    setToast("招待リンクをコピーしました");
+  }
+
+  const pending = invitations.filter((i) => i.status === "pending");
+  const history = invitations.filter((i) => i.status !== "pending");
 
   return (
     <div className="min-h-screen bg-background">
@@ -107,21 +136,25 @@ export default function MembersPage() {
           メンバー
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          オープン登録は無効です。招待したメールアドレスのみが登録できます。
+          オープン登録は無効です。招待したメールアドレスのみ登録できます。登録済みメンバーは誰でも招待できます。
         </p>
 
         {/* 招待フォーム */}
         <section className="pm-panel mt-6 p-5">
           <h2 className="font-heading font-bold">メンバーを招待</h2>
-          <form onSubmit={invite} className="mt-3 flex gap-2">
+          <form
+            onSubmit={invite}
+            className="mt-3 flex flex-col gap-2 sm:flex-row"
+          >
             <Input
               type="email"
               required
+              autoComplete="off"
               placeholder="invitee@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
-            <Button type="submit" disabled={busy}>
+            <Button type="submit" disabled={busy} className="sm:w-auto">
               {busy ? "発行中…" : "招待を発行"}
             </Button>
           </form>
@@ -133,10 +166,15 @@ export default function MembersPage() {
                   ✅ 招待メールを送信しました（届かない場合は下のリンクを共有）
                 </p>
               ) : (
-                <p className="mb-1 font-medium">招待リンク（本人に共有してください）</p>
+                <p className="mb-1 font-medium">
+                  招待リンク（本人に共有してください）
+                </p>
               )}
               <div className="flex items-center gap-2">
-                <code className="flex-1 truncate rounded bg-background px-2 py-1 text-xs">
+                <code
+                  title={inviteUrl}
+                  className="flex-1 truncate rounded bg-background px-2 py-1 text-xs"
+                >
                   {inviteUrl}
                 </code>
                 <Button size="sm" variant="outline" onClick={copyUrl}>
@@ -151,70 +189,124 @@ export default function MembersPage() {
           <PageLoading label="読み込み中…" />
         ) : (
           <>
-        {/* 招待一覧 */}
-        <section className="mt-8">
-          <h2 className="font-heading font-semibold">招待</h2>
-          {invitations.length === 0 ? (
-            <p className="mt-2 text-sm text-muted-foreground">招待はありません。</p>
-          ) : (
-            <ul className="mt-3 divide-y rounded-lg border">
-              {invitations.map((inv) => (
-                <li
-                  key={inv.id}
-                  className="flex items-center justify-between gap-3 px-4 py-3"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm">{inv.email}</p>
-                    <p className="text-xs text-muted-foreground">
-                      期限: {new Date(inv.expiresAt).toLocaleString("ja-JP")}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      variant={inv.status === "pending" ? "default" : "secondary"}
+            {/* 招待中 */}
+            <section className="mt-8">
+              <h2 className="font-heading font-semibold">
+                招待中（{pending.length}）
+              </h2>
+              {pending.length === 0 ? (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  招待中のメンバーはいません。
+                </p>
+              ) : (
+                <ul className="mt-3 divide-y rounded-lg border">
+                  {pending.map((inv) => (
+                    <li
+                      key={inv.id}
+                      className="flex items-center justify-between gap-3 px-4 py-3"
                     >
-                      {STATUS_LABEL[inv.status]}
-                    </Badge>
-                    {inv.status === "pending" && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => revoke(inv.id)}
-                      >
-                        取消
-                      </Button>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm">{inv.email}</p>
+                        <p className="text-xs text-muted-foreground">
+                          期限:{" "}
+                          {new Date(inv.expiresAt).toLocaleDateString("ja-JP")}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => copyRowLink(inv)}
+                          title="招待リンクをコピーして本人に共有できます"
+                        >
+                          {copiedId === inv.id ? "コピー済み" : "リンク"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => revoke(inv.id, inv.email)}
+                        >
+                          取消
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
 
-        {/* メンバー一覧 */}
-        <section className="mt-8">
-          <h2 className="font-heading font-semibold">
-            参加メンバー（{members.length}）
-          </h2>
-          <ul className="mt-3 divide-y rounded-lg border">
-            {members.map((m) => (
-              <li key={m.id} className="flex items-center gap-3 px-4 py-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-semibold">
-                  {(m.name || m.email).charAt(0).toUpperCase()}
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{m.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {m.email}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
+              {history.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowHistory((v) => !v)}
+                  className="mt-3 text-xs text-muted-foreground underline-offset-4 hover:underline"
+                >
+                  {showHistory
+                    ? "履歴を隠す"
+                    : `履歴を表示（${history.length}）`}
+                </button>
+              )}
+              {showHistory && history.length > 0 && (
+                <ul className="mt-3 divide-y rounded-lg border border-dashed">
+                  {history.map((inv) => (
+                    <li
+                      key={inv.id}
+                      className="flex items-center justify-between gap-3 px-4 py-2.5"
+                    >
+                      <p className="truncate text-sm text-muted-foreground">
+                        {inv.email}
+                      </p>
+                      <Badge variant="secondary">
+                        {STATUS_LABEL[inv.status]}
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            {/* 参加メンバー */}
+            <section className="mt-10 border-t pt-8">
+              <h2 className="font-heading font-semibold">
+                参加メンバー（{members.length}）
+              </h2>
+              <ul className="mt-3 divide-y rounded-lg border">
+                {members.map((m) => {
+                  const isMe = m.id === session?.user?.id;
+                  return (
+                    <li
+                      key={m.id}
+                      className="flex items-center gap-3 px-4 py-3"
+                    >
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-semibold">
+                        {(m.name || m.email).charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">
+                          {m.name}
+                          {isMe && (
+                            <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                              （あなた）
+                            </span>
+                          )}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {m.email}
+                        </p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
           </>
         )}
       </main>
+
+      {toast && (
+        <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-full bg-foreground px-4 py-2 text-sm text-background shadow-lg">
+          {toast}
+        </div>
+      )}
     </div>
   );
 }

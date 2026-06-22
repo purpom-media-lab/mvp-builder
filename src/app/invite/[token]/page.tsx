@@ -21,14 +21,18 @@ export default async function InvitePage({
           招待が無効です
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          この招待リンクは無効、または期限切れです。発行者に再発行を依頼してください。
+          この招待リンクは無効、または期限切れです。本サービスは招待制のため、
+          招待してくれた方に<strong>新しい招待リンクの再発行</strong>を依頼してください。
         </p>
-        <Link
-          href="/sign-in"
-          className="mt-6 font-mono text-sm text-primary underline-offset-4 hover:underline"
-        >
-          サインインへ →
-        </Link>
+        <p className="mt-6 text-xs text-muted-foreground">
+          すでにアカウントをお持ちの方は{" "}
+          <Link
+            href="/sign-in"
+            className="text-primary underline-offset-4 hover:underline"
+          >
+            サインイン →
+          </Link>
+        </p>
       </main>
     );
   }

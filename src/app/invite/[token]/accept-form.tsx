@@ -55,13 +55,16 @@ export function AcceptForm({ token, email }: { token: string; email: string }) {
             type="email"
             value={email}
             readOnly
+            title={email}
+            autoComplete="username"
             aria-label="招待先メールアドレス"
-            className="h-10 w-full rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground"
+            className="h-10 w-full overflow-hidden text-ellipsis rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground"
           />
           <input
             required
             placeholder="お名前"
             value={name}
+            autoComplete="name"
             onChange={(e) => setName(e.target.value)}
             className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
           />
@@ -71,6 +74,7 @@ export function AcceptForm({ token, email }: { token: string; email: string }) {
             minLength={8}
             placeholder="パスワード（8文字以上）"
             value={password}
+            autoComplete="new-password"
             onChange={(e) => setPassword(e.target.value)}
             className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
           />
