@@ -412,3 +412,49 @@ export const mvpEndUsers = pgTable(
     uniqueIndex("mvp_end_users_project_email_idx").on(t.projectId, t.email),
   ],
 );
+
+/** ジョブ種別: 単一工程 / 一括生成 / プロトタイプ生成 */
+export const jobKind = pgEnum("job_kind", ["step", "orchestrate", "prototype"]);
+/** ジョブ状態 */
+export const jobStatus = pgEnum("job_status", ["running", "done", "error"]);
+
+/**
+ * 非同期生成ジョブ。
+ *
+ * 生成を HTTP レスポンスのライフサイクルから切り離すための状態テーブル。
+ * クライアントは POST /api/jobs で起動して jobId を即受け取り、画面を遷移・リロード
+ * しても GET /api/jobs/[id] のポーリングで進捗・結果を購読できる。実処理は after() で
+ * レスポンス後も継続し、完了時にドメインテーブルへ保存しつつこの行も更新する。
+ */
+export const jobs = pgTable(
+  "jobs",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    projectId: uuid("project_id")
+      .notNull()
+      .references(() => projects.id, { onDelete: "cascade" }),
+    ownerId: text("owner_id").notNull(), // Better Auth user id（起動者）
+    kind: jobKind("kind").notNull(),
+    // kind=step のときの工程キー（StepKey）。kind=prototype のときは mode（create/update/realize）。
+    step: text("step"),
+    status: jobStatus("status").notNull().default("running"),
+    // 進捗。kind 依存の自由構造（例: { doneSteps, totalSteps } / { chars } / { label }）。
+    progress: jsonb("progress")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    // 完了時の結果。クライアントがローカル状態へ適用するためのもの（ドメインテーブルにも保存済み）。
+    result: jsonb("result").$type<unknown>(),
+    error: text("error"),
+    // 再実行や stale 判定に必要な入力一式（context/provider/modelId など）。
+    payload: jsonb("payload")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default({}),
+    // 進行中の生存確認。一定時間更新が無い running はクラッシュとみなし error 化する。
+    heartbeatAt: timestamp("heartbeat_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    finishedAt: timestamp("finished_at"),
+  },
+  (t) => [index("jobs_project_status_idx").on(t.projectId, t.status)],
+);

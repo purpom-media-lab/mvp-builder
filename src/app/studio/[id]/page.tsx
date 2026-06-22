@@ -7,9 +7,14 @@
  */
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_PROVIDER, MODEL_CATALOG } from "@/lib/ai/catalog";
-import { postJsonKeepalive } from "@/lib/api-client";
+import {
+  fetchActiveJobs,
+  type JobView,
+  pollJob,
+  startJob,
+} from "@/lib/use-job";
 import {
   AiConsultPanel,
   type OrchestrateResponse,
@@ -164,8 +169,22 @@ export default function ProjectDetailPage() {
   // 即 null に上書きしてしまい、生成ローダーが一瞬で消える不具合になる。
   const [chatBusy, setChatBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 一括生成の進捗（完了工程数 / 全体数）。ジョブのポーリングで更新する。
+  const [fullProgress, setFullProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
   // 何らかの処理中（工程生成・読込・保存・チャット）か。ボタンの無効化判定に使う。
   const busy = loading !== null || chatBusy;
+
+  // ジョブ購読（ポーリング）の中断用。アンマウントで abort する。
+  // 生成本体はサーバ側 after() で継続するので、画面遷移しても止まらない。
+  const pollCtl = useRef<AbortController | null>(null);
+  useEffect(() => {
+    const ctl = new AbortController();
+    pollCtl.current = ctl;
+    return () => ctl.abort();
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -285,6 +304,55 @@ export default function ProjectDetailPage() {
     setModelPrefs(loadModelPrefs(id));
   }, [id]);
 
+  // 進行中ジョブの復帰: 別画面で開始した生成・リロード前の生成がまだ走っていれば、
+  // この画面でも進捗を拾い直して最終結果まで反映する（生成は止まっていない）。
+  useEffect(() => {
+    if (!id) return;
+    const signal = pollCtl.current?.signal;
+    let cancelled = false;
+    (async () => {
+      const active = await fetchActiveJobs(id);
+      if (cancelled) return;
+      for (const job of active) {
+        if (job.kind === "step" && job.step) {
+          const step = job.step as StepKey;
+          setLoading(step);
+          pollJob(job.id, { signal })
+            .then((final) => {
+              if (final.status === "done") applyStepResult(step, final.result);
+              else if (final.status === "error")
+                setError(final.error ?? "生成に失敗しました");
+            })
+            .catch(() => {})
+            .finally(() => setLoading((l) => (l === step ? null : l)));
+        } else if (job.kind === "orchestrate") {
+          setLoading("full");
+          applyJobProgress(job);
+          pollJob(job.id, { signal, onProgress: applyJobProgress })
+            .then((final) => {
+              if (final.status === "done") {
+                const results = (
+                  final.result as { results?: Record<string, unknown> }
+                )?.results;
+                applyOrchestrate({ results } as OrchestrateResponse);
+              } else if (final.status === "error") {
+                setError(final.error ?? "一括生成に失敗しました");
+              }
+            })
+            .catch(() => {})
+            .finally(() => {
+              setFullProgress(null);
+              setLoading((l) => (l === "full" ? null : l));
+            });
+        }
+        // prototype ジョブは /studio/[id]/prototype 側で復帰させる
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
   function buildContext(): string {
     return [
       `# プロジェクト: ${name || "(未設定)"}`,
@@ -307,6 +375,36 @@ export default function ProjectDetailPage() {
       .join("\n\n");
   }
 
+  // 単一工程ジョブの結果をローカル状態へ反映する（新規生成・遷移後の復帰で共用）。
+  function applyStepResult(step: StepKey, result: unknown) {
+    const r = (result ?? {}) as {
+      actors?: ActorView[];
+      useCases?: UseCaseView[];
+      objects?: OouiView[];
+      journeys?: JourneyView[];
+      items?: NavView[];
+      screens?: WireframeView[];
+      entities?: DataModelView[];
+      features?: ScopeFeatureView[];
+      mvpStatement?: string;
+    };
+    if (step === "actors") setActors(r.actors ?? null);
+    if (step === "usecases") setUseCases(r.useCases ?? null);
+    if (step === "ooui") setOoui(r.objects ?? null);
+    if (step === "journey") setJourney(r.journeys ?? null);
+    if (step === "navigation") setNav(r.items ?? null);
+    if (step === "wireframe") setWireframe(r.screens ?? null);
+    if (step === "datamodel") setDataModel(r.entities ?? null);
+    if (step === "backend") setBackend(result as BackendView);
+    if (step === "scope") {
+      setScope(r.features ?? null);
+      setMvpStatement(r.mvpStatement ?? "");
+    }
+    if (step === "kpi") setKpi(result as KpiData);
+    if (step === "growth") setGrowth(result as GrowthPlanView);
+    if (step === "brand") setBrand(result as BrandView);
+  }
+
   async function runStep(step: StepKey) {
     setLoading(step);
     setError(null);
@@ -316,43 +414,23 @@ export default function ProjectDetailPage() {
     const t0 = performance.now();
     let ok = false;
     try {
-      const data = await postJsonKeepalive<{
-        result: {
-          actors?: ActorView[];
-          useCases?: UseCaseView[];
-          objects?: OouiView[];
-          journeys?: JourneyView[];
-          items?: NavView[];
-          screens?: WireframeView[];
-          entities?: DataModelView[];
-          features?: ScopeFeatureView[];
-          mvpStatement?: string;
-        };
-      }>("/api/analyze", {
+      // ジョブを起動（即 jobId）→ ポーリングで完了を待つ。生成はサーバ側 after() で
+      // 走るので、待っている間に画面を離れても止まらない。
+      const job = await startJob({
+        projectId: id,
+        kind: "step",
         step,
         context: buildContext(),
         provider: stepModel.provider,
         modelId: stepModel.modelId,
-        projectId: id,
       });
-      const r = data.result;
-      if (step === "actors") setActors(r.actors ?? null);
-      if (step === "usecases") setUseCases(r.useCases ?? null);
-      if (step === "ooui") setOoui(r.objects ?? null);
-      if (step === "journey") setJourney(r.journeys ?? null);
-      if (step === "navigation") setNav(r.items ?? null);
-      if (step === "wireframe") setWireframe(r.screens ?? null);
-      if (step === "datamodel") setDataModel(r.entities ?? null);
-      if (step === "backend") setBackend(data.result as unknown as BackendView);
-      if (step === "scope") {
-        setScope(r.features ?? null);
-        setMvpStatement(r.mvpStatement ?? "");
-      }
-      if (step === "kpi") setKpi(data.result as unknown as KpiData);
-      if (step === "growth") setGrowth(data.result as unknown as GrowthPlanView);
-      if (step === "brand") setBrand(data.result as unknown as BrandView);
+      const final = await pollJob(job.id, { signal: pollCtl.current?.signal });
+      if (final.status === "error")
+        throw new Error(final.error ?? "生成に失敗しました");
+      applyStepResult(step, final.result);
       ok = true;
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return; // 遷移による中断
       setError(e instanceof Error ? e.message : "エラー");
     } finally {
       recordUsage(id, {
@@ -370,6 +448,7 @@ export default function ProjectDetailPage() {
   async function runFullPipeline() {
     setLoading("full");
     setError(null);
+    setFullProgress(null);
     // 各工程に割り当てられたモデルのマップを作って送る（未設定は既定に解決）
     const modelByStep = Object.fromEntries(
       STEPS.map((s) => [s.key, getModelForStep(modelPrefs, s.key, model)]),
@@ -378,17 +457,25 @@ export default function ProjectDetailPage() {
     const t0 = performance.now();
     let ok = false;
     try {
-      const data = await postJsonKeepalive<{
-        results: Record<string, unknown>;
-      }>("/api/orchestrate/full", {
+      const job = await startJob({
         projectId: id,
+        kind: "orchestrate",
         provider: model.provider,
         modelId: model.modelId,
         modelByStep,
       });
-      applyOrchestrate({ results: data.results } as OrchestrateResponse);
+      const final = await pollJob(job.id, {
+        signal: pollCtl.current?.signal,
+        onProgress: (j) => applyJobProgress(j),
+      });
+      if (final.status === "error")
+        throw new Error(final.error ?? "一括生成に失敗しました");
+      const results = (final.result as { results?: Record<string, unknown> })
+        ?.results;
+      applyOrchestrate({ results } as OrchestrateResponse);
       ok = true;
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return; // 遷移による中断
       setError(e instanceof Error ? e.message : "一括生成に失敗しました");
     } finally {
       recordUsage(id, {
@@ -398,7 +485,19 @@ export default function ProjectDetailPage() {
         ms: performance.now() - t0,
         ok,
       });
+      setFullProgress(null);
       setLoading(null);
+    }
+  }
+
+  // 一括生成ジョブの進捗（doneSteps/totalSteps）を取り出して反映する。
+  function applyJobProgress(job: JobView) {
+    const p = job.progress as {
+      doneSteps?: unknown[];
+      totalSteps?: number;
+    };
+    if (Array.isArray(p.doneSteps) && typeof p.totalSteps === "number") {
+      setFullProgress({ done: p.doneSteps.length, total: p.totalSteps });
     }
   }
 
@@ -607,7 +706,11 @@ export default function ProjectDetailPage() {
           </div>
           {loading === "full" && (
             <AiGenerating
-              label="MVP設計一式"
+              label={
+                fullProgress
+                  ? `MVP設計一式（${fullProgress.done}/${fullProgress.total} 工程完了）`
+                  : "MVP設計一式"
+              }
               messages={[
                 "ビジネスアナリストが要件を整理しています",
                 "UXデザイナーが体験を設計しています",

@@ -7,9 +7,10 @@
  */
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DEFAULT_PROVIDER, MODEL_CATALOG } from "@/lib/ai/catalog";
-import { extractHtmlFromText, postJson, streamPost } from "@/lib/api-client";
+import { postJson } from "@/lib/api-client";
+import { fetchActiveJobs, type JobView, pollJob, startJob } from "@/lib/use-job";
 import {
   AiConsultPanel,
   type OrchestrateResponse,
@@ -141,20 +142,56 @@ export default function PrototypePage() {
     setModelPrefs(loadModelPrefs(id));
   }, [id]);
 
-  // ストリーム受信完了後に HTML を確実に永続化する（onFinish 依存をやめる）。
-  // 失敗してもプレビュー表示は維持し、エラー表示はしない（保存はベストエフォート）。
-  async function persistHtml(finalHtml: string) {
-    if (!id || !finalHtml) return;
-    try {
-      await postJson("/api/prototype", {
-        mode: "save",
-        projectId: id,
-        projectName: name,
-        currentHtml: finalHtml,
-      });
-    } catch {
-      // 保存失敗は致命的でないため握りつぶす（次回保存時に再永続化される）
-    }
+  // ジョブ購読（ポーリング）の中断用。アンマウントで abort する。
+  // 生成本体はサーバ側 after() で継続するので、画面遷移しても止まらない。
+  const pollCtl = useRef<AbortController | null>(null);
+  useEffect(() => {
+    const ctl = new AbortController();
+    pollCtl.current = ctl;
+    return () => ctl.abort();
+  }, []);
+
+  // 進行中のプロトタイプ生成ジョブを復帰する。別画面で開始・リロード前の生成が
+  // まだ走っていれば、この画面でも進捗（文字数）を拾い直して最終 HTML を反映する。
+  useEffect(() => {
+    if (!id) return;
+    const signal = pollCtl.current?.signal;
+    let cancelled = false;
+    (async () => {
+      const active = await fetchActiveJobs(id);
+      if (cancelled) return;
+      const job = active.find((j) => j.kind === "prototype");
+      if (!job) return;
+      const loadingKey = job.step === "realize" ? "realize" : "prototype";
+      setLoading(loadingKey);
+      setGenChars(jobChars(job));
+      pollJob(job.id, { signal, onProgress: (j) => setGenChars(jobChars(j)) })
+        .then((final) => {
+          if (final.status === "done") {
+            const out = (final.result as { html?: string })?.html ?? "";
+            if (out) setHtml(out);
+            if (job.step === "realize" && out) {
+              setLivePreview(true);
+              setRunNonce((n) => n + 1);
+            }
+          } else if (final.status === "error") {
+            setError(final.error ?? "生成に失敗しました");
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          setLoading((l) => (l === loadingKey ? null : l));
+          setGenChars(0);
+        });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  // ジョブ進捗から受信文字数を取り出す。
+  function jobChars(job: JobView): number {
+    return Number((job.progress as { chars?: number }).chars ?? 0);
   }
 
   async function generatePrototype(override?: {
@@ -220,19 +257,26 @@ export default function PrototypePage() {
     };
     try {
       if (engineUsed === "aws") {
-        // ストリーミング: 逐次トークンを受信し、進捗（文字数）を表示
+        // ジョブ起動 → ポーリングで進捗（文字数）を表示。生成はサーバ側 after() で
+        // 走るので、待っている間に画面を離れても止まらない（保存もランナーが行う）。
         setGenChars(0);
-        const raw = await streamPost("/api/prototype", payload, {
-          onChunk: (acc) => setGenChars(acc.length),
+        const job = await startJob({
+          ...payload,
+          kind: "prototype",
+          mode: "create",
         });
-        const finalHtml = extractHtmlFromText(raw);
+        const final = await pollJob(job.id, {
+          signal: pollCtl.current?.signal,
+          onProgress: (j) => setGenChars(jobChars(j)),
+        });
+        if (final.status === "error")
+          throw new Error(final.error ?? "生成に失敗しました");
+        const finalHtml = (final.result as { html?: string })?.html ?? "";
         setHtml(finalHtml);
         setLivePreview(false);
         setDemoUrl(null);
         setShareUrl(null);
         setShareError(null);
-        // 受信完了後に確実に保存（別画面遷移後も復元できるように）
-        await persistHtml(finalHtml);
       } else {
         // v0 エンジンはホスティング込みで JSON を返す
         const data = await postJson<{
@@ -248,6 +292,7 @@ export default function PrototypePage() {
       }
       ok = true;
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
       setError(e instanceof Error ? e.message : "エラー");
     } finally {
       recordUsage(id, {
@@ -290,27 +335,30 @@ export default function PrototypePage() {
     setError(null);
     try {
       setGenChars(0);
-      const raw = await streamPost(
-        "/api/prototype",
-        {
-          engine: "aws",
-          mode: "update",
-          instruction,
-          currentHtml: html,
-          provider: getModelForStep(modelPrefs, "prototype", model).provider,
-          modelId: getModelForStep(modelPrefs, "prototype", model).modelId,
-          projectId: id,
-          projectName: name,
-        },
-        { onChunk: (acc) => setGenChars(acc.length) },
-      );
-      const finalHtml = extractHtmlFromText(raw);
+      const job = await startJob({
+        projectId: id,
+        kind: "prototype",
+        engine: "aws",
+        mode: "update",
+        instruction,
+        currentHtml: html,
+        provider: getModelForStep(modelPrefs, "prototype", model).provider,
+        modelId: getModelForStep(modelPrefs, "prototype", model).modelId,
+        projectName: name,
+      });
+      const final = await pollJob(job.id, {
+        signal: pollCtl.current?.signal,
+        onProgress: (j) => setGenChars(jobChars(j)),
+      });
+      if (final.status === "error")
+        throw new Error(final.error ?? "生成に失敗しました");
+      const finalHtml = (final.result as { html?: string })?.html ?? "";
       setHtml(finalHtml);
       setShareUrl(null);
       setShareError(null);
       setInstruction("");
-      await persistHtml(finalHtml);
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
       setError(e instanceof Error ? e.message : "エラー");
     } finally {
       setLoading(null);
@@ -328,29 +376,32 @@ export default function PrototypePage() {
     let ok = false;
     try {
       setGenChars(0);
-      const raw = await streamPost(
-        "/api/prototype",
-        {
-          engine: "aws",
-          mode: "realize",
-          currentHtml: html,
-          provider: realizeModel.provider,
-          modelId: realizeModel.modelId,
-          projectId: id,
-          projectName: name,
-        },
-        { onChunk: (acc) => setGenChars(acc.length) },
-      );
-      const finalHtml = extractHtmlFromText(raw);
+      const job = await startJob({
+        projectId: id,
+        kind: "prototype",
+        engine: "aws",
+        mode: "realize",
+        currentHtml: html,
+        provider: realizeModel.provider,
+        modelId: realizeModel.modelId,
+        projectName: name,
+      });
+      const final = await pollJob(job.id, {
+        signal: pollCtl.current?.signal,
+        onProgress: (j) => setGenChars(jobChars(j)),
+      });
+      if (final.status === "error")
+        throw new Error(final.error ?? "生成に失敗しました");
+      const finalHtml = (final.result as { html?: string })?.html ?? "";
       setHtml(finalHtml);
       setShareUrl(null);
       setShareError(null);
-      await persistHtml(finalHtml);
       // 本実装版は /run で表示（SDK注入・実オリジンでデータ保存が動く）
       setLivePreview(true);
       setRunNonce((n) => n + 1);
       ok = true;
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
       setError(e instanceof Error ? e.message : "エラー");
     } finally {
       recordUsage(id, {
