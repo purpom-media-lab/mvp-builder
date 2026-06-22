@@ -15,6 +15,7 @@ import {
   streamPrototypeHtml,
   streamUpdatePrototypeHtml,
 } from "@/lib/prototype-html";
+import { parseScreenNames } from "@/lib/prototype-screens";
 import {
   getProjectWithArtifacts,
   saveStepResult,
@@ -143,19 +144,25 @@ async function runPrototypeJob(job: JobRow): Promise<void> {
         ? realizePrototypeHtml(p.currentHtml, p.provider, p.modelId)
         : streamPrototypeHtml(p, p.provider, p.modelId);
 
-  // ストリームを最後まで読み、進捗（文字数）を間引いて更新する。
-  // client は streamPost のようなライブ表示の代わりに progress.chars を見る。
+  // ストリームを最後まで読み、進捗を間引いて更新する。
+  // client は progress.chars（受信文字数）と progress.screens（生成できた画面名）を見る。
+  // 画面マーカー（<!-- @screen:... -->）は保存 HTML にも残し、生成後の画面一覧にも使う。
   let acc = "";
   let lastReported = 0;
+  let lastScreenCount = 0;
   for await (const delta of stream.textStream) {
     acc += delta;
-    if (acc.length - lastReported >= 3000) {
+    const screens = parseScreenNames(acc);
+    // 文字数が一定増えた時、または新しい画面が現れた時に進捗を流す。
+    if (acc.length - lastReported >= 3000 || screens.length > lastScreenCount) {
       lastReported = acc.length;
-      await updateJobProgress(job.id, { chars: acc.length });
+      lastScreenCount = screens.length;
+      await updateJobProgress(job.id, { chars: acc.length, screens });
     }
   }
 
   const html = extractHtmlFromText(acc);
+  const screens = parseScreenNames(html);
   await savePrototype(job.ownerId, job.projectId, { html });
-  await completeJob(job.id, { html }, { chars: html.length });
+  await completeJob(job.id, { html }, { chars: html.length, screens });
 }

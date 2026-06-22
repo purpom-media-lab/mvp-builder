@@ -7,9 +7,10 @@
  */
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_PROVIDER, MODEL_CATALOG } from "@/lib/ai/catalog";
 import { postJson } from "@/lib/api-client";
+import { parseScreenNames } from "@/lib/prototype-screens";
 import { fetchActiveJobs, type JobView, pollJob, startJob } from "@/lib/use-job";
 import {
   AiConsultPanel,
@@ -89,6 +90,8 @@ export default function PrototypePage() {
   const [loadingProject, setLoadingProject] = useState(true);
   // ストリーミング生成の進捗（受信文字数）
   const [genChars, setGenChars] = useState(0);
+  // 生成中に作れた画面名（@screen マーカーから抽出・出現順）。
+  const [genScreens, setGenScreens] = useState<string[]>([]);
   // 本実装(realize)後は /run を直接プレビュー（SDK注入・実オリジンでLQ.dbが動く）。
   // srcDoc プレビューには SDK が無いため、本実装版はそこで保存するとエラーになる。
   const [livePreview, setLivePreview] = useState(false);
@@ -164,8 +167,8 @@ export default function PrototypePage() {
       if (!job) return;
       const loadingKey = job.step === "realize" ? "realize" : "prototype";
       setLoading(loadingKey);
-      setGenChars(jobChars(job));
-      pollJob(job.id, { signal, onProgress: (j) => setGenChars(jobChars(j)) })
+      applyGenProgress(job);
+      pollJob(job.id, { signal, onProgress: applyGenProgress })
         .then((final) => {
           if (final.status === "done") {
             const out = (final.result as { html?: string })?.html ?? "";
@@ -192,6 +195,13 @@ export default function PrototypePage() {
   // ジョブ進捗から受信文字数を取り出す。
   function jobChars(job: JobView): number {
     return Number((job.progress as { chars?: number }).chars ?? 0);
+  }
+
+  // ジョブ進捗（文字数・生成できた画面名）をライブ表示に反映する。
+  function applyGenProgress(job: JobView) {
+    setGenChars(jobChars(job));
+    const s = (job.progress as { screens?: unknown }).screens;
+    if (Array.isArray(s)) setGenScreens(s as string[]);
   }
 
   async function generatePrototype(override?: {
@@ -257,9 +267,10 @@ export default function PrototypePage() {
     };
     try {
       if (engineUsed === "aws") {
-        // ジョブ起動 → ポーリングで進捗（文字数）を表示。生成はサーバ側 after() で
-        // 走るので、待っている間に画面を離れても止まらない（保存もランナーが行う）。
+        // ジョブ起動 → ポーリングで進捗（文字数・生成できた画面）を表示。生成はサーバ側
+        // after() で走るので、待っている間に画面を離れても止まらない（保存もランナーが行う）。
         setGenChars(0);
+        setGenScreens([]);
         const job = await startJob({
           ...payload,
           kind: "prototype",
@@ -267,7 +278,7 @@ export default function PrototypePage() {
         });
         const final = await pollJob(job.id, {
           signal: pollCtl.current?.signal,
-          onProgress: (j) => setGenChars(jobChars(j)),
+          onProgress: applyGenProgress,
         });
         if (final.status === "error")
           throw new Error(final.error ?? "生成に失敗しました");
@@ -335,6 +346,7 @@ export default function PrototypePage() {
     setError(null);
     try {
       setGenChars(0);
+      setGenScreens([]);
       const job = await startJob({
         projectId: id,
         kind: "prototype",
@@ -348,7 +360,7 @@ export default function PrototypePage() {
       });
       const final = await pollJob(job.id, {
         signal: pollCtl.current?.signal,
-        onProgress: (j) => setGenChars(jobChars(j)),
+        onProgress: applyGenProgress,
       });
       if (final.status === "error")
         throw new Error(final.error ?? "生成に失敗しました");
@@ -376,6 +388,7 @@ export default function PrototypePage() {
     let ok = false;
     try {
       setGenChars(0);
+      setGenScreens([]);
       const job = await startJob({
         projectId: id,
         kind: "prototype",
@@ -388,7 +401,7 @@ export default function PrototypePage() {
       });
       const final = await pollJob(job.id, {
         signal: pollCtl.current?.signal,
-        onProgress: (j) => setGenChars(jobChars(j)),
+        onProgress: applyGenProgress,
       });
       if (final.status === "error")
         throw new Error(final.error ?? "生成に失敗しました");
@@ -456,6 +469,11 @@ export default function PrototypePage() {
       });
     }
   }
+
+  // 生成中はライブの画面リスト、それ以外は保存済み HTML から抽出した画面リストを表示。
+  const generating = loading === "prototype" || loading === "realize";
+  const savedScreens = useMemo(() => parseScreenNames(html), [html]);
+  const screens = generating ? genScreens : savedScreens;
 
   return (
     <div className="relative flex h-screen flex-col">
@@ -696,6 +714,24 @@ export default function PrototypePage() {
             </div>
           )}
 
+          {/* 生成された画面の一覧（@screen マーカーから抽出）。生成後にどんな画面が
+              できたかを把握する。生成中はオーバーレイ側でライブ表示するため出さない。 */}
+          {!generating && html && screens.length > 0 && (
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b bg-muted/40 px-3 py-2 text-xs">
+              <span className="font-medium text-muted-foreground">
+                生成された画面 {screens.length}:
+              </span>
+              {screens.map((s) => (
+                <span
+                  key={s}
+                  className="rounded-full border bg-background px-2.5 py-0.5 text-[11px] text-foreground"
+                >
+                  {s}
+                </span>
+              ))}
+            </div>
+          )}
+
           {/* プレビュー */}
           <div className="relative flex-1 overflow-hidden bg-muted/40 p-3">
             {(loading === "prototype" || loading === "realize") && (
@@ -729,6 +765,24 @@ export default function PrototypePage() {
                   <p className="text-xs tabular-nums text-muted-foreground">
                     生成中… {genChars.toLocaleString()} 文字
                   </p>
+                )}
+                {(engine === "aws" || loading === "realize") &&
+                  genScreens.length > 0 && (
+                  <div className="max-w-sm text-center">
+                    <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+                      生成できた画面 {genScreens.length}
+                    </p>
+                    <div className="flex flex-wrap justify-center gap-1.5">
+                      {genScreens.map((s) => (
+                        <span
+                          key={s}
+                          className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] text-foreground"
+                        >
+                          ✓ {s}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
             )}
