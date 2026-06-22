@@ -8,8 +8,15 @@
  */
 import { extractHtmlFromText } from "@/lib/api-client";
 import type { LlmProvider } from "@/lib/ai/catalog";
+import { generateDeck } from "@/lib/ai/deck";
 import { runPipelineParallel, STEP_ROLES } from "@/lib/ai/pipeline";
+import {
+  buildDeckContext,
+  buildDesignBriefContext,
+  buildEngineerBriefContext,
+} from "@/lib/ai/project-context";
 import { isStepKey, runAnalyzeStep } from "@/lib/ai/run-step";
+import { generateDesignBrief, generateEngineerBrief } from "@/lib/ai/steps";
 import {
   realizePrototypeHtml,
   streamPrototypeHtml,
@@ -18,6 +25,7 @@ import {
 import { parseScreenNames } from "@/lib/prototype-screens";
 import {
   getProjectWithArtifacts,
+  saveDeck,
   saveStepResult,
   savePrototype,
   type StepKey,
@@ -41,6 +49,12 @@ export async function runJob(job: JobRow): Promise<void> {
       await runOrchestrateJob(job);
     } else if (job.kind === "prototype") {
       await runPrototypeJob(job);
+    } else if (job.kind === "deck") {
+      await runDeckJob(job);
+    } else if (job.kind === "design-brief") {
+      await runDesignBriefJob(job);
+    } else if (job.kind === "engineer-brief") {
+      await runEngineerBriefJob(job);
     } else {
       throw new Error(`Unknown job kind: ${job.kind}`);
     }
@@ -165,4 +179,49 @@ async function runPrototypeJob(job: JobRow): Promise<void> {
   const screens = parseScreenNames(html);
   await savePrototype(job.ownerId, job.projectId, { html });
   await completeJob(job.id, { html }, { chars: html.length, screens });
+}
+
+interface BriefPayload {
+  provider?: LlmProvider;
+  modelId?: string;
+}
+
+/** 提案資料(deck)の生成と保存。 */
+async function runDeckJob(job: JobRow): Promise<void> {
+  const p = job.payload as BriefPayload;
+  const artifacts = await getProjectWithArtifacts(job.ownerId, job.projectId);
+  if (!artifacts) throw new Error("Project not found");
+  const deck = await generateDeck(
+    buildDeckContext(artifacts),
+    p.provider,
+    p.modelId,
+  );
+  await saveDeck(job.ownerId, job.projectId, deck);
+  await completeJob(job.id, { deck });
+}
+
+/** デザイナー依頼ブリーフの下書き生成（保存はユーザー操作時に別途行う）。 */
+async function runDesignBriefJob(job: JobRow): Promise<void> {
+  const p = job.payload as BriefPayload;
+  const artifacts = await getProjectWithArtifacts(job.ownerId, job.projectId);
+  if (!artifacts) throw new Error("Project not found");
+  const brief = await generateDesignBrief({
+    context: buildDesignBriefContext(artifacts),
+    provider: p.provider,
+    modelId: p.modelId,
+  });
+  await completeJob(job.id, { brief });
+}
+
+/** エンジニア依頼ブリーフの下書き生成（保存はユーザー操作時に別途行う）。 */
+async function runEngineerBriefJob(job: JobRow): Promise<void> {
+  const p = job.payload as BriefPayload;
+  const artifacts = await getProjectWithArtifacts(job.ownerId, job.projectId);
+  if (!artifacts) throw new Error("Project not found");
+  const brief = await generateEngineerBrief({
+    context: buildEngineerBriefContext(artifacts),
+    provider: p.provider,
+    modelId: p.modelId,
+  });
+  await completeJob(job.id, { brief });
 }

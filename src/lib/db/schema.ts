@@ -413,8 +413,15 @@ export const mvpEndUsers = pgTable(
   ],
 );
 
-/** ジョブ種別: 単一工程 / 一括生成 / プロトタイプ生成 */
-export const jobKind = pgEnum("job_kind", ["step", "orchestrate", "prototype"]);
+/** ジョブ種別: 単一工程 / 一括生成 / プロトタイプ生成 / 提案資料 / デザイナー依頼ブリーフ / エンジニア依頼ブリーフ */
+export const jobKind = pgEnum("job_kind", [
+  "step",
+  "orchestrate",
+  "prototype",
+  "deck",
+  "design-brief",
+  "engineer-brief",
+]);
 /** ジョブ状態 */
 export const jobStatus = pgEnum("job_status", ["running", "done", "error"]);
 

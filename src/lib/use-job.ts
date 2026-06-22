@@ -7,7 +7,13 @@
  * 続きの進捗・最終結果を反映できる。
  */
 export type JobStatus = "running" | "done" | "error";
-export type JobKind = "step" | "orchestrate" | "prototype";
+export type JobKind =
+  | "step"
+  | "orchestrate"
+  | "prototype"
+  | "deck"
+  | "design-brief"
+  | "engineer-brief";
 
 export interface JobView {
   id: string;

@@ -8,9 +8,10 @@
  *  3) 成果物（Figma URL / PDF）を指定してプロトタイプをブラッシュアップ（リファイン）
  */
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DEFAULT_PROVIDER, MODEL_CATALOG } from "@/lib/ai/catalog";
 import { postJsonKeepalive } from "@/lib/api-client";
+import { fetchActiveJobs, pollJob, startJob } from "@/lib/use-job";
 import { GlobalHeader } from "@/components/global-header";
 import type { ModelSelection } from "@/components/model-selector";
 import { ModelPrefsDialog } from "@/components/model-prefs-dialog";
@@ -190,6 +191,42 @@ export default function DesignRequestPage() {
     setModelPrefs(loadModelPrefs(id));
   }, [id]);
 
+  // ジョブ購読の中断用。生成はサーバ側 after() で継続するので画面遷移しても止まらない。
+  const pollCtl = useRef<AbortController | null>(null);
+  useEffect(() => {
+    const ctl = new AbortController();
+    pollCtl.current = ctl;
+    return () => ctl.abort();
+  }, []);
+
+  // 進行中のデザインブリーフ生成ジョブを復帰する。
+  useEffect(() => {
+    if (!id) return;
+    const signal = pollCtl.current?.signal;
+    let cancelled = false;
+    (async () => {
+      const active = await fetchActiveJobs(id);
+      if (cancelled) return;
+      const job = active.find((j) => j.kind === "design-brief");
+      if (!job) return;
+      setLoading("generate");
+      pollJob(job.id, { signal })
+        .then((final) => {
+          if (final.status === "done") {
+            const b = (final.result as { brief?: Partial<DesignBrief> })?.brief;
+            if (b) setBrief({ ...EMPTY_BRIEF, ...b });
+          } else if (final.status === "error") {
+            setError(final.error ?? "生成に失敗しました");
+          }
+        })
+        .catch(() => {})
+        .finally(() => setLoading((l) => (l === "generate" ? null : l)));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
   function update<K extends keyof DesignBrief>(key: K, value: DesignBrief[K]) {
     setBrief((b) => ({ ...b, [key]: value }));
   }
@@ -202,17 +239,20 @@ export default function DesignRequestPage() {
     const t0 = performance.now();
     let ok = false;
     try {
-      const data = await postJsonKeepalive<{ brief: Partial<DesignBrief> }>(
-        "/api/design-request/generate",
-        {
-          projectId: id,
-          provider: reqModel.provider,
-          modelId: reqModel.modelId,
-        },
-      );
-      setBrief({ ...EMPTY_BRIEF, ...data.brief });
+      const job = await startJob({
+        projectId: id,
+        kind: "design-brief",
+        provider: reqModel.provider,
+        modelId: reqModel.modelId,
+      });
+      const final = await pollJob(job.id, { signal: pollCtl.current?.signal });
+      if (final.status === "error")
+        throw new Error(final.error ?? "生成に失敗しました");
+      const b = (final.result as { brief?: Partial<DesignBrief> })?.brief;
+      setBrief({ ...EMPTY_BRIEF, ...b });
       ok = true;
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
       setError(e instanceof Error ? e.message : "エラー");
     } finally {
       recordUsage(id, {
