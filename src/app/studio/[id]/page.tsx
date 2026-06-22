@@ -135,6 +135,8 @@ export default function ProjectDetailPage() {
   // 工程ごとのモデル設定（localStorage、projectId 単位）
   const [modelPrefs, setModelPrefs] = useState<ModelPrefs>({});
   const [prefsOpen, setPrefsOpen] = useState(false);
+  // AI相談チャット（分析内容への質問用・脇役）。既定は折りたたみ、右下ボタンで開く。
+  const [chatOpen, setChatOpen] = useState(false);
 
   const [name, setName] = useState("");
   const [summary, setSummary] = useState("");
@@ -576,7 +578,7 @@ export default function ProjectDetailPage() {
             onChange={(e) => setSummary(e.target.value)}
           />
           <Textarea
-            className="h-24"
+            className="h-48 resize-y"
             placeholder="入力資料（アイデア・要件・参考テキストを貼り付け）"
             value={sourceText}
             onChange={(e) => setSourceText(e.target.value)}
@@ -616,19 +618,6 @@ export default function ProjectDetailPage() {
             />
           )}
         </section>
-
-        {/* 統合チャット */}
-        {id && (
-          <div className="mb-8">
-            <AiConsultPanel
-              projectId={id}
-              model={model}
-              busy={loading !== null}
-              onBusyChange={setChatBusy}
-              onResults={applyOrchestrate}
-            />
-          </div>
-        )}
 
         {/* ステップタブ */}
         <Tabs
@@ -2014,6 +2003,47 @@ export default function ProjectDetailPage() {
             )}
           </div>
         </Modal>
+
+        {/* AI相談チャット（分析内容への質問用）。常駐ボタンで開閉。
+            デスクトップ=右下ドック / モバイル=下からのドロワー。既定は閉。 */}
+        {id && !chatOpen && (
+          <button
+            type="button"
+            onClick={() => setChatOpen(true)}
+            aria-label="AIに相談を開く"
+            className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-medium text-primary-foreground shadow-lg transition-transform hover:scale-105 active:scale-95"
+          >
+            💬 AIに相談
+          </button>
+        )}
+        {id && chatOpen && (
+          <>
+            {/* 背景（モバイルのみ・タップで閉じる） */}
+            <button
+              type="button"
+              aria-label="チャットを閉じる"
+              onClick={() => setChatOpen(false)}
+              className="fixed inset-0 z-40 bg-black/30 sm:hidden"
+            />
+            <div className="fixed inset-x-0 bottom-0 z-50 flex h-[85vh] flex-col overflow-hidden rounded-t-2xl border shadow-2xl sm:inset-auto sm:bottom-5 sm:right-5 sm:h-[70vh] sm:w-[420px] sm:rounded-2xl">
+              <button
+                type="button"
+                onClick={() => setChatOpen(false)}
+                aria-label="チャットを閉じる"
+                className="absolute right-3 top-3 z-10 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                ✕
+              </button>
+              <AiConsultPanel
+                projectId={id}
+                model={model}
+                busy={loading !== null}
+                onBusyChange={setChatBusy}
+                onResults={applyOrchestrate}
+              />
+            </div>
+          </>
+        )}
       </main>
     </div>
   );
