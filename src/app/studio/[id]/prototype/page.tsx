@@ -88,6 +88,10 @@ export default function PrototypePage() {
   const [loadingProject, setLoadingProject] = useState(true);
   // ストリーミング生成の進捗（受信文字数）
   const [genChars, setGenChars] = useState(0);
+  // 本実装(realize)後は /run を直接プレビュー（SDK注入・実オリジンでLQ.dbが動く）。
+  // srcDoc プレビューには SDK が無いため、本実装版はそこで保存するとエラーになる。
+  const [livePreview, setLivePreview] = useState(false);
+  const [runNonce, setRunNonce] = useState(0);
 
   useEffect(() => {
     if (!id) return;
@@ -110,9 +114,14 @@ export default function PrototypePage() {
         setBrand(d.brand ?? null);
         // 保存済みプレビュー/ホスティング結果を復元
         if (d.prototype) {
-          setHtml(d.prototype.html ?? null);
+          const savedHtml = d.prototype.html ?? null;
+          setHtml(savedHtml);
           setDemoUrl(d.prototype.demoUrl ?? null);
           setShareUrl(d.prototype.demoUrl ?? null);
+          // 本実装版（LQ SDK を使うHTML）なら /run でライブ表示する
+          if (savedHtml && /window\.LQ|LQ\.db|LQ\.auth/.test(savedHtml)) {
+            setLivePreview(true);
+          }
         }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : "エラー");
@@ -217,6 +226,7 @@ export default function PrototypePage() {
         });
         const finalHtml = extractHtmlFromText(raw);
         setHtml(finalHtml);
+        setLivePreview(false);
         setDemoUrl(null);
         setShareUrl(null);
         setShareError(null);
@@ -335,6 +345,9 @@ export default function PrototypePage() {
       setShareUrl(null);
       setShareError(null);
       await persistHtml(finalHtml);
+      // 本実装版は /run で表示（SDK注入・実オリジンでデータ保存が動く）
+      setLivePreview(true);
+      setRunNonce((n) => n + 1);
       ok = true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラー");
@@ -650,11 +663,17 @@ export default function PrototypePage() {
                         ]
                   }
                 />
-                {engine === "aws" && genChars > 0 && (
+                {(engine === "aws" || loading === "realize") &&
+                  genChars > 0 && (
                   <p className="text-xs tabular-nums text-muted-foreground">
                     生成中… {genChars.toLocaleString()} 文字
                   </p>
                 )}
+              </div>
+            )}
+            {livePreview && html && !demoUrl && loading !== "realize" && (
+              <div className="pointer-events-none absolute right-5 top-5 z-10 rounded-full bg-background/80 px-2.5 py-1 text-[11px] text-muted-foreground shadow-sm backdrop-blur">
+                本実装プレビュー（データ保存が有効）
               </div>
             )}
             {demoUrl ? (
@@ -662,6 +681,15 @@ export default function PrototypePage() {
                 src={demoUrl}
                 className="h-full w-full rounded-md border bg-white"
                 title="prototype preview"
+              />
+            ) : livePreview && html ? (
+              // 本実装版は /run で表示（SDK注入・実オリジンで LQ.db 等の保存が動く）。
+              // runNonce を key にして realize 完了ごとに最新HTMLを再取得する。
+              <iframe
+                key={runNonce}
+                src={`/run/${id}`}
+                className="h-full w-full rounded-md border bg-white"
+                title="prototype preview (live)"
               />
             ) : html ? (
               <iframe
