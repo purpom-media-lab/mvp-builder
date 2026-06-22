@@ -6,9 +6,9 @@
  * コピー/ダウンロードできる。
  */
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DEFAULT_PROVIDER, MODEL_CATALOG } from "@/lib/ai/catalog";
-import { postJsonKeepalive } from "@/lib/api-client";
+import { fetchActiveJobs, pollJob, startJob } from "@/lib/use-job";
 import { GlobalHeader } from "@/components/global-header";
 import type { ModelSelection } from "@/components/model-selector";
 import { ModelPrefsDialog } from "@/components/model-prefs-dialog";
@@ -77,6 +77,42 @@ export default function DeckPage() {
     setModelPrefs(loadModelPrefs(id));
   }, [id]);
 
+  // ジョブ購読の中断用。生成はサーバ側 after() で継続するので画面遷移しても止まらない。
+  const pollCtl = useRef<AbortController | null>(null);
+  useEffect(() => {
+    const ctl = new AbortController();
+    pollCtl.current = ctl;
+    return () => ctl.abort();
+  }, []);
+
+  // 進行中の提案資料生成ジョブを復帰する（別画面で開始・リロード前の生成の継続表示）。
+  useEffect(() => {
+    if (!id) return;
+    const signal = pollCtl.current?.signal;
+    let cancelled = false;
+    (async () => {
+      const active = await fetchActiveJobs(id);
+      if (cancelled) return;
+      const job = active.find((j) => j.kind === "deck");
+      if (!job) return;
+      setLoading(true);
+      pollJob(job.id, { signal })
+        .then((final) => {
+          if (final.status === "done") {
+            const d = (final.result as { deck?: SlideData[] })?.deck;
+            if (Array.isArray(d)) setDeck(d);
+          } else if (final.status === "error") {
+            setError(final.error ?? "生成に失敗しました");
+          }
+        })
+        .catch(() => {})
+        .finally(() => setLoading(false));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
   async function generate() {
     setLoading(true);
     setError(null);
@@ -84,14 +120,20 @@ export default function DeckPage() {
     const t0 = performance.now();
     let ok = false;
     try {
-      const data = await postJsonKeepalive<{ deck: SlideData[] }>("/api/deck", {
+      const job = await startJob({
         projectId: id,
+        kind: "deck",
         provider: deckModel.provider,
         modelId: deckModel.modelId,
       });
-      setDeck(data.deck);
+      const final = await pollJob(job.id, { signal: pollCtl.current?.signal });
+      if (final.status === "error")
+        throw new Error(final.error ?? "生成に失敗しました");
+      const d = (final.result as { deck?: SlideData[] })?.deck;
+      if (Array.isArray(d)) setDeck(d);
       ok = true;
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
       setError(e instanceof Error ? e.message : "エラー");
     } finally {
       recordUsage(id, {

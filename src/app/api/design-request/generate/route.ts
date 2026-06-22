@@ -6,6 +6,7 @@
  */
 import { NextResponse } from "next/server";
 import type { LlmProvider } from "@/lib/ai/catalog";
+import { buildDesignBriefContext } from "@/lib/ai/project-context";
 import { generateDesignBrief } from "@/lib/ai/steps";
 import { getSessionUser } from "@/lib/auth/session";
 import { getProjectWithArtifacts } from "@/lib/projects";
@@ -13,30 +14,6 @@ import { streamJsonWithHeartbeat } from "@/lib/stream-keepalive";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
-
-type Artifacts = NonNullable<
-  Awaited<ReturnType<typeof getProjectWithArtifacts>>
->;
-
-/** デザインブリーフ生成用の文脈（プロトタイプの有無を含む） */
-function buildBriefContext(a: Artifacts): string {
-  return [
-    `# プロジェクト: ${a.project.name}`,
-    a.project.summary && `## 概要\n${a.project.summary}`,
-    a.actors.length && `## アクター\n${JSON.stringify(a.actors)}`,
-    a.useCases.length && `## ユースケース\n${JSON.stringify(a.useCases)}`,
-    a.ooui.length && `## OOUIオブジェクト\n${JSON.stringify(a.ooui)}`,
-    a.navigation.length && `## ナビゲーション\n${JSON.stringify(a.navigation)}`,
-    a.wireframes.length &&
-      `## ワイヤーフレーム\n${JSON.stringify(a.wireframes)}`,
-    a.scope.length && `## スコープ\n${JSON.stringify(a.scope)}`,
-    a.mvpStatement && `## MVPステートメント\n${a.mvpStatement}`,
-    a.brand && `## ブランド設計\n${JSON.stringify(a.brand)}`,
-    `## プロトタイプ\n${a.prototype ? "クリック可能なプロトタイプが生成済み（このUIをデザイナーがブラッシュアップする前提）" : "プロトタイプ未生成"}`,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-}
 
 interface Body {
   projectId?: string;
@@ -67,7 +44,7 @@ export async function POST(req: Request) {
   // ハートビートで接続維持しながら生成（タイムアウト抑制）
   return streamJsonWithHeartbeat(async () => {
     const brief = await generateDesignBrief({
-      context: buildBriefContext(artifacts),
+      context: buildDesignBriefContext(artifacts),
       provider: body.provider,
       modelId: body.modelId,
     });

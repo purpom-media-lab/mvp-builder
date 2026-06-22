@@ -15,7 +15,14 @@ import { runJob } from "@/lib/jobs-runner";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-const KINDS: JobKind[] = ["step", "orchestrate", "prototype"];
+const KINDS: JobKind[] = [
+  "step",
+  "orchestrate",
+  "prototype",
+  "deck",
+  "design-brief",
+  "engineer-brief",
+];
 
 interface Body {
   projectId?: string;

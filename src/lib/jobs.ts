@@ -9,7 +9,13 @@ import { and, desc, eq, lt } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { jobs, projects } from "@/lib/db/schema";
 
-export type JobKind = "step" | "orchestrate" | "prototype";
+export type JobKind =
+  | "step"
+  | "orchestrate"
+  | "prototype"
+  | "deck"
+  | "design-brief"
+  | "engineer-brief";
 export type JobStatus = "running" | "done" | "error";
 export type JobRow = typeof jobs.$inferSelect;
 
