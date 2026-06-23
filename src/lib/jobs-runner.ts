@@ -14,10 +14,12 @@ import {
   buildDeckContext,
   buildDesignBriefContext,
   buildEngineerBriefContext,
+  buildRefinePrototypeContext,
 } from "@/lib/ai/project-context";
 import { isStepKey, runAnalyzeStep } from "@/lib/ai/run-step";
 import { generateDesignBrief, generateEngineerBrief } from "@/lib/ai/steps";
 import {
+  generatePrototypeHtml,
   realizePrototypeHtml,
   streamPrototypeHtml,
   streamUpdatePrototypeHtml,
@@ -26,6 +28,7 @@ import { parseScreenNames } from "@/lib/prototype-screens";
 import {
   getProjectWithArtifacts,
   saveDeck,
+  saveDesignRequest,
   saveStepResult,
   savePrototype,
   type StepKey,
@@ -36,7 +39,7 @@ import {
   updateJobProgress,
   type JobRow,
 } from "@/lib/jobs";
-import type { PrototypeContext } from "@/lib/v0";
+import { createPrototype, type PrototypeContext } from "@/lib/v0";
 
 const TOTAL_STEPS = Object.keys(STEP_ROLES).length;
 
@@ -55,6 +58,8 @@ export async function runJob(job: JobRow): Promise<void> {
       await runDesignBriefJob(job);
     } else if (job.kind === "engineer-brief") {
       await runEngineerBriefJob(job);
+    } else if (job.kind === "design-refine") {
+      await runDesignRefineJob(job);
     } else {
       throw new Error(`Unknown job kind: ${job.kind}`);
     }
@@ -233,4 +238,58 @@ async function runEngineerBriefJob(job: JobRow): Promise<void> {
     modelId: p.modelId,
   });
   await completeJob(job.id, { brief });
+}
+
+interface RefinePayload {
+  engine?: "v0" | "aws";
+  provider?: LlmProvider;
+  modelId?: string;
+  figmaUrl?: string;
+  pdfName?: string;
+  pdfData?: string;
+  note?: string;
+}
+
+/** デザイナー成果物（Figma/PDF）を参照してプロトタイプをブラッシュアップする。
+ *  プロトタイプと依頼状態（received）を保存する。 */
+async function runDesignRefineJob(job: JobRow): Promise<void> {
+  const p = job.payload as RefinePayload;
+  const hasFigma = !!p.figmaUrl?.trim();
+  const hasPdf = !!p.pdfName?.trim();
+  if (!hasFigma && !hasPdf) {
+    throw new Error("Figma URL もしくは PDF を指定してください");
+  }
+
+  const artifacts = await getProjectWithArtifacts(job.ownerId, job.projectId);
+  if (!artifacts) throw new Error("Project not found");
+
+  const refineReference: PrototypeContext["refineReference"] = hasFigma
+    ? { type: "figma", url: p.figmaUrl?.trim(), note: p.note }
+    : { type: "pdf", url: p.pdfName?.trim(), note: p.note };
+  const ctx = buildRefinePrototypeContext(artifacts, refineReference);
+
+  let result: { html?: string; demoUrl?: string | null };
+  if (p.engine === "v0") {
+    const r = await createPrototype(ctx);
+    await savePrototype(job.ownerId, job.projectId, {
+      v0ChatId: r.chatId,
+      demoUrl: r.demoUrl,
+    });
+    result = { demoUrl: r.demoUrl };
+  } else {
+    const html = await generatePrototypeHtml(ctx, p.provider, p.modelId);
+    await savePrototype(job.ownerId, job.projectId, { html });
+    result = { html };
+  }
+
+  // 依頼状態を「成果物受領（received）」に更新し、成果物参照を保存
+  await saveDesignRequest(job.ownerId, job.projectId, {
+    status: "received",
+    figmaUrl: hasFigma ? (p.figmaUrl?.trim() ?? null) : null,
+    pdfName: hasPdf ? (p.pdfName?.trim() ?? null) : null,
+    pdfData: hasPdf ? (p.pdfData ?? null) : null,
+    refinedNote: p.note ?? null,
+  });
+
+  await completeJob(job.id, result);
 }
