@@ -46,7 +46,7 @@ export async function generatePrototypeHtml(
     system: SYSTEM,
     prompt: buildPrototypePrompt(ctx),
     temperature: 0.6,
-    maxOutputTokens: maxOutputTokensFor(provider, modelId),
+    maxOutputTokens: maxOutputTokensFor(),
   });
   return extractHtml(text);
 }
@@ -68,7 +68,7 @@ export async function updatePrototypeHtml(
     system: UPDATE_SYSTEM,
     prompt: `## 現在のHTML\n${currentHtml}\n\n## 修正指示\n${instruction}`,
     temperature: 0.5,
-    maxOutputTokens: maxOutputTokensFor(provider, modelId),
+    maxOutputTokens: maxOutputTokensFor(),
   });
   return extractHtml(text);
 }
@@ -91,7 +91,7 @@ export function streamPrototypeHtml(
     system: SYSTEM,
     prompt: buildPrototypePrompt(ctx),
     temperature: 0.6,
-    maxOutputTokens: maxOutputTokensFor(provider, modelId),
+    maxOutputTokens: maxOutputTokensFor(),
     onFinish: async ({ text }) => {
       await onComplete?.(extractHtml(text));
     },
@@ -147,7 +147,7 @@ export function realizePrototypeHtml(
     system: REALIZE_SYSTEM,
     prompt: `## 現在のHTML（プレビュー）\n${currentHtml}\n\n上記を、LQ SDK でデータを保存・一覧表示する本実装版に書き換えて、完全なHTML全文を返してください。`,
     temperature: 0.4,
-    maxOutputTokens: maxOutputTokensFor(provider, modelId),
+    maxOutputTokens: maxOutputTokensFor(),
     onFinish: async ({ text }) => {
       await onComplete?.(extractHtml(text));
     },
@@ -167,7 +167,7 @@ export function streamUpdatePrototypeHtml(
     system: UPDATE_SYSTEM,
     prompt: `## 現在のHTML\n${currentHtml}\n\n## 修正指示\n${instruction}`,
     temperature: 0.5,
-    maxOutputTokens: maxOutputTokensFor(provider, modelId),
+    maxOutputTokens: maxOutputTokensFor(),
     onFinish: async ({ text }) => {
       await onComplete?.(extractHtml(text));
     },

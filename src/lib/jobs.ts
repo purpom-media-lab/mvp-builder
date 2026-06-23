@@ -21,9 +21,10 @@ export type JobStatus = "running" | "done" | "error";
 export type JobRow = typeof jobs.$inferSelect;
 
 /**
- * running のまま放置されたジョブを「クラッシュ」とみなす閾値。
- * 生成本体は after() 内で関数の maxDuration(300s) を上限に走るので、それを超えて
- * running の行はインスタンス退避・クラッシュで取り残されたものとして error 化する。
+ * running のまま放置されたジョブを「クラッシュ／時間切れ」とみなす閾値。
+ * 生成本体は after() 内で関数の maxDuration(300s) を上限に走る。それを少し超えても
+ * running なら、インスタンス退避・クラッシュ・時間切れで取り残されたものとして error 化する。
+ * maxDuration より大きく、かつユーザーに早めにエラーを返せる程度に保つ（6分）。
  */
 const STALE_MS = 6 * 60 * 1000;
 
@@ -114,7 +115,7 @@ export async function getJob(
       .update(jobs)
       .set({
         status: "error",
-        error: "生成が完了しませんでした（タイムアウト）。もう一度お試しください。",
+        error: "生成が時間内に完了しませんでした。内容が大きすぎる可能性があります（プロトタイプは「生成する画面」を絞って分割してお試しください）。",
         finishedAt: new Date(),
       })
       .where(and(eq(jobs.id, jobId), eq(jobs.status, "running")))
@@ -212,7 +213,7 @@ export async function reapStale(projectId: string): Promise<void> {
     .update(jobs)
     .set({
       status: "error",
-      error: "生成が完了しませんでした（タイムアウト）。もう一度お試しください。",
+      error: "生成が時間内に完了しませんでした。内容が大きすぎる可能性があります（プロトタイプは「生成する画面」を絞って分割してお試しください）。",
       finishedAt: new Date(),
     })
     .where(
