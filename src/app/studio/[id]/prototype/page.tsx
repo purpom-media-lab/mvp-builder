@@ -92,6 +92,8 @@ export default function PrototypePage() {
   const [genChars, setGenChars] = useState(0);
   // 生成中に作れた画面名（@screen マーカーから抽出・出現順）。
   const [genScreens, setGenScreens] = useState<string[]>([]);
+  // 直近の生成が出力上限で途中で切れたか（finishReason==="length"）。
+  const [truncated, setTruncated] = useState(false);
   // 本実装(realize)後は /run を直接プレビュー（SDK注入・実オリジンでLQ.dbが動く）。
   // srcDoc プレビューには SDK が無いため、本実装版はそこで保存するとエラーになる。
   const [livePreview, setLivePreview] = useState(false);
@@ -171,8 +173,10 @@ export default function PrototypePage() {
       pollJob(job.id, { signal, onProgress: applyGenProgress })
         .then((final) => {
           if (final.status === "done") {
-            const out = (final.result as { html?: string })?.html ?? "";
+            const r = final.result as { html?: string; truncated?: boolean };
+            const out = r?.html ?? "";
             if (out) setHtml(out);
+            setTruncated(Boolean(r?.truncated));
             if (job.step === "realize" && out) {
               setLivePreview(true);
               setRunNonce((n) => n + 1);
@@ -282,8 +286,10 @@ export default function PrototypePage() {
         });
         if (final.status === "error")
           throw new Error(final.error ?? "生成に失敗しました");
-        const finalHtml = (final.result as { html?: string })?.html ?? "";
+        const r = final.result as { html?: string; truncated?: boolean };
+        const finalHtml = r?.html ?? "";
         setHtml(finalHtml);
+        setTruncated(Boolean(r?.truncated));
         setLivePreview(false);
         setDemoUrl(null);
         setShareUrl(null);
@@ -364,8 +370,10 @@ export default function PrototypePage() {
       });
       if (final.status === "error")
         throw new Error(final.error ?? "生成に失敗しました");
-      const finalHtml = (final.result as { html?: string })?.html ?? "";
+      const r = final.result as { html?: string; truncated?: boolean };
+      const finalHtml = r?.html ?? "";
       setHtml(finalHtml);
+      setTruncated(Boolean(r?.truncated));
       setShareUrl(null);
       setShareError(null);
       setInstruction("");
@@ -405,8 +413,10 @@ export default function PrototypePage() {
       });
       if (final.status === "error")
         throw new Error(final.error ?? "生成に失敗しました");
-      const finalHtml = (final.result as { html?: string })?.html ?? "";
+      const r = final.result as { html?: string; truncated?: boolean };
+      const finalHtml = r?.html ?? "";
       setHtml(finalHtml);
+      setTruncated(Boolean(r?.truncated));
       setShareUrl(null);
       setShareError(null);
       // 本実装版は /run で表示（SDK注入・実オリジンでデータ保存が動く）
@@ -711,6 +721,14 @@ export default function PrototypePage() {
                   )}
                 </span>
               )}
+            </div>
+          )}
+
+          {/* 出力上限による途中切れの警告。無言の部分生成を防ぐ。 */}
+          {!generating && truncated && html && (
+            <div className="border-b border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+              出力の上限に達し、生成が途中で切れた可能性があります（画面が不足していることがあります）。
+              出力上限のより大きいモデルに切り替えるか、対象を絞って分割生成してください。
             </div>
           )}
 
