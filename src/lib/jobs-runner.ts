@@ -175,10 +175,19 @@ async function runPrototypeJob(job: JobRow): Promise<void> {
     }
   }
 
+  // 出力トークン上限に達して途中で切れたか（finishReason==="length"）を検知する。
+  // 切れていても部分 HTML は保存し、client に truncated を伝えて明示する（無言の部分生成を防ぐ）。
+  const finishReason = await stream.finishReason;
+  const truncated = finishReason === "length";
+
   const html = extractHtmlFromText(acc);
   const screens = parseScreenNames(html);
   await savePrototype(job.ownerId, job.projectId, { html });
-  await completeJob(job.id, { html }, { chars: html.length, screens });
+  await completeJob(
+    job.id,
+    { html, truncated },
+    { chars: html.length, screens, truncated },
+  );
 }
 
 interface BriefPayload {
