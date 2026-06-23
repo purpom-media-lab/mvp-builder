@@ -45,6 +45,48 @@ import type {
   UseCaseView,
 } from "@/lib/studio-types";
 
+/**
+ * srcDoc プレビューに注入するブリッジ。親から postMessage({lqGoto: 画面名}) を受け、
+ * (1) テキストが一致するナビ要素（a/button/tab 等）をクリックしてその画面へ遷移、
+ * (2) 見つからなければ @screen マーカー直後の要素へスクロール、を試みる。
+ * プロトタイプの遷移実装は任意JSなので確実ではない（ベストエフォート）。
+ */
+const SCREEN_JUMP_BRIDGE = `
+<script>
+(function () {
+  function norm(s) { return (s || "").replace(/\\s+/g, "").toLowerCase(); }
+  window.addEventListener("message", function (e) {
+    var d = e && e.data;
+    if (!d || d.lqGoto == null) return;
+    var target = norm(String(d.lqGoto));
+    if (!target) return;
+    var nodes = document.querySelectorAll('a,button,[role="tab"],[role="menuitem"],[onclick],nav li,[data-screen]');
+    var exact = null, partial = null;
+    for (var i = 0; i < nodes.length; i++) {
+      var t = norm(nodes[i].textContent);
+      if (!t) continue;
+      if (t === target) { exact = nodes[i]; break; }
+      if (!partial && (t.indexOf(target) !== -1 || target.indexOf(t) !== -1)) partial = nodes[i];
+    }
+    var hit = exact || partial;
+    if (hit) {
+      try { hit.click(); } catch (_) {}
+      try { hit.scrollIntoView({ block: "nearest" }); } catch (_) {}
+      return;
+    }
+    var it = document.createNodeIterator(document.body, NodeFilter.SHOW_COMMENT);
+    var c;
+    while ((c = it.nextNode())) {
+      if (norm(c.nodeValue).indexOf("@screen:" + target) !== -1) {
+        var n = c.nextElementSibling || c.parentElement;
+        if (n && n.scrollIntoView) { n.scrollIntoView({ block: "start" }); }
+        return;
+      }
+    }
+  });
+})();
+</script>`;
+
 export default function PrototypePage() {
   const { id } = useParams<{ id: string }>();
 
@@ -151,6 +193,9 @@ export default function PrototypePage() {
     setModel(loadBaseModel(id));
     setModelPrefs(loadModelPrefs(id));
   }, [id]);
+
+  // srcDoc プレビューの iframe（画面ジャンプの postMessage 送信先）。
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   // ジョブ購読（ポーリング）の中断用。アンマウントで abort する。
   // 生成本体はサーバ側 after() で継続するので、画面遷移しても止まらない。
@@ -511,6 +556,19 @@ export default function PrototypePage() {
   const savedScreens = useMemo(() => parseScreenNames(html), [html]);
   const screens = generating ? genScreens : savedScreens;
 
+  // 画面ジャンプは srcDoc プレビュー（ローカルHTML）でのみ可能。demoUrl / /run はクロスオリジン。
+  const canJump = !!html && !demoUrl && !livePreview;
+  // srcDoc に「postMessage で指定画面へ遷移」するブリッジを注入する。
+  const srcDocWithBridge = useMemo(
+    () => (html ? html + SCREEN_JUMP_BRIDGE : html),
+    [html],
+  );
+
+  // チップから iframe 内のブリッジに画面名を送り、該当画面へ遷移させる。
+  function gotoScreen(label: string) {
+    iframeRef.current?.contentWindow?.postMessage({ lqGoto: label }, "*");
+  }
+
   return (
     <div className="relative flex h-screen flex-col">
       {loadingProject && <LoadingOverlay label="読み込み中…" />}
@@ -819,16 +877,29 @@ export default function PrototypePage() {
           {!generating && html && screens.length > 0 && (
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b bg-muted/40 px-3 py-2 text-xs">
               <span className="font-medium text-muted-foreground">
-                生成された画面 {screens.length}:
+                生成された画面 {screens.length}
+                {canJump ? "（クリックで該当画面へ）" : ""}:
               </span>
-              {screens.map((s) => (
-                <span
-                  key={s}
-                  className="rounded-full border bg-background px-2.5 py-0.5 text-[11px] text-foreground"
-                >
-                  {s}
-                </span>
-              ))}
+              {screens.map((s) =>
+                canJump ? (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => gotoScreen(s)}
+                    title="プレビューを この画面へ移動"
+                    className="rounded-full border bg-background px-2.5 py-0.5 text-[11px] text-foreground transition hover:border-primary hover:bg-primary/10"
+                  >
+                    {s}
+                  </button>
+                ) : (
+                  <span
+                    key={s}
+                    className="rounded-full border bg-background px-2.5 py-0.5 text-[11px] text-foreground"
+                  >
+                    {s}
+                  </span>
+                ),
+              )}
             </div>
           )}
 
@@ -908,7 +979,8 @@ export default function PrototypePage() {
               />
             ) : html ? (
               <iframe
-                srcDoc={html}
+                ref={iframeRef}
+                srcDoc={srcDocWithBridge ?? undefined}
                 className="h-full w-full rounded-md border bg-white"
                 title="prototype preview (aws)"
                 sandbox="allow-scripts"
