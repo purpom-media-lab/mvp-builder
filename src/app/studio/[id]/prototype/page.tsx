@@ -61,6 +61,8 @@ export default function PrototypePage() {
   const [useCases, setUseCases] = useState<UseCaseView[]>([]);
   const [ooui, setOoui] = useState<OouiView[]>([]);
   const [nav, setNav] = useState<NavView[]>([]);
+  // 生成対象に選んだ画面（ナビのラベル集合）。既定は全画面。空 or 全選択なら絞り込みなし。
+  const [selectedScreens, setSelectedScreens] = useState<string[]>([]);
   const [scope, setScope] = useState<ScopeFeatureView[]>([]);
   const [mvpStatement, setMvpStatement] = useState("");
   const [kpi, setKpi] = useState<{
@@ -113,7 +115,10 @@ export default function PrototypePage() {
         setActors(d.actors ?? []);
         setUseCases(d.useCases ?? []);
         setOoui(d.ooui ?? []);
-        setNav(d.navigation ?? []);
+        const navItems = (d.navigation ?? []) as NavView[];
+        setNav(navItems);
+        // 既定は全画面を生成対象に選択
+        setSelectedScreens(navItems.map((n) => n.label));
         setScope(d.scope ?? []);
         setMvpStatement(d.mvpStatement ?? "");
         setKpi(d.kpi ?? null);
@@ -208,6 +213,13 @@ export default function PrototypePage() {
     if (Array.isArray(s)) setGenScreens(s as string[]);
   }
 
+  // 生成対象の画面トグル。
+  function toggleScreen(label: string) {
+    setSelectedScreens((cur) =>
+      cur.includes(label) ? cur.filter((l) => l !== label) : [...cur, label],
+    );
+  }
+
   async function generatePrototype(override?: {
     actors?: ActorView[];
     useCases?: UseCaseView[];
@@ -218,7 +230,19 @@ export default function PrototypePage() {
     const aData = override?.actors ?? actors;
     const ucData = override?.useCases ?? useCases;
     const oData = override?.ooui ?? ooui;
-    const navData = override?.nav ?? nav;
+    // 画面選択による絞り込み（チャット再生成の override 時や全画面選択時は絞らない）。
+    const useSelection =
+      !override?.nav &&
+      selectedScreens.length > 0 &&
+      selectedScreens.length < nav.length;
+    const baseNav = override?.nav ?? nav;
+    const navData = useSelection
+      ? baseNav.filter(
+          (n) =>
+            selectedScreens.includes(n.label) ||
+            (n.parent != null && selectedScreens.includes(n.parent)),
+        )
+      : baseNav;
     const engineUsed = override?.engine ?? engine;
     setLoading("prototype");
     setError(null);
@@ -248,6 +272,8 @@ export default function PrototypePage() {
         screenType: n.screenType,
         parent: n.parent,
       })),
+      // 部分生成のときだけ「この画面だけを過不足なく実装」と明示する。
+      selectedScreens: useSelection ? selectedScreens : undefined,
       mvpStatement,
       // スコープ確定済みなら MVP に含む機能だけを実装対象に渡す
       scope: scope
@@ -546,7 +572,16 @@ export default function PrototypePage() {
                 setEngine("aws");
                 generatePrototype({ engine: "aws" });
               }}
-              disabled={loading !== null || chatBusy}
+              disabled={
+                loading !== null ||
+                chatBusy ||
+                (nav.length > 0 && selectedScreens.length === 0)
+              }
+              title={
+                nav.length > 0 && selectedScreens.length === 0
+                  ? "生成する画面を1つ以上選択してください"
+                  : undefined
+              }
             >
               {loading === "prototype" && engine === "aws"
                 ? "プレビュー生成中…"
@@ -657,6 +692,53 @@ export default function PrototypePage() {
               </>
             )}
           </div>
+
+          {/* 生成する画面の選択。出力量を抑えて途中切れを防ぎ、作りたい画面に集中する。
+              全選択なら従来どおり全画面、絞ると「選んだ画面だけを過不足なく実装」する。 */}
+          {!generating && nav.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 border-b bg-muted/40 px-3 py-2 text-xs">
+              <span className="font-medium text-muted-foreground">
+                生成する画面（{selectedScreens.length}/{nav.length}）:
+              </span>
+              {nav.map((n, i) => {
+                const on = selectedScreens.includes(n.label);
+                return (
+                  <button
+                    key={`${n.label}-${i}`}
+                    type="button"
+                    onClick={() => toggleScreen(n.label)}
+                    className={`rounded-full border px-2.5 py-0.5 text-[11px] transition ${
+                      on
+                        ? "border-primary bg-primary/10 text-foreground"
+                        : "bg-background text-muted-foreground opacity-60"
+                    }`}
+                  >
+                    {on ? "✓ " : ""}
+                    {n.parent ? `${n.parent} › ${n.label}` : n.label}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setSelectedScreens(nav.map((n) => n.label))}
+                className="ml-1 text-muted-foreground underline"
+              >
+                全選択
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedScreens([])}
+                className="text-muted-foreground underline"
+              >
+                全解除
+              </button>
+              {selectedScreens.length === 0 && (
+                <span className="text-amber-600 dark:text-amber-400">
+                  ※ 1つ以上選択してください
+                </span>
+              )}
+            </div>
+          )}
 
           {/* 結果ストリップ（共有URL / 引き継ぎ） */}
           {(shareUrl || shareError || publish) && (
