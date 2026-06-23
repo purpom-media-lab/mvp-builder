@@ -122,6 +122,12 @@ export interface PrototypeContext {
     parent?: string | null;
     icon?: string | null;
   }[];
+  /**
+   * 生成対象の画面名（ナビのラベル）。指定があれば「これらの画面だけを過不足なく実装」する。
+   * 出力量を抑えて途中切れを防ぎ、作りたい画面に集中させるための分割生成に使う。
+   * 未指定（全画面）なら従来どおり navigation 全体を作る。
+   */
+  selectedScreens?: string[];
   /** このMVPで検証する仮説・提供価値（スコープ確定の宣言） */
   mvpStatement?: string | null;
   /** MVPに含む機能（これらだけを実装する。スコープ確定済みの includedInMvp 機能） */
@@ -197,6 +203,15 @@ export function buildPrototypePrompt(ctx: PrototypeContext): string {
           );
           return head + sub.join("");
         }),
+    );
+  }
+  if (ctx.selectedScreens?.length) {
+    lines.push(
+      "",
+      "## 生成対象の画面（重要・厳守）",
+      "次に列挙する画面だけを、過不足なく **すべて** 実装すること。途中で省略・打ち切りをしない。",
+      "列挙されていない画面は作らない。各画面はクリックで実際に行き来できること。",
+      ...ctx.selectedScreens.map((s) => `- ${s}`),
     );
   }
   if (ctx.mvpStatement) {
