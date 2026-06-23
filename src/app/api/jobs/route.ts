@@ -13,10 +13,9 @@ import { createJob, listJobs, type JobKind } from "@/lib/jobs";
 import { runJob } from "@/lib/jobs-runner";
 
 export const runtime = "nodejs";
-// 生成本体は after() でこの関数内に走る。300 はこのプランの上限（800 はデプロイで弾かれた）。
-// 出力上限（maxOutputTokensFor）を 300 秒内に収まる量に抑えることで打ち切りを防ぐ。
-// Fluid Compute を有効化すればこの値を引き上げられる。
-export const maxDuration = 300;
+// 生成本体は after() でこの関数内に走る。Fluid Compute 有効化で上限 800 秒まで使える。
+// 出力上限（maxOutputTokensFor）も 800 秒内に収まる量にしてある。
+export const maxDuration = 800;
 
 const KINDS: JobKind[] = [
   "step",

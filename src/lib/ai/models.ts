@@ -20,19 +20,33 @@ export {
 /**
  * プロトタイプ生成の出力トークン上限。
  *
- * 2つの理由で明示する:
+ * 2つの制約で決める:
  * 1) 未指定だと @ai-sdk/anthropic は haiku-4-5 や未知モデルで 4096 にフォールバックし、
- *    長い HTML が無言で切り詰められてしまう。
- * 2) 生成本体は after() でサーバ関数（maxDuration=300s）内に走るため、出力が大きすぎると
- *    300 秒で打ち切られて「タイムアウト」になる。観測では ~65 tok/s で、300 秒なら
- *    せいぜい ~18k tokens しか出せない。そこで 16k を上限にして時間内に完結させる。
+ *    長い HTML が無言で切り詰められてしまう（明示して回避）。
+ * 2) 生成本体は after() でサーバ関数（maxDuration=800s, Fluid Compute）内に走る。
+ *    観測 ~65 tok/s で 800 秒なら ~50k tokens 程度が限界。余裕を見て下表に収める。
  *
- * これを超える大規模プロトタイプは finishReason="length" で検知し（途中切れ警告）、
- * 「生成する画面」を絞った分割生成に誘導する。Vercel の Fluid Compute を有効化して
- * maxDuration を伸ばせれば、この値も引き上げられる。
+ * 値はプロバイダの実上限も超えないようにする（超えると anthropic は known model を
+ * クランプ、openai 等は API エラーになる）。これを超える大規模プロトタイプは
+ * finishReason="length" で検知し（途中切れ警告）、「生成する画面」を絞った分割に誘導する。
  */
-export function maxOutputTokensFor(): number {
-  return 16000;
+export function maxOutputTokensFor(
+  provider: LlmProvider = DEFAULT_PROVIDER,
+  modelId?: string,
+): number {
+  const id = (modelId ?? "").toLowerCase();
+  switch (provider) {
+    case "claude":
+      if (id.includes("opus")) return 32000; // opus-4 の出力上限
+      if (id.includes("haiku")) return 32000;
+      return 48000; // sonnet 系（64k 上限だが 800 秒に収まる量に抑える）
+    case "openai":
+      return 16000; // gpt-4o 系の出力上限
+    case "gemini":
+      return 32000;
+    default:
+      return 16000;
+  }
 }
 
 /** provider + modelId から AI SDK の LanguageModel を解決 */

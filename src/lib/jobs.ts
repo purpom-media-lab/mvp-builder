@@ -22,11 +22,11 @@ export type JobRow = typeof jobs.$inferSelect;
 
 /**
  * running のまま放置されたジョブを「クラッシュ／時間切れ」とみなす閾値。
- * 生成本体は after() 内で関数の maxDuration(300s) を上限に走る。それを少し超えても
- * running なら、インスタンス退避・クラッシュ・時間切れで取り残されたものとして error 化する。
- * maxDuration より大きく、かつユーザーに早めにエラーを返せる程度に保つ（6分）。
+ * 生成本体は after() 内で関数の maxDuration(800s, Fluid Compute) を上限に走るので、
+ * それ＋余裕を超えて running なら取り残されたものとして error 化する。
+ * maxDuration より必ず大きくすること（小さいと生成中ジョブを誤って刈ってしまう）。
  */
-const STALE_MS = 6 * 60 * 1000;
+const STALE_MS = 15 * 60 * 1000;
 
 /** プロジェクト所有権チェック（無ければ null） */
 async function getOwnedProject(ownerId: string, projectId: string) {
