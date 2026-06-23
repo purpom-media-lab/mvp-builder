@@ -649,32 +649,41 @@ export default function PrototypePage() {
             </Button>
 
             {(html || demoUrl) && (
-              <>
-                <div className="flex items-center gap-1.5">
-                  <Input
-                    className="h-8 w-44"
-                    placeholder="修正指示（例: サイドバーを青く）"
-                    value={instruction}
-                    onChange={(e) => setInstruction(e.target.value)}
-                    onKeyDown={(e) => {
-                      // IME 変換確定の Enter では実行しない（日本語入力対策）
-                      if (e.key === "Enter" && !e.nativeEvent.isComposing)
-                        updatePrototype();
-                    }}
-                    disabled={loading !== null || chatBusy}
-                  />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={updatePrototype}
-                    disabled={loading !== null || chatBusy || !instruction.trim()}
-                  >
-                    {loading === "prototype" ? "更新中…" : "更新"}
-                  </Button>
-                </div>
+              // 微調整（UC-更新1）: 既存プレビューへの修正指示
+              <div className="flex items-center gap-1.5">
+                <Input
+                  className="h-8 w-44"
+                  placeholder="修正指示（例: サイドバーを青く）"
+                  value={instruction}
+                  onChange={(e) => setInstruction(e.target.value)}
+                  onKeyDown={(e) => {
+                    // IME 変換確定の Enter では実行しない（日本語入力対策）
+                    if (e.key === "Enter" && !e.nativeEvent.isComposing)
+                      updatePrototype();
+                  }}
+                  disabled={loading !== null || chatBusy}
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={updatePrototype}
+                  disabled={loading !== null || chatBusy || !instruction.trim()}
+                >
+                  {loading === "prototype" ? "更新中…" : "更新"}
+                </Button>
+              </div>
+            )}
+          </div>
 
-                <span className="mx-1 h-5 w-px bg-border" />
-
+          {/* プレビュー完成後のアクション。OOUI 分析のワイヤー案に基づき
+              「公開 / ビルド / デザイン依頼」の3グループに整理する。 */}
+          {(html || demoUrl) && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b bg-background px-3 py-2">
+              {/* 公開 */}
+              <div className="flex items-center gap-1.5 rounded-md border px-2 py-1">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  公開
+                </span>
                 <Button
                   size="sm"
                   variant="outline"
@@ -683,9 +692,23 @@ export default function PrototypePage() {
                 >
                   {loading === "host" ? "ホスティング中…" : "ホスティング"}
                 </Button>
+                {html && (
+                  <a
+                    href={`/run/${id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={buttonVariants({ variant: "outline", size: "sm" })}
+                  >
+                    公開URLを開く ↗
+                  </a>
+                )}
+              </div>
 
-                <span className="mx-1 h-5 w-px bg-border" />
-
+              {/* ビルド */}
+              <div className="flex items-center gap-1.5 rounded-md border px-2 py-1">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  ビルド
+                </span>
                 {/* 本実装: プレビューを実データ保存できる動くMVPに変換する */}
                 {html && (
                   <Button
@@ -697,19 +720,6 @@ export default function PrototypePage() {
                       ? "本実装生成中…"
                       : "本実装（データ保存を有効化）"}
                   </Button>
-                )}
-                {html && (
-                  <a
-                    href={`/run/${id}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={buttonVariants({
-                      variant: "outline",
-                      size: "sm",
-                    })}
-                  >
-                    公開URLを開く ↗
-                  </a>
                 )}
                 <Button
                   size="sm"
@@ -724,32 +734,43 @@ export default function PrototypePage() {
                     ? "v0生成中…"
                     : "v0で本格化"}
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={publishHandoff}
-                  disabled={loading !== null || chatBusy}
-                >
-                  {loading === "publish" ? "引き継ぎ中…" : "公開・引き継ぎ"}
-                </Button>
-
-                <span className="mx-1 h-5 w-px bg-border" />
-
-                <Link
-                  href={`/studio/${id}/design-request`}
-                  className={buttonVariants({ variant: "outline", size: "sm" })}
-                >
-                  デザイナーに依頼 →
-                </Link>
+                <span className="inline-flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={publishHandoff}
+                    disabled={loading !== null || chatBusy}
+                  >
+                    {loading === "publish" ? "引き継ぎ中…" : "公開・引き継ぎ"}
+                  </Button>
+                  {publish?.status === "not-configured" && (
+                    <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-600 dark:text-amber-400">
+                      未連携
+                    </span>
+                  )}
+                </span>
                 <Link
                   href={`/studio/${id}/engineer-request`}
                   className={buttonVariants({ variant: "outline", size: "sm" })}
                 >
                   エンジニアに依頼 →
                 </Link>
-              </>
-            )}
-          </div>
+              </div>
+
+              {/* デザイン依頼 */}
+              <div className="flex items-center gap-1.5 rounded-md border px-2 py-1">
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  デザイン依頼
+                </span>
+                <Link
+                  href={`/studio/${id}/design-request`}
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
+                >
+                  デザイナーに依頼 →
+                </Link>
+              </div>
+            </div>
+          )}
 
           {/* 生成する画面の選択。出力量を抑えて途中切れを防ぎ、作りたい画面に集中する。
               全選択なら従来どおり全画面、絞ると「選んだ画面だけを過不足なく実装」する。 */}
