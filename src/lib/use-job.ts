@@ -13,7 +13,8 @@ export type JobKind =
   | "prototype"
   | "deck"
   | "design-brief"
-  | "engineer-brief";
+  | "engineer-brief"
+  | "design-refine";
 
 export interface JobView {
   id: string;

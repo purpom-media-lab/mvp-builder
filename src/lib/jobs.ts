@@ -15,7 +15,8 @@ export type JobKind =
   | "prototype"
   | "deck"
   | "design-brief"
-  | "engineer-brief";
+  | "engineer-brief"
+  | "design-refine";
 export type JobStatus = "running" | "done" | "error";
 export type JobRow = typeof jobs.$inferSelect;
 

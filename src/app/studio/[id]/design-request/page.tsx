@@ -10,7 +10,6 @@
 import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { DEFAULT_PROVIDER, MODEL_CATALOG } from "@/lib/ai/catalog";
-import { postJsonKeepalive } from "@/lib/api-client";
 import { fetchActiveJobs, pollJob, startJob } from "@/lib/use-job";
 import { GlobalHeader } from "@/components/global-header";
 import type { ModelSelection } from "@/components/model-selector";
@@ -199,7 +198,7 @@ export default function DesignRequestPage() {
     return () => ctl.abort();
   }, []);
 
-  // 進行中のデザインブリーフ生成ジョブを復帰する。
+  // 進行中のデザインブリーフ生成／成果物リファインジョブを復帰する。
   useEffect(() => {
     if (!id) return;
     const signal = pollCtl.current?.signal;
@@ -207,20 +206,42 @@ export default function DesignRequestPage() {
     (async () => {
       const active = await fetchActiveJobs(id);
       if (cancelled) return;
-      const job = active.find((j) => j.kind === "design-brief");
-      if (!job) return;
-      setLoading("generate");
-      pollJob(job.id, { signal })
-        .then((final) => {
-          if (final.status === "done") {
-            const b = (final.result as { brief?: Partial<DesignBrief> })?.brief;
-            if (b) setBrief({ ...EMPTY_BRIEF, ...b });
-          } else if (final.status === "error") {
-            setError(final.error ?? "生成に失敗しました");
-          }
-        })
-        .catch(() => {})
-        .finally(() => setLoading((l) => (l === "generate" ? null : l)));
+      const briefJob = active.find((j) => j.kind === "design-brief");
+      if (briefJob) {
+        setLoading("generate");
+        pollJob(briefJob.id, { signal })
+          .then((final) => {
+            if (final.status === "done") {
+              const b = (final.result as { brief?: Partial<DesignBrief> })
+                ?.brief;
+              if (b) setBrief({ ...EMPTY_BRIEF, ...b });
+            } else if (final.status === "error") {
+              setError(final.error ?? "生成に失敗しました");
+            }
+          })
+          .catch(() => {})
+          .finally(() => setLoading((l) => (l === "generate" ? null : l)));
+      }
+      const refineJob = active.find((j) => j.kind === "design-refine");
+      if (refineJob) {
+        setLoading("refine");
+        pollJob(refineJob.id, { signal })
+          .then((final) => {
+            if (final.status === "done") {
+              const r = final.result as {
+                html?: string | null;
+                demoUrl?: string | null;
+              };
+              setRefinedHtml(r?.html ?? null);
+              setRefinedDemoUrl(r?.demoUrl ?? null);
+              setStatus("received");
+            } else if (final.status === "error") {
+              setError(final.error ?? "生成に失敗しました");
+            }
+          })
+          .catch(() => {})
+          .finally(() => setLoading((l) => (l === "refine" ? null : l)));
+      }
     })();
     return () => {
       cancelled = true;
@@ -377,11 +398,9 @@ export default function DesignRequestPage() {
     const t0 = performance.now();
     let ok = false;
     try {
-      const data = await postJsonKeepalive<{
-        html?: string | null;
-        demoUrl?: string | null;
-      }>("/api/design-request/refine", {
+      const job = await startJob({
         projectId: id,
+        kind: "design-refine",
         engine: "aws",
         provider: refineModel.provider,
         modelId: refineModel.modelId,
@@ -390,11 +409,19 @@ export default function DesignRequestPage() {
         pdfData: pdfData ?? undefined,
         note: note || undefined,
       });
-      setRefinedHtml(data.html ?? null);
-      setRefinedDemoUrl(data.demoUrl ?? null);
+      const final = await pollJob(job.id, { signal: pollCtl.current?.signal });
+      if (final.status === "error")
+        throw new Error(final.error ?? "生成に失敗しました");
+      const data = final.result as {
+        html?: string | null;
+        demoUrl?: string | null;
+      };
+      setRefinedHtml(data?.html ?? null);
+      setRefinedDemoUrl(data?.demoUrl ?? null);
       setStatus("received");
       ok = true;
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
       setError(e instanceof Error ? e.message : "エラー");
     } finally {
       recordUsage(id, {

@@ -22,6 +22,7 @@ const KINDS: JobKind[] = [
   "deck",
   "design-brief",
   "engineer-brief",
+  "design-refine",
 ];
 
 interface Body {

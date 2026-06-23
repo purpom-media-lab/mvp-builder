@@ -5,10 +5,57 @@
  * API ルート（同期）とジョブランナー（非同期 after()）の双方から使う。
  */
 import type { getProjectWithArtifacts } from "@/lib/projects";
+import type { PrototypeContext } from "@/lib/v0";
 
 export type ProjectArtifacts = NonNullable<
   Awaited<ReturnType<typeof getProjectWithArtifacts>>
 >;
+
+/** 分析成果物 → プロトタイプ生成コンテキスト（プロトタイプ画面と同じ写像）。
+ *  デザイナー成果物リファイン用に refineReference を注入する。 */
+export function buildRefinePrototypeContext(
+  a: ProjectArtifacts,
+  refineReference: PrototypeContext["refineReference"],
+): PrototypeContext {
+  return {
+    projectName: a.project.name,
+    summary: a.project.summary,
+    actors: a.actors.map((x) => ({ name: x.name, description: x.description })),
+    useCases: a.useCases.map((x) => ({
+      goal: x.goal,
+      description: x.description,
+    })),
+    oouiObjects: a.ooui.map((o) => ({
+      name: o.name,
+      attributes: (o.attributes ?? []).map((at) => at.label ?? at.name),
+    })),
+    navigation: a.navigation.map((n) => ({
+      label: n.label,
+      targetObject: n.targetObject,
+      screenType: n.screenType,
+      parent: n.parent,
+      icon: n.icon,
+    })),
+    mvpStatement: a.mvpStatement,
+    scope: a.scope
+      .filter((f) => f.includedInMvp)
+      .map((f) => ({ name: f.name, description: f.description })),
+    kpis: [a.kpi.northStar, ...a.kpi.supporting]
+      .filter((m): m is NonNullable<typeof m> => !!m)
+      .map((m) => ({ name: m.name, target: m.target })),
+    brand: a.brand
+      ? {
+          brandName: a.brand.brandName,
+          tagline: a.brand.tagline,
+          tone: a.brand.tone,
+          palette: a.brand.palette,
+          typography: a.brand.typography,
+          logoDirection: a.brand.logoDirection,
+        }
+      : null,
+    refineReference,
+  };
+}
 
 /** 提案資料(deck)生成用のコンテキスト */
 export function buildDeckContext(p: ProjectArtifacts): string {

@@ -9,6 +9,7 @@
  */
 import { NextResponse } from "next/server";
 import type { LlmProvider } from "@/lib/ai/models";
+import { buildRefinePrototypeContext } from "@/lib/ai/project-context";
 import { getSessionUser } from "@/lib/auth/session";
 import {
   getProjectWithArtifacts,
@@ -21,55 +22,6 @@ import { createPrototype, type PrototypeContext } from "@/lib/v0";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
-
-type Artifacts = NonNullable<
-  Awaited<ReturnType<typeof getProjectWithArtifacts>>
->;
-
-/** 分析成果物 → プロトタイプ生成コンテキスト（プロトタイプ画面と同じ写像） */
-function buildPrototypeContext(
-  a: Artifacts,
-  refineReference: PrototypeContext["refineReference"],
-): PrototypeContext {
-  return {
-    projectName: a.project.name,
-    summary: a.project.summary,
-    actors: a.actors.map((x) => ({ name: x.name, description: x.description })),
-    useCases: a.useCases.map((x) => ({
-      goal: x.goal,
-      description: x.description,
-    })),
-    oouiObjects: a.ooui.map((o) => ({
-      name: o.name,
-      attributes: (o.attributes ?? []).map((at) => at.label ?? at.name),
-    })),
-    navigation: a.navigation.map((n) => ({
-      label: n.label,
-      targetObject: n.targetObject,
-      screenType: n.screenType,
-      parent: n.parent,
-      icon: n.icon,
-    })),
-    mvpStatement: a.mvpStatement,
-    scope: a.scope
-      .filter((f) => f.includedInMvp)
-      .map((f) => ({ name: f.name, description: f.description })),
-    kpis: [a.kpi.northStar, ...a.kpi.supporting]
-      .filter((m): m is NonNullable<typeof m> => !!m)
-      .map((m) => ({ name: m.name, target: m.target })),
-    brand: a.brand
-      ? {
-          brandName: a.brand.brandName,
-          tagline: a.brand.tagline,
-          tone: a.brand.tone,
-          palette: a.brand.palette,
-          typography: a.brand.typography,
-          logoDirection: a.brand.logoDirection,
-        }
-      : null,
-    refineReference,
-  };
-}
 
 interface Body {
   projectId?: string;
@@ -119,7 +71,7 @@ export async function POST(req: Request) {
   const projectId = body.projectId;
   // ハートビートで接続維持しながら生成（タイムアウト抑制）
   return streamJsonWithHeartbeat(async () => {
-    const ctx = buildPrototypeContext(artifacts, refineReference);
+    const ctx = buildRefinePrototypeContext(artifacts, refineReference);
     const engine = body.engine ?? "aws";
 
     let result: { html?: string; demoUrl?: string | null };
