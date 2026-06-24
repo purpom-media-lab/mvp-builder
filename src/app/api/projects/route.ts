@@ -61,7 +61,8 @@ export async function POST(req: Request) {
       const base64 = payload.includes(",")
         ? payload.slice(payload.indexOf(",") + 1)
         : payload;
-      const bytes = Buffer.from(base64, "base64");
+      // PDF.js(unpdf) は Node の Buffer を拒否するため、素の Uint8Array で渡す
+      const bytes = new Uint8Array(Buffer.from(base64, "base64"));
       if (bytes.length === 0) {
         return NextResponse.json(
           { error: "sourcePdf is invalid" },
