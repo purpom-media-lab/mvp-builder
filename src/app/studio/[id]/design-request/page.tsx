@@ -22,7 +22,7 @@ import {
   recordUsage,
 } from "@/lib/model-prefs";
 import { LoadingOverlay, Spinner } from "@/components/spinner";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -471,6 +471,15 @@ export default function DesignRequestPage() {
           </div>
         )}
 
+        {/* 依頼の進行状況（draft → requested → received）。各セクションの現在地を示す。 */}
+        <div className="rounded-lg border border-border bg-card/40 px-4 py-3">
+          <StepIndicator
+            current={
+              status === "received" ? 3 : status === "requested" ? 2 : 1
+            }
+          />
+        </div>
+
         {/* ステップ1: AIで依頼項目を生成 + 編集 */}
         <section className="space-y-4">
           <div className="flex items-center justify-between gap-3">
@@ -753,6 +762,16 @@ export default function DesignRequestPage() {
               ) : null}
             </div>
           )}
+
+          {/* 成果物受領後は、公開・ビルドへ進む導線を出す（プロトタイプ画面へ戻る）。 */}
+          {status === "received" && (
+            <a
+              href={`/studio/${id}/prototype`}
+              className={buttonVariants({ size: "sm" })}
+            >
+              公開・ビルドへ進む →
+            </a>
+          )}
         </section>
       </main>
       {id && (
@@ -782,5 +801,47 @@ function Field({
       <span className="text-xs font-medium text-foreground">{label}</span>
       {children}
     </label>
+  );
+}
+
+const REQUEST_STEPS = ["ブリーフ作成", "依頼確定", "成果物受領"] as const;
+
+/** デザイン依頼の進行ステップ（draft=1 / requested=2 / received=3）を表示する。 */
+function StepIndicator({ current }: { current: number }) {
+  return (
+    <ol className="flex flex-wrap items-center gap-x-2 gap-y-2 text-xs">
+      {REQUEST_STEPS.map((label, i) => {
+        const n = i + 1;
+        const state =
+          n < current ? "done" : n === current ? "current" : "upcoming";
+        return (
+          <li key={label} className="flex items-center gap-2">
+            <span
+              className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold ${
+                state === "current"
+                  ? "bg-primary text-primary-foreground"
+                  : state === "done"
+                    ? "bg-primary/15 text-primary"
+                    : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {state === "done" ? "✓" : n}
+            </span>
+            <span
+              className={
+                state === "upcoming"
+                  ? "text-muted-foreground"
+                  : "font-medium text-foreground"
+              }
+            >
+              {label}
+            </span>
+            {i < REQUEST_STEPS.length - 1 && (
+              <span className="mx-1 h-px w-6 bg-border" />
+            )}
+          </li>
+        );
+      })}
+    </ol>
   );
 }

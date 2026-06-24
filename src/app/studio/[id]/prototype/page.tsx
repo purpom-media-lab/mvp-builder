@@ -113,7 +113,8 @@ export default function PrototypePage() {
   } | null>(null);
   const [brand, setBrand] = useState<BrandView | null>(null);
 
-  const [engine, setEngine] = useState<"v0" | "aws">("aws");
+  const [engine, setEngine] = useState<"v0" | "aws" | "ds">("ds");
+  const [engineMenuOpen, setEngineMenuOpen] = useState(false);
   const [instruction, setInstruction] = useState("");
   const [demoUrl, setDemoUrl] = useState<string | null>(null);
   const [html, setHtml] = useState<string | null>(null);
@@ -171,6 +172,11 @@ export default function PrototypePage() {
           setHtml(savedHtml);
           setDemoUrl(d.prototype.demoUrl ?? null);
           setShareUrl(d.prototype.demoUrl ?? null);
+          // 途中切れ検知: 完成HTMLは </html> で終わる。そうでなければ切り詰められている
+          // （末尾の画面切替スクリプト等が欠落＝ナビが動かない）。リロード後も警告を出す。
+          setTruncated(
+            !!savedHtml && !/<\/html>\s*$/i.test(savedHtml.trim()),
+          );
           // 本実装版（LQ SDK を使うHTML）なら /run でライブ表示する
           if (savedHtml && /window\.LQ|LQ\.db|LQ\.auth/.test(savedHtml)) {
             setLivePreview(true);
@@ -265,12 +271,63 @@ export default function PrototypePage() {
     );
   }
 
+  // UC-更新2: 未生成だった画面を「追記型」で追加する。
+  // 既存HTMLを保持したまま、選択中の画面を追加する更新（mode="update"）を実行する。
+  async function appendScreens(labels: string[]) {
+    if (!html || labels.length === 0) return;
+    setLoading("prototype");
+    setError(null);
+    setGenChars(0);
+    setGenScreens([]);
+    const m = getModelForStep(modelPrefs, "prototype", model);
+    const t0 = performance.now();
+    let ok = false;
+    try {
+      const job = await startJob({
+        projectId: id,
+        kind: "prototype",
+        engine: "aws",
+        mode: "update",
+        currentHtml: html,
+        instruction: `既存の画面・構成・モックデータ・デザイン・画面遷移をすべて保持したまま、次の画面を新規に追加してください。ナビゲーションにも項目を加え、クリックで行き来できるようにすること（既存画面は変更・削除しない）: ${labels.join(", ")}`,
+        provider: m.provider,
+        modelId: m.modelId,
+        projectName: name,
+      });
+      const final = await pollJob(job.id, {
+        signal: pollCtl.current?.signal,
+        onProgress: applyGenProgress,
+      });
+      if (final.status === "error")
+        throw new Error(final.error ?? "生成に失敗しました");
+      const r = final.result as { html?: string; truncated?: boolean };
+      setHtml(r?.html ?? "");
+      setTruncated(Boolean(r?.truncated));
+      setShareUrl(null);
+      setShareError(null);
+      ok = true;
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      setError(e instanceof Error ? e.message : "エラー");
+    } finally {
+      recordUsage(id, {
+        step: "prototype",
+        provider: m.provider,
+        modelId: m.modelId,
+        ms: performance.now() - t0,
+        ok,
+      });
+      setLoading(null);
+      setGenChars(0);
+    }
+  }
+
   async function generatePrototype(override?: {
     actors?: ActorView[];
     useCases?: UseCaseView[];
     ooui?: OouiView[];
     nav?: NavView[];
-    engine?: "v0" | "aws";
+    engine?: "v0" | "aws" | "ds";
   }) {
     const aData = override?.actors ?? actors;
     const ucData = override?.useCases ?? useCases;
@@ -341,9 +398,10 @@ export default function PrototypePage() {
         : undefined,
     };
     try {
-      if (engineUsed === "aws") {
+      if (engineUsed === "aws" || engineUsed === "ds") {
         // ジョブ起動 → ポーリングで進捗（文字数・生成できた画面）を表示。生成はサーバ側
         // after() で走るので、待っている間に画面を離れても止まらない（保存もランナーが行う）。
+        // engine="ds" は構造化生成（骨格コード＋画面別生成）。runner が engine で分岐する。
         setGenChars(0);
         setGenScreens([]);
         const job = await startJob({
@@ -396,6 +454,56 @@ export default function PrototypePage() {
   }
 
   // プレビューに納得したら共有URLを発行（AWS=S3/CloudFront でホスティング）
+  // 途中切れHTMLの続きを生成して連結する（従来エンジンの truncation 救済）。
+  // まだ切れていれば再度押して継続できる。
+  async function continuePrototype() {
+    if (!html) return;
+    setLoading("prototype");
+    setError(null);
+    setGenChars(0);
+    setGenScreens([]);
+    const m = getModelForStep(modelPrefs, "prototype", model);
+    const t0 = performance.now();
+    let ok = false;
+    try {
+      const job = await startJob({
+        projectId: id,
+        kind: "prototype",
+        engine: "aws",
+        mode: "continue",
+        currentHtml: html,
+        provider: m.provider,
+        modelId: m.modelId,
+        projectName: name,
+      });
+      const final = await pollJob(job.id, {
+        signal: pollCtl.current?.signal,
+        onProgress: applyGenProgress,
+      });
+      if (final.status === "error")
+        throw new Error(final.error ?? "生成に失敗しました");
+      const r = final.result as { html?: string; truncated?: boolean };
+      setHtml(r?.html ?? "");
+      setTruncated(Boolean(r?.truncated));
+      setShareUrl(null);
+      setShareError(null);
+      ok = true;
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      setError(e instanceof Error ? e.message : "エラー");
+    } finally {
+      recordUsage(id, {
+        step: "prototype",
+        provider: m.provider,
+        modelId: m.modelId,
+        ms: performance.now() - t0,
+        ok,
+      });
+      setLoading(null);
+      setGenChars(0);
+    }
+  }
+
   async function hostPrototype() {
     if (!html) return;
     setLoading("host");
@@ -540,9 +648,9 @@ export default function PrototypePage() {
     if (o) setOoui(o);
     if (n) setNav(n);
     if (data.regeneratePrototype) {
-      setEngine("aws");
+      setEngine("ds");
       await generatePrototype({
-        engine: "aws",
+        engine: "ds",
         actors: a ?? actors,
         useCases: u ?? useCases,
         ooui: o ?? ooui,
@@ -555,6 +663,26 @@ export default function PrototypePage() {
   const generating = loading === "prototype" || loading === "realize";
   const savedScreens = useMemo(() => parseScreenNames(html), [html]);
   const screens = generating ? genScreens : savedScreens;
+
+  // ナビ画面のうち「すでに生成済み」のラベル集合（保存HTMLの @screen と突き合わせ）。
+  // ラベルが完全一致 or 部分一致するものを生成済みとみなす（モデルの命名揺れに対応）。
+  const generatedSet = useMemo(() => {
+    const set = new Set<string>();
+    for (const n of nav) {
+      if (
+        savedScreens.some(
+          (s) => s === n.label || s.includes(n.label) || n.label.includes(s),
+        )
+      ) {
+        set.add(n.label);
+      }
+    }
+    return set;
+  }, [nav, savedScreens]);
+  // 未生成の画面ラベル（UC-更新2 の追記対象候補）
+  const missingScreens = nav
+    .map((n) => n.label)
+    .filter((l) => !generatedSet.has(l));
 
   // 画面ジャンプは srcDoc プレビュー（ローカルHTML）でのみ可能。demoUrl / /run はクロスオリジン。
   const canJump = !!html && !demoUrl && !livePreview;
@@ -624,11 +752,12 @@ export default function PrototypePage() {
         >
           {/* アクションツールバー */}
           <div className="flex flex-wrap items-center gap-2 border-b bg-background px-3 py-2">
+            {/* 主役: 構造化生成(DS)。骨格はコード製で崩れない。 */}
             <Button
               size="sm"
               onClick={() => {
-                setEngine("aws");
-                generatePrototype({ engine: "aws" });
+                setEngine("ds");
+                generatePrototype({ engine: "ds" });
               }}
               disabled={
                 loading !== null ||
@@ -638,15 +767,61 @@ export default function PrototypePage() {
               title={
                 nav.length > 0 && selectedScreens.length === 0
                   ? "生成する画面を1つ以上選択してください"
-                  : undefined
+                  : "骨格をコードで固定し、画面ごとに生成して組み立てます（崩れにくい）"
               }
             >
-              {loading === "prototype" && engine === "aws"
+              {loading === "prototype" && engine === "ds"
                 ? "プレビュー生成中…"
                 : html
                   ? "プレビュー再生成"
                   : "プレビューを生成"}
             </Button>
+
+            {/* ⋯ メニュー: 従来方式（実験）への切替 */}
+            <div className="relative">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setEngineMenuOpen((o) => !o)}
+                disabled={loading !== null || chatBusy}
+                title="生成方式の切り替え"
+                aria-label="生成方式メニュー"
+              >
+                ⋯
+              </Button>
+              {engineMenuOpen && (
+                <>
+                <button
+                  type="button"
+                  aria-hidden
+                  tabIndex={-1}
+                  className="fixed inset-0 z-10 cursor-default"
+                  onClick={() => setEngineMenuOpen(false)}
+                />
+                <div className="absolute left-0 top-full z-20 mt-1 w-64 rounded-md border bg-background p-1 shadow-md">
+                  <button
+                    type="button"
+                    className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-muted disabled:opacity-50"
+                    disabled={
+                      loading !== null ||
+                      chatBusy ||
+                      (nav.length > 0 && selectedScreens.length === 0)
+                    }
+                    onClick={() => {
+                      setEngineMenuOpen(false);
+                      setEngine("aws");
+                      generatePrototype({ engine: "aws" });
+                    }}
+                  >
+                    従来方式で生成（実験）
+                    <span className="mt-0.5 block text-[10px] text-muted-foreground">
+                      単一HTMLを一括生成。途中で切れることがあります。
+                    </span>
+                  </button>
+                </div>
+                </>
+              )}
+            </div>
 
             {(html || demoUrl) && (
               // 微調整（UC-更新1）: 既存プレビューへの修正指示
@@ -781,19 +956,30 @@ export default function PrototypePage() {
               </span>
               {nav.map((n, i) => {
                 const on = selectedScreens.includes(n.label);
+                const done = generatedSet.has(n.label);
                 return (
                   <button
                     key={`${n.label}-${i}`}
                     type="button"
                     onClick={() => toggleScreen(n.label)}
-                    className={`rounded-full border px-2.5 py-0.5 text-[11px] transition ${
+                    title={done ? "生成済み" : "未生成"}
+                    className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] transition ${
                       on
                         ? "border-primary bg-primary/10 text-foreground"
                         : "bg-background text-muted-foreground opacity-60"
                     }`}
                   >
-                    {on ? "✓ " : ""}
                     {n.parent ? `${n.parent} › ${n.label}` : n.label}
+                    {/* 生成状況: 済（生成済み）/ 未（未生成） */}
+                    <span
+                      className={`rounded px-1 text-[9px] ${
+                        done
+                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                          : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                      }`}
+                    >
+                      {done ? "済" : "未"}
+                    </span>
                   </button>
                 );
               })}
@@ -811,10 +997,33 @@ export default function PrototypePage() {
               >
                 全解除
               </button>
+              {/* 未生成だけ選択（UC-更新2 の起点）。生成済みがある時だけ意味を持つ。 */}
+              {html && missingScreens.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedScreens(missingScreens)}
+                  className="text-muted-foreground underline"
+                >
+                  未生成だけ選択（{missingScreens.length}）
+                </button>
+              )}
               {selectedScreens.length === 0 && (
                 <span className="text-amber-600 dark:text-amber-400">
                   ※ 1つ以上選択してください
                 </span>
+              )}
+              {/* 追記生成: 既存プレビューを保持したまま、選択画面を追加する（UC-更新2・追記型）。 */}
+              {html && selectedScreens.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="ml-auto"
+                  onClick={() => appendScreens(selectedScreens)}
+                  disabled={loading !== null || chatBusy}
+                  title="既存プレビューを保持したまま、選択した画面を追加します（既存画面は作り直しません）"
+                >
+                  選択を既存に追記（{selectedScreens.length}）
+                </Button>
               )}
             </div>
           )}
@@ -887,9 +1096,24 @@ export default function PrototypePage() {
 
           {/* 出力上限による途中切れの警告。無言の部分生成を防ぐ。 */}
           {!generating && truncated && html && (
-            <div className="border-b border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-              出力の上限に達し、生成が途中で切れた可能性があります（画面が不足していることがあります）。
-              出力上限のより大きいモデルに切り替えるか、対象を絞って分割生成してください。
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+              <span>
+                生成が途中で切れています（HTML が未完で、ナビの <code>navigate()</code>{" "}
+                等が欠落し遷移できないことがあります）。
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={continuePrototype}
+                disabled={loading !== null || chatBusy}
+                title="切れたHTMLの続きだけを生成して連結し、最後まで完成させます（足りなければ再度押せます）"
+              >
+                {loading === "prototype" ? "続きを生成中…" : "続きを生成"}
+              </Button>
+              <span>
+                根本対策は <strong>「構造化生成(β)」</strong>（崩れない）か、
+                画面を3〜4個に絞った分割生成です。
+              </span>
             </div>
           )}
 

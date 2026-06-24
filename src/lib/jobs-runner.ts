@@ -19,12 +19,16 @@ import {
 import { isStepKey, runAnalyzeStep } from "@/lib/ai/run-step";
 import { generateDesignBrief, generateEngineerBrief } from "@/lib/ai/steps";
 import {
+  continuePrototypeHtml,
   generatePrototypeHtml,
   realizePrototypeHtml,
   streamPrototypeHtml,
   streamUpdatePrototypeHtml,
 } from "@/lib/prototype-html";
 import { parseScreenNames } from "@/lib/prototype-screens";
+import { generateScreenComponent } from "@/lib/prototype-ds/generate-screen";
+import { generateDaisyTheme } from "@/lib/prototype-ds/generate-theme";
+import { buildDsHtml } from "@/lib/prototype-ds/shell";
 import {
   getProjectWithArtifacts,
   saveDeck,
@@ -142,7 +146,8 @@ async function runOrchestrateJob(job: JobRow): Promise<void> {
 interface PrototypePayload extends PrototypeContext {
   provider?: LlmProvider;
   modelId?: string;
-  mode?: "create" | "update" | "realize";
+  engine?: "v0" | "aws" | "ds";
+  mode?: "create" | "update" | "realize" | "continue";
   instruction?: string;
   currentHtml?: string;
 }
@@ -150,6 +155,44 @@ interface PrototypePayload extends PrototypeContext {
 async function runPrototypeJob(job: JobRow): Promise<void> {
   const p = job.payload as unknown as PrototypePayload;
   const mode = p.mode ?? "create";
+
+  // 構造化生成（DSエンジン）: 骨格はコード、画面ごとに React コンポーネントを並列生成して
+  // 組み立てる。単一HTMLの一括生成と違い構造が崩れない・途中切れしない。
+  if (p.engine === "ds") {
+    await runDsPrototypeJob(job, p);
+    return;
+  }
+
+  // 継続生成: 途中切れHTMLの「続き」だけを生成して連結し、</html> まで完成させる
+  // （切れていた末尾スクリプト＝navigate() 等を補完して遷移を復活させる）。
+  if (mode === "continue" && p.currentHtml?.trim()) {
+    const base = p.currentHtml;
+    const cstream = continuePrototypeHtml(base, p.provider, p.modelId);
+    let cont = "";
+    let last = 0;
+    for await (const delta of cstream.textStream) {
+      cont += delta;
+      if (base.length + cont.length - last >= 3000) {
+        last = base.length + cont.length;
+        await updateJobProgress(job.id, { chars: base.length + cont.length });
+      }
+    }
+    const finishReason = await cstream.finishReason;
+    // 続きは生フラグメント。先頭のフェンス/前置きを除去して素直に連結する。
+    const tail = cont.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "");
+    const combined = (base + tail).trim();
+    // まだ </html> で終わっていない or length 切れなら継続中（もう一度押せる）。
+    const truncated =
+      finishReason === "length" || !/<\/html>\s*$/i.test(combined);
+    const screens = parseScreenNames(combined);
+    await savePrototype(job.ownerId, job.projectId, { html: combined });
+    await completeJob(
+      job.id,
+      { html: combined, truncated },
+      { chars: combined.length, screens, truncated },
+    );
+    return;
+  }
 
   const stream =
     mode === "update" && p.currentHtml?.trim()
@@ -192,6 +235,116 @@ async function runPrototypeJob(job: JobRow): Promise<void> {
     job.id,
     { html, truncated },
     { chars: html.length, screens, truncated },
+  );
+}
+
+/** DSエンジン: 選択画面ごとに React コンポーネントを並列生成し、コードの骨格に
+ *  差し込んで単一HTMLを組み立てる（構造が崩れない・途中切れしない）。 */
+async function runDsPrototypeJob(
+  job: JobRow,
+  p: PrototypePayload,
+): Promise<void> {
+  const navItems =
+    p.navigation && p.navigation.length
+      ? p.navigation
+      : [{ label: p.projectName || "ホーム" }];
+
+  const baseContext = [
+    `# アプリ: ${p.projectName ?? ""}${p.summary ? `：${p.summary}` : ""}`,
+    p.mvpStatement ? `# MVPの提供価値: ${p.mvpStatement}` : "",
+    p.oouiObjects?.length
+      ? `# 主要オブジェクト（データ単位）: ${p.oouiObjects
+          .map(
+            (o) =>
+              o.name +
+              (o.attributes?.length ? `（${o.attributes.join(", ")}）` : ""),
+          )
+          .join(" / ")}`
+      : "",
+    p.scope?.length
+      ? `# MVPに含む機能: ${p.scope.map((f) => f.name).join(" / ")}`
+      : "",
+    `# 全画面構成: ${navItems.map((n) => n.label).join(" / ")}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const total = navItems.length;
+  const done: string[] = [];
+  await updateJobProgress(job.id, { screens: [], totalScreens: total });
+
+  // ブランドから完全 daisyUI テーマを並列生成（あれば全体の配色に反映）。
+  const brandCtx = [
+    `# アプリ: ${p.projectName ?? ""}`,
+    p.brand?.brandName ? `# ブランド名: ${p.brand.brandName}` : "",
+    p.brand?.tagline ? `# タグライン: ${p.brand.tagline}` : "",
+    p.brand?.tone?.length ? `# トーン: ${p.brand.tone.join(" / ")}` : "",
+    p.brand?.palette?.primary
+      ? `# 基調色(primary): ${p.brand.palette.primary}`
+      : "",
+    p.brand?.palette?.accent
+      ? `# アクセント: ${p.brand.palette.accent}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+  const themePromise = p.brand?.palette?.primary
+    ? generateDaisyTheme({
+        context: brandCtx,
+        provider: p.provider,
+        modelId: p.modelId,
+      })
+    : Promise.resolve(null);
+
+  const [results, theme] = await Promise.all([
+    Promise.all(
+    navItems.map((item, i) => {
+      const nav = item as {
+        label: string;
+        screenType?: string | null;
+        targetObject?: string | null;
+      };
+      const screenCtx =
+        baseContext +
+        `\n# 対象画面: ${nav.label}` +
+        (nav.screenType ? `（${nav.screenType}）` : "") +
+        (nav.targetObject ? ` / 主対象オブジェクト: ${nav.targetObject}` : "");
+      return generateScreenComponent({
+        label: nav.label,
+        componentName: `Screen${i}`,
+        context: screenCtx,
+        provider: p.provider,
+        modelId: p.modelId,
+      }).then((r) => {
+        done.push(r.label);
+        // 進捗のライブ表示（並列のため競合し得るが、最終は completeJob で確定）
+        void updateJobProgress(job.id, {
+          screens: [...done],
+          totalScreens: total,
+        });
+        return r;
+      });
+    }),
+    ),
+    themePromise,
+  ]);
+
+  const html = buildDsHtml({
+    projectName: p.projectName || "プロトタイプ",
+    theme,
+    brand: p.brand ? { palette: p.brand.palette } : null,
+    screens: results.map((r) => ({
+      label: r.label,
+      componentName: r.componentName,
+      source: r.source,
+    })),
+  });
+  const failedScreens = results.filter((r) => !r.ok).map((r) => r.label);
+  await savePrototype(job.ownerId, job.projectId, { html });
+  await completeJob(
+    job.id,
+    { html, engine: "ds", failedScreens },
+    { chars: html.length, screens: results.map((r) => r.label), totalScreens: total },
   );
 }
 

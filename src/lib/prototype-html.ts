@@ -154,6 +154,29 @@ export function realizePrototypeHtml(
   });
 }
 
+const CONTINUE_SYSTEM = `あなたは、出力上限で途中で切れた「単一HTMLファイル」の続きだけを書きます。
+
+厳守:
+- 与えられた「現在のHTML（未完）」の **末尾の続き** だけを出力する。すでにある部分は **絶対に繰り返さない**（重複出力禁止）。
+- 出力は続きの生のコードのみ。説明・マークダウン・コードフェンス(\`\`\`)・<!DOCTYPE>・<html>開始タグは付けない。
+- 文書が完成するよう、必要な閉じタグ（</script> </body> </html> など）まで書き切る。特に画面遷移用の関数（navigate 等）が未定義のままなら、その定義を必ず完成させる。
+- 既存の構成・命名・スタイルをそのまま引き継ぎ、自然につながるようにする。`;
+
+/** 途中切れHTMLの「続き」だけを生成する（連結用・全文ではない）。 */
+export function continuePrototypeHtml(
+  currentHtml: string,
+  provider?: LlmProvider,
+  modelId?: string,
+) {
+  return streamText({
+    model: resolveModel(provider, modelId),
+    system: CONTINUE_SYSTEM,
+    prompt: `## 現在のHTML（未完。この続きだけを書く）\n${currentHtml}`,
+    temperature: 0.3,
+    maxOutputTokens: maxOutputTokensFor(),
+  });
+}
+
 /** 既存 HTML に修正指示を反映する版（ストリーミング）。 */
 export function streamUpdatePrototypeHtml(
   currentHtml: string,
