@@ -1547,7 +1547,7 @@ export default function ProjectDetailPage() {
                   <div className="space-y-3">
                     {dataModel.map((ent, i) => (
                       <div key={i} className="rounded-md border p-3">
-                        <div className="mb-2 flex items-center gap-2">
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
                           <span className="font-semibold">{ent.name}</span>
                           {ent.relations?.map((r, k) => (
                             <Badge key={k} variant="outline">
