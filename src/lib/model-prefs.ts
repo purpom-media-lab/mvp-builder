@@ -68,6 +68,7 @@ export const PREF_GROUPS: { label: string; keys: { key: PrefKey; label: string }
         { key: "wireframe", label: "ワイヤー" },
         { key: "datamodel", label: "データ設計" },
         { key: "backend", label: "バックエンド" },
+        { key: "brand", label: "デザイン" },
       ],
     },
     {
@@ -76,7 +77,6 @@ export const PREF_GROUPS: { label: string; keys: { key: PrefKey; label: string }
         { key: "scope", label: "スコープ" },
         { key: "kpi", label: "KPI" },
         { key: "growth", label: "グロース計画" },
-        { key: "brand", label: "デザイン" },
       ],
     },
     {
