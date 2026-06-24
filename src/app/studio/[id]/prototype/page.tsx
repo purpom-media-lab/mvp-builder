@@ -113,7 +113,8 @@ export default function PrototypePage() {
   } | null>(null);
   const [brand, setBrand] = useState<BrandView | null>(null);
 
-  const [engine, setEngine] = useState<"v0" | "aws" | "ds">("aws");
+  const [engine, setEngine] = useState<"v0" | "aws" | "ds">("ds");
+  const [engineMenuOpen, setEngineMenuOpen] = useState(false);
   const [instruction, setInstruction] = useState("");
   const [demoUrl, setDemoUrl] = useState<string | null>(null);
   const [html, setHtml] = useState<string | null>(null);
@@ -647,9 +648,9 @@ export default function PrototypePage() {
     if (o) setOoui(o);
     if (n) setNav(n);
     if (data.regeneratePrototype) {
-      setEngine("aws");
+      setEngine("ds");
       await generatePrototype({
-        engine: "aws",
+        engine: "ds",
         actors: a ?? actors,
         useCases: u ?? useCases,
         ooui: o ?? ooui,
@@ -751,34 +752,9 @@ export default function PrototypePage() {
         >
           {/* アクションツールバー */}
           <div className="flex flex-wrap items-center gap-2 border-b bg-background px-3 py-2">
+            {/* 主役: 構造化生成(DS)。骨格はコード製で崩れない。 */}
             <Button
               size="sm"
-              onClick={() => {
-                setEngine("aws");
-                generatePrototype({ engine: "aws" });
-              }}
-              disabled={
-                loading !== null ||
-                chatBusy ||
-                (nav.length > 0 && selectedScreens.length === 0)
-              }
-              title={
-                nav.length > 0 && selectedScreens.length === 0
-                  ? "生成する画面を1つ以上選択してください"
-                  : undefined
-              }
-            >
-              {loading === "prototype" && engine === "aws"
-                ? "プレビュー生成中…"
-                : html
-                  ? "プレビュー再生成"
-                  : "プレビューを生成"}
-            </Button>
-
-            {/* 構造化生成(β): 骨格はコード製＋画面ごとに生成して組み立てる＝崩れない */}
-            <Button
-              size="sm"
-              variant="outline"
               onClick={() => {
                 setEngine("ds");
                 generatePrototype({ engine: "ds" });
@@ -788,12 +764,64 @@ export default function PrototypePage() {
                 chatBusy ||
                 (nav.length > 0 && selectedScreens.length === 0)
               }
-              title="骨格をコードで固定し、画面ごとにReactコンポーネントを生成して組み立てます（途中切れに強い・実験的）"
+              title={
+                nav.length > 0 && selectedScreens.length === 0
+                  ? "生成する画面を1つ以上選択してください"
+                  : "骨格をコードで固定し、画面ごとに生成して組み立てます（崩れにくい）"
+              }
             >
               {loading === "prototype" && engine === "ds"
-                ? "構造化生成中…"
-                : "構造化生成(β)"}
+                ? "プレビュー生成中…"
+                : html
+                  ? "プレビュー再生成"
+                  : "プレビューを生成"}
             </Button>
+
+            {/* ⋯ メニュー: 従来方式（実験）への切替 */}
+            <div className="relative">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setEngineMenuOpen((o) => !o)}
+                disabled={loading !== null || chatBusy}
+                title="生成方式の切り替え"
+                aria-label="生成方式メニュー"
+              >
+                ⋯
+              </Button>
+              {engineMenuOpen && (
+                <>
+                <button
+                  type="button"
+                  aria-hidden
+                  tabIndex={-1}
+                  className="fixed inset-0 z-10 cursor-default"
+                  onClick={() => setEngineMenuOpen(false)}
+                />
+                <div className="absolute left-0 top-full z-20 mt-1 w-64 rounded-md border bg-background p-1 shadow-md">
+                  <button
+                    type="button"
+                    className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-muted disabled:opacity-50"
+                    disabled={
+                      loading !== null ||
+                      chatBusy ||
+                      (nav.length > 0 && selectedScreens.length === 0)
+                    }
+                    onClick={() => {
+                      setEngineMenuOpen(false);
+                      setEngine("aws");
+                      generatePrototype({ engine: "aws" });
+                    }}
+                  >
+                    従来方式で生成（実験）
+                    <span className="mt-0.5 block text-[10px] text-muted-foreground">
+                      単一HTMLを一括生成。途中で切れることがあります。
+                    </span>
+                  </button>
+                </div>
+                </>
+              )}
+            </div>
 
             {(html || demoUrl) && (
               // 微調整（UC-更新1）: 既存プレビューへの修正指示
