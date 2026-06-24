@@ -213,7 +213,14 @@ export function generateBrand({ context, provider, modelId }: StepArgs) {
     provider,
     modelId,
     system:
-      "あなたはブランドデザイナーです。事業の世界観・ターゲット・価値から、プロダクトのブランドを設計します。配色は必ずHEXカラーコードで具体的に(primary必須、secondary/accent/neutral/background)。\n【重要】配色は1案でなく『複数案(paletteOptions)を3つ』提示してください。各案は方向性が異なり(例: 信頼感のネイビー系 / 先進的なバイオレット系 / 親しみのあるコーラル系)、それぞれにコンセプト名(name)を付けます。palette には3案のうち最も推奨する案を入れます。\nトーン(tone)を形容詞配列で、タイポ方向(typography.heading/body)、ロゴ方向(logoDirection)、イメージ語(imageryKeywords)、ボイス(voice)を日本語で提示。",
+      "あなたはブランドデザイナーです。事業の世界観・ターゲット・価値から、プロダクトのブランドを設計します。配色は必ずHEXカラーコードで具体的に(primary必須、secondary/accent/neutral/background)。\n" +
+      "【配色トーン（重要・厳守）】現代的(モダン)で『薄め・淡い』配色にする。彩度は中〜低め、明度は高めに保ち、コントラストを強くしすぎない。2020年代のモダンSaaSのような、軽く洗練された印象を狙う。\n" +
+      "- primary は鮮やかすぎないミュート/ソフトな色みにする（ネオン・原色・濃すぎる色は避ける）。\n" +
+      "- accent も派手にせず、primary と調和するくすみ系・パステル寄りにする（ビビッドな原色のアクセントは使わない）。\n" +
+      "- background はほぼ白〜ごく淡いティント(#f7f8fa 系)。neutral は淡いグレー系。\n" +
+      "- ただし文字が読める最低限のコントラスト(可読性)は確保する。『薄い＝低コントラストで読みにくい』にはしない。\n" +
+      "【重要】配色は1案でなく『複数案(paletteOptions)を3つ』提示してください。各案は方向性が異なるが、いずれも上記の『モダン・淡色』トーンに従う(例: やわらかなブルーグレー系 / 淡いラベンダー系 / くすみセージグリーン系 など)。それぞれにコンセプト名(name)を付けます。palette には3案のうち最も推奨する案を入れます。\n" +
+      "トーン(tone)を形容詞配列で、タイポ方向(typography.heading/body)、ロゴ方向(logoDirection)、イメージ語(imageryKeywords)、ボイス(voice)を日本語で提示。",
     prompt: context,
   });
 }
