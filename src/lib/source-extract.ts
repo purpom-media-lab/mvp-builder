@@ -117,7 +117,17 @@ export async function extractFromUrl(
 export async function extractFromPdf(
   bytes: ArrayBuffer | Uint8Array,
 ): Promise<{ text: string }> {
-  const data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  // Node の Buffer は Uint8Array のサブクラスだが、unpdf 内の PDF.js は Buffer を
+  // 明示的に拒否する（"Please provide binary data as Uint8Array, rather than Buffer."）。
+  // そのため instanceof チェックでは弾けず、常に素の Uint8Array にコピーして正規化する。
+  const data = new Uint8Array(
+    bytes instanceof Uint8Array
+      ? bytes.buffer.slice(
+          bytes.byteOffset,
+          bytes.byteOffset + bytes.byteLength,
+        )
+      : bytes,
+  );
   const { extractText, getDocumentProxy } = await import("unpdf");
   const pdf = await getDocumentProxy(data);
   const { text } = await extractText(pdf, { mergePages: true });
