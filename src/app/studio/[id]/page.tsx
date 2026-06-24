@@ -90,7 +90,7 @@ const STEPS: { key: StepKey; label: string }[] = [
   { key: "wireframe", label: "ワイヤー" },
   { key: "datamodel", label: "データ設計" },
   { key: "backend", label: "バックエンド" },
-  { key: "brand", label: "デザイン" },
+  { key: "brand", label: "カラー" },
   { key: "scope", label: "スコープ" },
   { key: "kpi", label: "KPI" },
   { key: "growth", label: "グロース計画" },
@@ -2060,7 +2060,7 @@ export default function ProjectDetailPage() {
                       disabled={busy}
                       onClick={() => saveStep("brand", brand)}
                     >
-                      デザインを保存
+                      カラーを保存
                     </Button>
                   </div>
                 ) : (

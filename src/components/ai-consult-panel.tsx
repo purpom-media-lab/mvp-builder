@@ -35,7 +35,7 @@ const STEP_LABEL: Record<StepKey, string> = {
   scope: "スコープ",
   kpi: "KPI",
   growth: "グロース計画",
-  brand: "デザイン",
+  brand: "カラー",
 };
 
 function labelSteps(steps: unknown): string {
