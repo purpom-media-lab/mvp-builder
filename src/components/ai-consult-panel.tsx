@@ -13,7 +13,7 @@ import type { ModelSelection } from "@/components/model-selector";
 import { Markdown } from "@/components/markdown";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import type { StepKey } from "@/lib/studio-types";
 
 export type OrchestrateResponse = {
@@ -174,7 +174,7 @@ export function AiConsultPanel({
                 type: string;
                 text?: string;
                 state?: string;
-                input?: { steps?: unknown };
+                input?: { steps?: unknown; query?: string; url?: string };
                 output?: { ranSteps?: unknown };
               };
               if (p.type === "text" && p.text) {
@@ -194,6 +194,36 @@ export function AiConsultPanel({
                     className="inline-block max-w-[90%] rounded-lg bg-background px-3 py-1.5 text-left text-foreground"
                   >
                     <Markdown>{p.text}</Markdown>
+                  </div>
+                );
+              }
+              if (p.type === "tool-web_search") {
+                const done = p.state === "output-available";
+                return (
+                  <div
+                    key={i}
+                    className="my-1 inline-flex items-center gap-1.5 rounded-md border border-info/30 bg-info/5 px-2.5 py-1 text-xs text-muted-foreground"
+                  >
+                    <span>{done ? "🔎" : "🌐"}</span>
+                    <span>
+                      {done ? "Web検索しました" : "Web検索中…"}
+                      {p.input?.query ? `「${p.input.query}」` : ""}
+                    </span>
+                  </div>
+                );
+              }
+              if (p.type === "tool-web_fetch") {
+                const done = p.state === "output-available";
+                return (
+                  <div
+                    key={i}
+                    className="my-1 inline-flex max-w-[90%] items-center gap-1.5 rounded-md border border-info/30 bg-info/5 px-2.5 py-1 text-xs text-muted-foreground"
+                  >
+                    <span>{done ? "📄" : "🌐"}</span>
+                    <span className="truncate">
+                      {done ? "ページを読みました" : "ページを取得中…"}
+                      {p.input?.url ? `（${p.input.url}）` : ""}
+                    </span>
                   </div>
                 );
               }
@@ -223,13 +253,22 @@ export function AiConsultPanel({
       </div>
 
       <div className="flex gap-2">
-        <Input
-          placeholder="メッセージを入力（Enterで送信）"
+        <Textarea
+          rows={1}
+          placeholder="メッセージを入力（Enterで送信 / Shift+Enterで改行）"
+          className="max-h-40 min-h-9 resize-none py-2"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
-            // IME 変換確定の Enter では送信しない（日本語入力対策）
-            if (e.key === "Enter" && !e.nativeEvent.isComposing) submit();
+            // Shift+Enter は改行。単独 Enter で送信（IME 変換確定の Enter は除外）。
+            if (
+              e.key === "Enter" &&
+              !e.shiftKey &&
+              !e.nativeEvent.isComposing
+            ) {
+              e.preventDefault();
+              submit();
+            }
           }}
           disabled={busy}
         />

@@ -3,9 +3,10 @@
  * ユーザーと会話しつつ、分析・画面の変更が必要なときだけ runAnalysis ツールを呼び、
  * 該当工程を依存順に再実行・保存して結果を返す（human-in-the-loop は会話で代替）。
  */
-import { convertToModelMessages, stepCountIs, streamText, tool, type UIMessage } from "ai";
+import { convertToModelMessages, stepCountIs, streamText, tool, type ToolSet, type UIMessage } from "ai";
+import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
-import type { LlmProvider } from "@/lib/ai/catalog";
+import { DEFAULT_PROVIDER, type LlmProvider } from "@/lib/ai/catalog";
 import {
   generateActors,
   generateBackendSpec,
@@ -111,19 +112,39 @@ export async function POST(req: Request) {
 
   const context = buildContext(artifacts);
 
+  // Web 検索/取得は Anthropic のネイティブサーバツール（追加APIキー不要・引用付き）。
+  // Claude 以外のプロバイダでは利用できないため、その場合は付けない。
+  const webEnabled = (provider ?? DEFAULT_PROVIDER) === "claude";
+  const webTools: ToolSet = webEnabled
+    ? {
+        web_search: anthropic.tools.webSearch_20250305({ maxUses: 5 }),
+        web_fetch: anthropic.tools.webFetch_20250910({
+          maxUses: 5,
+          citations: { enabled: true },
+          maxContentTokens: 50000,
+        }),
+      }
+    : {};
+
   const result = streamText({
     model: resolveModel(provider, modelId),
     system: `あなたは LEAN QUEST AI のアシスタントです。ユーザーと自然に会話しながら、MVPの分析・設計（アクター/ユースケース/モデリング/ジャーニー/ナビゲーション/ワイヤー/データ設計/バックエンド/スコープ/KPI/ブランド）の相談に乗ります。
 
 - 単なる質問・相談には会話で答え、ツールは呼ばないでください。
-- ユーザーの要望が「分析内容や画面の変更・作り直し」を伴う場合のみ runAnalysis ツールを呼びます。関係する最小限の工程だけ steps に指定してください（依存順: ${STEP_ORDER.join("→")}）。画面構成・UIの変更を伴うなら regeneratePrototype=true。
-- ツール実行後は、何をどう更新したかを簡潔な日本語でまとめてください。
+- ユーザーの要望が「分析内容や画面の変更・作り直し」を伴う場合のみ runAnalysis ツールを呼びます。関係する最小限の工程だけ steps に指定してください（依存順: ${STEP_ORDER.join("→")}）。画面構成・UIの変更を伴うなら regeneratePrototype=true。${
+      webEnabled
+        ? `
+- 最新情報・市場/競合の調査・事実確認が必要なとき、または知らない固有名詞・URLが出てきたときは web_search で検索し、特定ページの中身が必要なら web_fetch でそのURLを読み込みます。結果は鵜呑みにせず要点をまとめ、参照元（URL）を明示してください。ユーザーがURLを貼った場合は web_fetch で読みに行ってから答えます。`
+        : ""
+    }
+- ツール実行後は、何をどう更新したか／何が分かったかを簡潔な日本語でまとめてください。
 
 ## 現在の分析状態
 ${context}`,
     messages: await convertToModelMessages(messages),
-    stopWhen: stepCountIs(3),
+    stopWhen: stepCountIs(6),
     tools: {
+      ...webTools,
       runAnalysis: tool({
         description:
           "指定した分析工程を再実行して保存し、UIに反映する。分析内容や画面の変更要望のときだけ使う。",

@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Markdown } from "@/components/markdown";
 import type { ModelSelection } from "@/components/model-selector";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 export function JtbdChat({
   projectId,
@@ -162,12 +162,22 @@ export function JtbdChat({
       )}
 
       <div className="flex gap-2">
-        <Input
-          placeholder="回答を入力（Enterで送信）"
+        <Textarea
+          rows={1}
+          placeholder="回答を入力（Enterで送信 / Shift+Enterで改行）"
+          className="max-h-40 min-h-9 resize-none py-2"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.nativeEvent.isComposing) submit();
+            // Shift+Enter は改行。単独 Enter で送信（IME 変換確定は除外）。
+            if (
+              e.key === "Enter" &&
+              !e.shiftKey &&
+              !e.nativeEvent.isComposing
+            ) {
+              e.preventDefault();
+              submit();
+            }
           }}
         />
         {pending ? (
