@@ -90,7 +90,7 @@ const STEPS: { key: StepKey; label: string }[] = [
   { key: "wireframe", label: "ワイヤー" },
   { key: "datamodel", label: "データ設計" },
   { key: "backend", label: "バックエンド" },
-  { key: "brand", label: "デザイン" },
+  { key: "brand", label: "カラー" },
   { key: "scope", label: "スコープ" },
   { key: "kpi", label: "KPI" },
   { key: "growth", label: "グロース計画" },
@@ -1547,7 +1547,7 @@ export default function ProjectDetailPage() {
                   <div className="space-y-3">
                     {dataModel.map((ent, i) => (
                       <div key={i} className="rounded-md border p-3">
-                        <div className="mb-2 flex items-center gap-2">
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
                           <span className="font-semibold">{ent.name}</span>
                           {ent.relations?.map((r, k) => (
                             <Badge key={k} variant="outline">
@@ -2060,7 +2060,7 @@ export default function ProjectDetailPage() {
                       disabled={busy}
                       onClick={() => saveStep("brand", brand)}
                     >
-                      デザインを保存
+                      カラーを保存
                     </Button>
                   </div>
                 ) : (
