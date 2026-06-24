@@ -123,7 +123,8 @@
   --size-selector: 0.25rem;
   --size-field: 0.25rem;
   --border: 1px;
-  --depth: 1;
+  /* フラット志向（光沢・3D影なし）。既存のソフトな世界観に合わせる。 */
+  --depth: 0;
   --noise: 0;
 }
 

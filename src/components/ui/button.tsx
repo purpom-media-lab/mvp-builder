@@ -6,12 +6,13 @@ import { cn } from "@/lib/utils"
 // daisyUI 5 の `btn` ベース。バリアント/サイズは daisyUI の修飾クラスへマッピングし、
 // 呼び出し側の API（variant/size）は据え置く。SVG アイコンの基本サイズだけ補助。
 const buttonVariants = cva(
-  "btn [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "btn font-medium [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
         default: "btn-primary",
-        outline: "btn-outline",
+        // 既定のアウトラインは枠が base-content（濃色）で硬いので淡色に寄せる
+        outline: "btn-outline border-base-300 text-base-content hover:border-base-content",
         secondary: "btn-secondary",
         ghost: "btn-ghost",
         destructive: "btn-error btn-soft",
