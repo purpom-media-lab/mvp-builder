@@ -45,3 +45,10 @@ next-env.d.ts
 
 # 作業用一時ファイル（スクショ等）
 tmp/
+
+# agent skills (vendored, re-installable via: npx skills add ...)
+.agents/
+
+# Claude Code ローカル設定（マシン固有・コミットしない）
+.claude/settings.local.json
+.claude/skills/
