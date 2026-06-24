@@ -60,55 +60,55 @@
 
 :root {
   /* paper — near-white with a faint lavender cast */
-  --background: #fbfaff;
-  --foreground: #1a1340;
+  --background: #faf9fe;
+  --foreground: #2a2540;
   --card: #ffffff;
-  --card-foreground: #1a1340;
+  --card-foreground: #2a2540;
   --popover: #ffffff;
-  --popover-foreground: #1a1340;
+  --popover-foreground: #2a2540;
   /* deep indigo / blue-violet (Purpom) */
-  --primary: #4f46e5;
+  --primary: #5d55cf;
   --primary-foreground: #ffffff;
   --secondary: #eeedfb;
-  --secondary-foreground: #322b6b;
+  --secondary-foreground: #3c3666;
   --muted: #f2f1fb;
-  --muted-foreground: #6b6791;
+  --muted-foreground: #76728f;
   /* soft pink accent (the little crew) */
-  --accent: #f8e6f2;
-  --accent-foreground: #8a2d6b;
+  --accent: #f5e9f2;
+  --accent-foreground: #8a4a72;
   --destructive: #dc2626;
   --border: #e6e4f4;
   --input: #e1def2;
-  --ring: #4f46e5;
-  --chart-1: #4f46e5;
-  --chart-2: #7c6df0;
-  --chart-3: #d976c0;
-  --chart-4: #4f8ff0;
-  --chart-5: #9b6ce8;
+  --ring: #5d55cf;
+  --chart-1: #5d55cf;
+  --chart-2: #8b84e6;
+  --chart-3: #cf8fc4;
+  --chart-4: #6f9eee;
+  --chart-5: #a796e6;
   --radius: 0.85rem;
   --sidebar: #f7f6fe;
-  --sidebar-foreground: #1a1340;
-  --sidebar-primary: #4f46e5;
+  --sidebar-foreground: #2a2540;
+  --sidebar-primary: #5d55cf;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #eeedfb;
-  --sidebar-accent-foreground: #322b6b;
+  --sidebar-accent-foreground: #3c3666;
   --sidebar-border: #e6e4f4;
-  --sidebar-ring: #4f46e5;
+  --sidebar-ring: #5d55cf;
 
   /* ---- daisyUI 5 テーマ（Purpom light）。primary/secondary/accent は
      既存 shadcn トークンと同値にして bg-primary 等のユーティリティと整合させる ---- */
-  --color-primary: #4f46e5;
+  --color-primary: #5d55cf;
   --color-primary-content: #ffffff;
   --color-secondary: #eeedfb;
-  --color-secondary-content: #322b6b;
-  --color-accent: #f8e6f2;
-  --color-accent-content: #8a2d6b;
-  --color-neutral: #322b6b;
+  --color-secondary-content: #3c3666;
+  --color-accent: #f5e9f2;
+  --color-accent-content: #8a4a72;
+  --color-neutral: #3c3666;
   --color-neutral-content: #ffffff;
-  --color-base-100: #fbfaff;
+  --color-base-100: #faf9fe;
   --color-base-200: #f2f1fb;
   --color-base-300: #e6e4f4;
-  --color-base-content: #1a1340;
+  --color-base-content: #2a2540;
   --color-info: #4f8ff0;
   --color-info-content: #ffffff;
   --color-success: #16a34a;
