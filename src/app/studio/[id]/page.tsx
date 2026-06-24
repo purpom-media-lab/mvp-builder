@@ -90,10 +90,10 @@ const STEPS: { key: StepKey; label: string }[] = [
   { key: "wireframe", label: "ワイヤー" },
   { key: "datamodel", label: "データ設計" },
   { key: "backend", label: "バックエンド" },
+  { key: "brand", label: "デザイン" },
   { key: "scope", label: "スコープ" },
   { key: "kpi", label: "KPI" },
   { key: "growth", label: "グロース計画" },
-  { key: "brand", label: "デザイン" },
 ];
 
 /** MVP スコープに含められる機能の上限（資料の「最初に作る10以下」） */
@@ -125,9 +125,9 @@ const CATEGORIES: { key: string; label: string; steps: StepKey[] }[] = [
   {
     key: "design",
     label: "設計",
-    steps: ["navigation", "wireframe", "datamodel", "backend"],
+    steps: ["navigation", "wireframe", "datamodel", "backend", "brand"],
   },
-  { key: "mvp", label: "MVP定義", steps: ["scope", "kpi", "growth", "brand"] },
+  { key: "mvp", label: "MVP定義", steps: ["scope", "kpi", "growth"] },
 ];
 
 export default function ProjectDetailPage() {
