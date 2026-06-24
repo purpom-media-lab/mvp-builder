@@ -6,7 +6,9 @@ import { cn } from "@/lib/utils"
 
 // daisyUI 5 の `badge`。バリアントは daisyUI の色/スタイル修飾へマッピング。
 const badgeVariants = cva(
-  "badge badge-sm [&>svg]:pointer-events-none [&>svg]:size-3!",
+  // daisyUI badge は既定で折り返す（white-space:normal）が高さ固定のため、長いラベルが
+  // はみ出す。従来どおり whitespace-nowrap で1行に保つ（横に伸び、親で wrap）。
+  "badge badge-sm whitespace-nowrap [&>svg]:pointer-events-none [&>svg]:size-3!",
   {
     variants: {
       variant: {
