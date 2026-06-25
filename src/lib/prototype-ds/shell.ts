@@ -16,6 +16,15 @@ export interface DsScreen {
   componentName: string;
   /** `function Screen0(){ ... return (<JSX/>); }` 形式のソース（LLM生成 or プレースホルダ） */
   source: string;
+  /** 親メニューの label（2階層ナビ用）。トップ階層なら null/未指定。 */
+  parent?: string | null;
+}
+
+/** ナビ1項目（メニュー構造の組み立て用。group=子を束ねる見出し）。 */
+export interface DsNavItem {
+  label: string;
+  parent?: string | null;
+  icon?: string | null;
 }
 
 export interface DsBrandPalette {
@@ -56,7 +65,11 @@ export interface DaisyTheme {
 
 export interface DsBuildOptions {
   projectName: string;
+  /** コンポーネントを持つ「実画面」（＝ナビのリーフ）。 */
   screens: DsScreen[];
+  /** メニュー構造（親子含む全項目・順序つき）。未指定なら screens からフラット生成。
+   *  親(label が他項目の parent になっている)はグループ見出しとして描画し、画面は持たない。 */
+  nav?: DsNavItem[];
   /** 完全 daisyUI テーマ（AI生成）。あればこれを最優先で適用。 */
   theme?: DaisyTheme | null;
   /** ブランド分析のパレット（theme が無いときのフォールバック）。 */
@@ -117,13 +130,32 @@ function AppShell(props){
         <ul className="menu min-h-full w-60 gap-1 bg-base-100 p-2">
           <li className="menu-title">{ props.title }</li>
           { nav.map(function(item, i){
-            return (
-              <li key={i}>
-                <a className={ i === current ? "active" : "" } onClick={function(){ onNavigate(i); }}>
-                  { item.icon ? item.icon + " " : "" }{ item.label }
+            var link = function(node){
+              var active = node.idx >= 0 && node.idx === current;
+              return (
+                <a
+                  className={ active ? "menu-active" : "" }
+                  onClick={function(){ if (node.idx >= 0) onNavigate(node.idx); }}
+                >
+                  { node.icon ? node.icon + " " : "" }{ node.label }
                 </a>
-              </li>
-            );
+              );
+            };
+            if (item.children && item.children.length) {
+              return (
+                <li key={i}>
+                  <details open>
+                    <summary>{ item.icon ? item.icon + " " : "" }{ item.label }</summary>
+                    <ul>
+                      { item.children.map(function(c, j){
+                        return <li key={j}>{ link(c) }</li>;
+                      }) }
+                    </ul>
+                  </details>
+                </li>
+              );
+            }
+            return <li key={i}>{ link(item) }</li>;
           }) }
         </ul>
       </div>
@@ -165,13 +197,11 @@ function App(){
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 `;
 
-/** 画面ソースを束ね、ナビ/レジストリを差し込んでランタイムを完成させる */
+/** 画面ソースを束ね、ナビ(2階層)/レジストリを差し込んでランタイムを完成させる。
+ *  screens=コンポーネントを持つリーフ。nav=全メニュー項目(親子・順序つき)。
+ *  ある label が他項目の parent になっていれば、その項目はグループ見出し(画面なし idx=-1)。 */
 function buildRuntime(opts: DsBuildOptions): string {
   const screenSources = opts.screens.map((s) => s.source).join("\n\n");
-  const nav = {
-    title: opts.projectName || "プロトタイプ",
-    items: opts.screens.map((s) => ({ label: s.label })),
-  };
   const registry =
     "[" +
     opts.screens
@@ -181,6 +211,49 @@ function buildRuntime(opts: DsBuildOptions): string {
       )
       .join(",") +
     "]";
+
+  // label → 画面index（リーフのみ）。グループは index を持たない(-1)。
+  const idxOf = new Map<string, number>();
+  opts.screens.forEach((s, i) => idxOf.set(s.label, i));
+
+  // メニュー全項目（順序つき）。未指定なら screens からフラット生成。
+  const navList: DsNavItem[] =
+    opts.nav && opts.nav.length
+      ? opts.nav
+      : opts.screens.map((s) => ({ label: s.label, parent: s.parent ?? null }));
+
+  type Node = { label: string; icon: string | null; idx: number; children: Node[] };
+  const node = (n: DsNavItem): Node => ({
+    label: n.label,
+    icon: n.icon ?? null,
+    idx: idxOf.has(n.label) ? idxOf.get(n.label)! : -1,
+    children: [],
+  });
+
+  const tops: Node[] = [];
+  const byLabel = new Map<string, Node>();
+  // 1st: トップ階層(parent なし)
+  for (const n of navList) {
+    if (!n.parent) {
+      const e = node(n);
+      tops.push(e);
+      byLabel.set(n.label, e);
+    }
+  }
+  // 2nd: 子を親にぶら下げる（親が無ければトップに昇格）
+  for (const n of navList) {
+    if (n.parent) {
+      const child = node(n);
+      const parent = byLabel.get(n.parent);
+      if (parent) parent.children.push(child);
+      else {
+        tops.push(child);
+        byLabel.set(n.label, child);
+      }
+    }
+  }
+
+  const nav = { title: opts.projectName || "プロトタイプ", items: tops };
   return RUNTIME.replace("__SCREENS__", screenSources)
     .replace("__NAV__", JSON.stringify(nav))
     .replace("__REGISTRY__", registry);
