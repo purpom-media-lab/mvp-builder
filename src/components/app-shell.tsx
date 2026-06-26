@@ -20,6 +20,7 @@ import { signOut, useSession } from "@/lib/auth/client";
 
 /** グローバル主ナビ（Project コレクション中心・小さく保つ）。 */
 const NAV_ITEMS: { href: string; label: string; icon: string }[] = [
+  { href: "/dashboard", label: "ダッシュボード", icon: "🏠" },
   { href: "/studio", label: "プロジェクト", icon: "📁" },
   { href: "/members", label: "メンバー", icon: "👥" },
 ];

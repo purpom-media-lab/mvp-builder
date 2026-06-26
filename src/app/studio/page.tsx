@@ -9,7 +9,6 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { AppShell } from "@/components/app-shell";
 import { PageLoading } from "@/components/spinner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -24,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 type SourceType = "text" | "url" | "pdf";
 
@@ -62,6 +62,15 @@ const STATUS_LABEL: Record<string, string> = {
   designing: "設計中",
   generating: "生成中",
   published: "公開済",
+};
+
+/** status → daisyUI badge の色（soft スタイルで淡色に）。 */
+export const STATUS_BADGE: Record<string, string> = {
+  draft: "badge-ghost",
+  analyzing: "badge-info",
+  designing: "badge-secondary",
+  generating: "badge-warning",
+  published: "badge-success",
 };
 
 export default function ProjectListPage() {
@@ -154,6 +163,17 @@ export default function ProjectListPage() {
     }
   }
 
+  const stats = {
+    total: projects.length,
+    published: projects.filter((p) => p.hasPrototype).length,
+    inProgress: projects.filter(
+      (p) =>
+        !!p.status &&
+        ["analyzing", "designing", "generating"].includes(p.status),
+    ).length,
+    endUsers: projects.reduce((s, p) => s + (p.endUserCount ?? 0), 0),
+  };
+
   return (
     <AppShell>
       <div className="pm-sky isolate min-h-full px-6 py-10">
@@ -184,6 +204,30 @@ export default function ProjectListPage() {
           </Button>
         </div>
 
+        {!loadingList && projects.length > 0 && (
+          <div className="stats stats-vertical mb-6 w-full border border-base-300 bg-base-100 sm:stats-horizontal">
+            <div className="stat">
+              <div className="stat-title">総プロジェクト</div>
+              <div className="stat-value text-2xl">{stats.total}</div>
+            </div>
+            <div className="stat">
+              <div className="stat-title">公開MVP</div>
+              <div className="stat-value text-2xl text-primary">
+                {stats.published}
+              </div>
+            </div>
+            <div className="stat">
+              <div className="stat-title">進行中</div>
+              <div className="stat-value text-2xl">{stats.inProgress}</div>
+              <div className="stat-desc">分析・設計・生成</div>
+            </div>
+            <div className="stat">
+              <div className="stat-title">累計エンドユーザー</div>
+              <div className="stat-value text-2xl">{stats.endUsers}</div>
+            </div>
+          </div>
+        )}
+
         {loadingList ? (
           <PageLoading label="プロジェクトを読み込み中…" />
         ) : projects.length === 0 ? (
@@ -209,9 +253,14 @@ export default function ProjectListPage() {
                       {p.summary || "（概要なし）"}
                     </p>
                     <div className="mt-3 flex items-center justify-between text-xs text-base-content/70">
-                      <Badge variant="secondary">
+                      <span
+                        className={cn(
+                          "badge badge-sm badge-soft whitespace-nowrap",
+                          STATUS_BADGE[p.status ?? "draft"] ?? "badge-ghost",
+                        )}
+                      >
                         {STATUS_LABEL[p.status ?? "draft"] ?? p.status}
-                      </Badge>
+                      </span>
                       <span>
                         {p.updatedAt
                           ? new Date(p.updatedAt).toLocaleDateString("ja-JP")
