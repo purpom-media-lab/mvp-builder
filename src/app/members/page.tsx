@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { GlobalHeader } from "@/components/global-header";
+import { AppShell } from "@/components/app-shell";
 import { PageLoading } from "@/components/spinner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -128,9 +128,8 @@ export default function MembersPage() {
   const history = invitations.filter((i) => i.status !== "pending");
 
   return (
-    <div className="min-h-screen bg-base-200">
-      <GlobalHeader back={{ href: "/studio", label: "プロジェクト" }} />
-      <main className="mx-auto max-w-3xl px-6 py-8">
+    <AppShell back={{ href: "/studio", label: "プロジェクト" }}>
+      <div className="mx-auto max-w-3xl px-6 py-8">
         <p className="pm-eyebrow">team · access control</p>
         <h1 className="mt-2 font-heading text-3xl font-bold tracking-tight">
           メンバー
@@ -300,13 +299,13 @@ export default function MembersPage() {
             </section>
           </>
         )}
-      </main>
+      </div>
 
       {toast && (
         <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-full bg-base-content px-4 py-2 text-sm text-base-200 shadow-lg">
           {toast}
         </div>
       )}
-    </div>
+    </AppShell>
   );
 }

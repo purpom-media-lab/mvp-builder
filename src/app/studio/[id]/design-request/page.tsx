@@ -11,7 +11,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { DEFAULT_PROVIDER, MODEL_CATALOG } from "@/lib/ai/catalog";
 import { fetchActiveJobs, pollJob, startJob } from "@/lib/use-job";
-import { GlobalHeader } from "@/components/global-header";
+import { AppShell } from "@/components/app-shell";
 import type { ModelSelection } from "@/components/model-selector";
 import { ModelPrefsDialog } from "@/components/model-prefs-dialog";
 import {
@@ -443,28 +443,27 @@ export default function DesignRequestPage() {
         : "下書き";
 
   return (
-    <div className="relative flex min-h-screen flex-col">
+    <AppShell
+      fullHeight
+      back={{ href: `/studio/${id}/prototype`, label: "プロトタイプに戻る" }}
+      center={
+        <span className="text-sm font-medium text-base-content">
+          {name || "…"} / デザイナーに依頼
+        </span>
+      }
+      right={
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setPrefsOpen(true)}
+          title="基準モデルと工程ごとのモデル（速い/賢い）を設定します"
+        >
+          ⚙️ モデル設定
+        </Button>
+      }
+    >
       {loadingProject && <LoadingOverlay label="読み込み中…" />}
-      <GlobalHeader
-        back={{ href: `/studio/${id}/prototype`, label: "プロトタイプに戻る" }}
-        center={
-          <span className="text-sm font-medium text-base-content">
-            {name || "…"} / デザイナーに依頼
-          </span>
-        }
-        right={
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setPrefsOpen(true)}
-            title="基準モデルと工程ごとのモデル（速い/賢い）を設定します"
-          >
-            ⚙️ モデル設定
-          </Button>
-        }
-      />
-
-      <main className="mx-auto w-full max-w-3xl flex-1 space-y-8 px-4 py-6 sm:px-6">
+      <div className="mx-auto w-full max-w-3xl flex-1 space-y-8 px-4 py-6 sm:px-6">
         {error && (
           <div className="rounded-md bg-error/10 px-3 py-2 text-sm text-error">
             {error}
@@ -773,7 +772,7 @@ export default function DesignRequestPage() {
             </a>
           )}
         </section>
-      </main>
+      </div>
       {id && (
         <ModelPrefsDialog
           open={prefsOpen}
@@ -785,7 +784,7 @@ export default function DesignRequestPage() {
           onSaveBase={setModel}
         />
       )}
-    </div>
+    </AppShell>
   );
 }
 

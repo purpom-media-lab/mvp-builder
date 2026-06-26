@@ -9,7 +9,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { DEFAULT_PROVIDER, MODEL_CATALOG } from "@/lib/ai/catalog";
 import { fetchActiveJobs, pollJob, startJob } from "@/lib/use-job";
-import { GlobalHeader } from "@/components/global-header";
+import { AppShell } from "@/components/app-shell";
 import type { ModelSelection } from "@/components/model-selector";
 import { ModelPrefsDialog } from "@/components/model-prefs-dialog";
 import {
@@ -168,26 +168,25 @@ export default function DeckPage() {
   }
 
   return (
-    <div className="flex h-screen flex-col">
-      <GlobalHeader
-        back={{ href: `/studio/${id}`, label: "分析に戻る" }}
-        center={
-          <span className="text-sm font-medium text-base-content">
-            {name || "…"} / 資料
-          </span>
-        }
-        right={
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setPrefsOpen(true)}
-            title="基準モデルと工程ごとのモデル（速い/賢い）を設定します"
-          >
-            ⚙️ モデル設定
-          </Button>
-        }
-      />
-
+    <AppShell
+      fullHeight
+      back={{ href: `/studio/${id}`, label: "分析に戻る" }}
+      center={
+        <span className="text-sm font-medium text-base-content">
+          {name || "…"} / 資料
+        </span>
+      }
+      right={
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setPrefsOpen(true)}
+          title="基準モデルと工程ごとのモデル（速い/賢い）を設定します"
+        >
+          ⚙️ モデル設定
+        </Button>
+      }
+    >
       <div className="flex-1 overflow-auto p-6">
         <div className="mx-auto max-w-4xl space-y-4">
           {error && (
@@ -253,6 +252,6 @@ export default function DeckPage() {
           onSaveBase={setModel}
         />
       )}
-    </div>
+    </AppShell>
   );
 }

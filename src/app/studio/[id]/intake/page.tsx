@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DEFAULT_PROVIDER, MODEL_CATALOG } from "@/lib/ai/catalog";
-import { GlobalHeader } from "@/components/global-header";
+import { AppShell } from "@/components/app-shell";
 import { JtbdChat } from "@/components/jtbd-chat";
 import type { ModelSelection } from "@/components/model-selector";
 import { ModelPrefsDialog } from "@/components/model-prefs-dialog";
@@ -37,37 +37,36 @@ export default function IntakePage() {
   }, [id]);
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <GlobalHeader
-        back={{ href: `/studio/${id}`, label: "分析に戻る" }}
-        center={
-          <span className="text-sm font-medium text-base-content">
-            要望ヒアリング（ジョブ理論）
-          </span>
-        }
-        right={
-          <div className="flex items-center gap-3">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setPrefsOpen(true)}
-              title="基準モデルと工程ごとのモデル（速い/賢い）を設定します"
+    <AppShell
+      fullHeight
+      back={{ href: `/studio/${id}`, label: "分析に戻る" }}
+      center={
+        <span className="text-sm font-medium text-base-content">
+          要望ヒアリング（ジョブ理論）
+        </span>
+      }
+      right={
+        <div className="flex items-center gap-3">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setPrefsOpen(true)}
+            title="基準モデルと工程ごとのモデル（速い/賢い）を設定します"
+          >
+            ⚙️ モデル設定
+          </Button>
+          {saved && (
+            <Link
+              href={`/studio/${id}`}
+              className={buttonVariants({ size: "sm" })}
             >
-              ⚙️ モデル設定
-            </Button>
-            {saved && (
-              <Link
-                href={`/studio/${id}`}
-                className={buttonVariants({ size: "sm" })}
-              >
-                分析へ進む →
-              </Link>
-            )}
-          </div>
-        }
-      />
-
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-3 p-4">
+              分析へ進む →
+            </Link>
+          )}
+        </div>
+      }
+    >
+      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-3 p-4">
         <div>
           <p className="pm-eyebrow">jobs to be done</p>
           <h1 className="mt-2 font-heading text-xl font-bold tracking-tight">
@@ -87,7 +86,7 @@ export default function IntakePage() {
             onSaved={() => setSaved(true)}
           />
         )}
-      </main>
+      </div>
       {id && (
         <ModelPrefsDialog
           open={prefsOpen}
@@ -99,7 +98,7 @@ export default function IntakePage() {
           onSaveBase={setModel}
         />
       )}
-    </div>
+    </AppShell>
   );
 }
 

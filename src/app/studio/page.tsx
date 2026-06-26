@@ -7,7 +7,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { GlobalHeader } from "@/components/global-header";
+import { AppShell } from "@/components/app-shell";
 import { PageLoading } from "@/components/spinner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -155,9 +155,9 @@ export default function ProjectListPage() {
   }
 
   return (
-    <div className="pm-sky relative isolate min-h-screen">
-      <GlobalHeader />
-      <main className="mx-auto max-w-5xl px-6 py-10">
+    <AppShell>
+      <div className="pm-sky isolate min-h-full px-6 py-10">
+        <div className="mx-auto max-w-5xl">
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
             <p className="pm-eyebrow">projects</p>
@@ -336,7 +336,8 @@ export default function ProjectListPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </main>
-    </div>
+        </div>
+      </div>
+    </AppShell>
   );
 }

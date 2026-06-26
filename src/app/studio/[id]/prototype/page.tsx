@@ -16,7 +16,7 @@ import {
   AiConsultPanel,
   type OrchestrateResponse,
 } from "@/components/ai-consult-panel";
-import { GlobalHeader } from "@/components/global-header";
+import { AppShell } from "@/components/app-shell";
 import type { ModelSelection } from "@/components/model-selector";
 import { ModelPrefsDialog } from "@/components/model-prefs-dialog";
 import {
@@ -682,27 +682,26 @@ export default function PrototypePage() {
   }
 
   return (
-    <div className="relative flex h-screen flex-col">
+    <AppShell
+      fullHeight
+      back={{ href: `/studio/${id}`, label: "分析に戻る" }}
+      center={
+        <span className="text-sm font-medium text-base-content">
+          {name || "…"} / プロトタイプ
+        </span>
+      }
+      right={
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setPrefsOpen(true)}
+          title="基準モデルと工程ごとのモデル（速い/賢い）を設定します"
+        >
+          ⚙️ モデル設定
+        </Button>
+      }
+    >
       {loadingProject && <LoadingOverlay label="読み込み中…" />}
-      <GlobalHeader
-        back={{ href: `/studio/${id}`, label: "分析に戻る" }}
-        center={
-          <span className="text-sm font-medium text-base-content">
-            {name || "…"} / プロトタイプ
-          </span>
-        }
-        right={
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setPrefsOpen(true)}
-            title="基準モデルと工程ごとのモデル（速い/賢い）を設定します"
-          >
-            ⚙️ モデル設定
-          </Button>
-        }
-      />
-
       <ResizablePanelGroup className="flex-1">
         {/* 左ペイン: AI相談チャットのみ */}
         <ResizablePanel
@@ -1205,6 +1204,6 @@ export default function PrototypePage() {
           onSaveBase={setModel}
         />
       )}
-    </div>
+    </AppShell>
   );
 }

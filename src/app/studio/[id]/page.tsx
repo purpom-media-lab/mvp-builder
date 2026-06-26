@@ -19,7 +19,7 @@ import {
   AiConsultPanel,
   type OrchestrateResponse,
 } from "@/components/ai-consult-panel";
-import { GlobalHeader } from "@/components/global-header";
+import { AppShell } from "@/components/app-shell";
 import { MermaidBlock } from "@/components/mermaid-block";
 import type { ModelSelection } from "@/components/model-selector";
 import { ModelPrefsDialog } from "@/components/model-prefs-dialog";
@@ -654,42 +654,40 @@ export default function ProjectDetailPage() {
   );
 
   return (
-    <div className="relative min-h-screen bg-background">
+    <AppShell
+      back={{ href: "/studio", label: "プロジェクト一覧" }}
+      center={
+        <span className="text-sm font-medium text-base-content">
+          {name || "読み込み中…"}
+        </span>
+      }
+      right={
+        <div className="flex items-center gap-3">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setPrefsOpen(true)}
+            title="基準モデルと工程ごとのモデル（速い/賢い）を設定します"
+          >
+            ⚙️ モデル設定
+          </Button>
+          <Link
+            href={`/studio/${id}/deck`}
+            className={buttonVariants({ size: "sm", variant: "outline" })}
+          >
+            資料 →
+          </Link>
+          <Link
+            href={`/studio/${id}/prototype`}
+            className={buttonVariants({ size: "sm" })}
+          >
+            プロトタイプ →
+          </Link>
+        </div>
+      }
+    >
       {loading === "load" && <LoadingOverlay label="プロジェクトを読み込み中…" />}
-      <GlobalHeader
-        back={{ href: "/studio", label: "プロジェクト一覧" }}
-        center={
-          <span className="text-sm font-medium text-foreground">
-            {name || "読み込み中…"}
-          </span>
-        }
-        right={
-          <div className="flex items-center gap-3">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setPrefsOpen(true)}
-              title="基準モデルと工程ごとのモデル（速い/賢い）を設定します"
-            >
-              ⚙️ モデル設定
-            </Button>
-            <Link
-              href={`/studio/${id}/deck`}
-              className={buttonVariants({ size: "sm", variant: "outline" })}
-            >
-              資料 →
-            </Link>
-            <Link
-              href={`/studio/${id}/prototype`}
-              className={buttonVariants({ size: "sm" })}
-            >
-              プロトタイプ →
-            </Link>
-          </div>
-        }
-      />
-
-      <main className="mx-auto max-w-5xl px-6 py-8">
+      <div className="mx-auto max-w-5xl px-6 py-8">
         {error && (
           <div className="mb-6 rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">
             {error}
@@ -2186,8 +2184,8 @@ export default function ProjectDetailPage() {
             </div>
           </>
         )}
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }
 
