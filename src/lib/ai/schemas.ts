@@ -156,13 +156,18 @@ export const wireframeSchema = z.object({
                 "table",
                 "list",
                 "cards",
+                "calendar",
+                "map",
+                "timeline",
                 "form",
                 "detail",
                 "sidebar",
                 "footer",
                 "other",
               ])
-              .describe("セクション種別"),
+              .describe(
+                "セクション種別。コレクションの表示形式はオブジェクトの性質で選ぶ（table/cards/calendar/map/timeline 等）",
+              ),
             label: z.string().describe("セクションの見出し/説明（日本語）"),
             items: z
               .array(z.string())
