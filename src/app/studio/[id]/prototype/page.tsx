@@ -116,6 +116,11 @@ export default function PrototypePage() {
 
   const [engine, setEngine] = useState<"aws" | "ds">("ds");
   const [engineMenuOpen, setEngineMenuOpen] = useState(false);
+  // 右ペインのコントロール帯（公開/画面選択/生成済み）をアコーディオン化し、
+  // 一度に1つだけ開く。null=全て畳んでプレビューを最大化（案C）。
+  const [activePanel, setActivePanel] = useState<
+    "screens" | "publish" | "generated" | null
+  >("screens");
   const [instruction, setInstruction] = useState("");
   const [demoUrl, setDemoUrl] = useState<string | null>(null);
   const [html, setHtml] = useState<string | null>(null);
@@ -834,9 +839,71 @@ export default function PrototypePage() {
             )}
           </div>
 
+          {/* コントロール帯（案C）: 「画面選択 / 公開・ビルド / 生成済み」を1本のタブに
+              集約し、開くのは1つだけ。閉じればプレビューを縦いっぱいに使える。 */}
+          {((html || demoUrl) ||
+            (!generating && nav.length > 0) ||
+            (!generating && html && screens.length > 0)) && (
+            <div className="flex items-center gap-2 border-b bg-base-200 px-3 py-1.5">
+              <div role="tablist" className="tabs tabs-box tabs-xs">
+                {!generating && nav.length > 0 && (
+                  <button
+                    type="button"
+                    role="tab"
+                    className={cn("tab", activePanel === "screens" && "tab-active")}
+                    onClick={() =>
+                      setActivePanel((p) => (p === "screens" ? null : "screens"))
+                    }
+                  >
+                    生成する画面（{selectedScreens.length}/{nav.length}）
+                  </button>
+                )}
+                {(html || demoUrl) && (
+                  <button
+                    type="button"
+                    role="tab"
+                    className={cn("tab", activePanel === "publish" && "tab-active")}
+                    onClick={() =>
+                      setActivePanel((p) => (p === "publish" ? null : "publish"))
+                    }
+                  >
+                    公開・ビルド・依頼
+                  </button>
+                )}
+                {!generating && html && screens.length > 0 && (
+                  <button
+                    type="button"
+                    role="tab"
+                    className={cn(
+                      "tab",
+                      activePanel === "generated" && "tab-active",
+                    )}
+                    onClick={() =>
+                      setActivePanel((p) =>
+                        p === "generated" ? null : "generated",
+                      )
+                    }
+                  >
+                    生成済み（{screens.length}）
+                  </button>
+                )}
+              </div>
+              {activePanel && (
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs ml-auto"
+                  onClick={() => setActivePanel(null)}
+                  title="閉じてプレビューを広げる"
+                >
+                  閉じる ✕
+                </button>
+              )}
+            </div>
+          )}
+
           {/* プレビュー完成後のアクション。OOUI 分析のワイヤー案に基づき
               「公開 / ビルド / デザイン依頼」の3グループに整理する。 */}
-          {(html || demoUrl) && (
+          {activePanel === "publish" && (html || demoUrl) && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b bg-base-200 px-3 py-2">
               {/* 公開 */}
               <div className="flex items-center gap-1.5 rounded-md border px-2 py-1">
@@ -920,7 +987,7 @@ export default function PrototypePage() {
 
           {/* 生成する画面の選択。出力量を抑えて途中切れを防ぎ、作りたい画面に集中する。
               全選択なら従来どおり全画面、絞ると「選んだ画面だけを過不足なく実装」する。 */}
-          {!generating && nav.length > 0 && (
+          {activePanel === "screens" && !generating && nav.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 border-b bg-base-200 px-3 py-2 text-xs">
               <span className="font-medium text-base-content/70">
                 生成する画面（{selectedScreens.length}/{nav.length}）:
@@ -1087,7 +1154,7 @@ export default function PrototypePage() {
 
           {/* 生成された画面の一覧（@screen マーカーから抽出）。生成後にどんな画面が
               できたかを把握する。生成中はオーバーレイ側でライブ表示するため出さない。 */}
-          {!generating && html && screens.length > 0 && (
+          {activePanel === "generated" && !generating && html && screens.length > 0 && (
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b bg-base-200 px-3 py-2 text-xs">
               <span className="font-medium text-base-content/70">
                 生成された画面 {screens.length}
