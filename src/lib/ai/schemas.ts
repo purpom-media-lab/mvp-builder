@@ -419,6 +419,43 @@ export const engineerBriefSchema = z.object({
   deadline: z.string().describe("納期（例: 1ヶ月後 / 未定）"),
 });
 
+/** 実ユーザー（回答者）の声の統合分析。N件の JTBD インタビューから共通項を抽出する。 */
+export const voiceSynthesisSchema = z.object({
+  topJobs: z
+    .array(
+      z.object({
+        job: z.string().describe("片付けたいジョブ（共通して現れたもの）"),
+        frequency: z
+          .string()
+          .describe("どの程度の回答者が言及したか（例: 5人中3人 / 多数 / 少数）"),
+      }),
+    )
+    .describe("共通して現れた主要なジョブ（多い順）"),
+  topPains: z
+    .array(
+      z.object({
+        pain: z.string().describe("ペイン/課題"),
+        severity: z.string().describe("深刻度や頻度の目安（日本語）"),
+      }),
+    )
+    .describe("共通のペイン（重い/多い順）"),
+  topOpportunities: z
+    .array(z.string())
+    .describe("改善の機会・インサイト（日本語）"),
+  overallSentiment: z
+    .string()
+    .describe("全体の受け止め（前向きな点・懸念点）の要約（日本語）"),
+  journeySuggestions: z
+    .array(z.string())
+    .describe("ユーザージャーニーに反映すべき painpoint/opportunity の提案"),
+  scopeSuggestions: z
+    .array(z.string())
+    .describe("MVPスコープの優先度に関する提案（声に基づく優先/追加/見送り）"),
+  summary: z.string().describe("経営者向けの一言サマリ（2-3文・日本語）"),
+});
+
+export type VoiceSynthesisOutput = z.infer<typeof voiceSynthesisSchema>;
+
 export type ActorsOutput = z.infer<typeof actorsSchema>;
 export type UseCasesOutput = z.infer<typeof useCasesSchema>;
 export type OouiOutput = z.infer<typeof oouiSchema>;

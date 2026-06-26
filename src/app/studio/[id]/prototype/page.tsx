@@ -928,6 +928,13 @@ export default function PrototypePage() {
                     公開URLを開く ↗
                   </a>
                 )}
+                <Link
+                  href={`/studio/${id}/voices`}
+                  className={buttonVariants({ variant: "outline", size: "sm" })}
+                  title="公開プロトで集まった実ユーザーの声（JTBDインタビュー）を見る・統合する"
+                >
+                  🗣 ユーザーの声 →
+                </Link>
               </div>
 
               {/* ビルド */}
