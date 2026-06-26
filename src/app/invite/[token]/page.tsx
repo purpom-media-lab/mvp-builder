@@ -20,11 +20,11 @@ export default async function InvitePage({
         <h1 className="mt-3 font-heading text-2xl font-semibold tracking-tight">
           招待が無効です
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className="mt-2 text-sm text-base-content/70">
           この招待リンクは無効、または期限切れです。本サービスは招待制のため、
           招待してくれた方に<strong>新しい招待リンクの再発行</strong>を依頼してください。
         </p>
-        <p className="mt-6 text-xs text-muted-foreground">
+        <p className="mt-6 text-xs text-base-content/70">
           すでにアカウントをお持ちの方は{" "}
           <Link
             href="/sign-in"

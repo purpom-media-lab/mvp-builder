@@ -42,13 +42,13 @@ export function AiGenerating({
       role="status"
       aria-live="polite"
       className={cn(
-        "pm-sky flex items-center gap-4 overflow-hidden rounded-xl border bg-card/60 px-4 py-4",
+        "pm-sky flex items-center gap-4 overflow-hidden rounded-xl border bg-base-100/60 px-4 py-4",
         className,
       )}
     >
       <Compass />
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-foreground">
+        <p className="text-sm font-semibold text-base-content">
           AIが{label ? `${label}を` : ""}生成しています
         </p>
         {/* key で再マウントして入場アニメを毎回再生 */}

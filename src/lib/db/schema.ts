@@ -32,6 +32,12 @@ export const projects = pgTable("projects", {
   ownerId: text("owner_id").notNull(), // Better Auth user id
   name: text("name").notNull(),
   summary: text("summary"),
+  // ユーザーが入力する「詳細（入力資料/intake）」。手入力のアイデア・要件テキスト。
+  // 旧: source_documents(type=text) に保存していたが projects 直下へ移設。
+  detail: text("detail"),
+  // ジョブ理論(JTBD)など背景処理が生成する「分析結果」（構造化要望テキスト）。
+  // detail（ユーザー入力）とは別管理にし、分析が手入力を上書きしないようにする。
+  analysisResult: text("analysis_result"),
   mvpStatement: text("mvp_statement"), // スコープ確定で生成するMVPの仮説と提供価値
   // KPI工程で生成するグロース計画（model/levers/experiments/milestones）
   growthPlan: jsonb("growth_plan").$type<{

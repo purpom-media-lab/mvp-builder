@@ -53,12 +53,12 @@ export const STEP_ROLES: Record<StepKey, string> = {
   brand: "ブランドデザイナー",
 };
 
-/** 軽い工程は高速モデルで（analyze ルートと同方針）。 */
+/** 軽い工程は高速モデルで（analyze ルートと同方針）。
+ *  navigation は OOUI オブジェクト/関連の構造推論が要るため除外し、選択モデルで生成する。 */
 const FAST_STEPS = new Set<StepKey>([
   "actors",
   "usecases",
   "journey",
-  "navigation",
 ]);
 
 /**

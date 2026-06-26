@@ -164,7 +164,7 @@ export default function ProjectListPage() {
             <h1 className="mt-2 font-heading text-3xl font-bold tracking-tight">
               プロジェクト
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-sm text-base-content/70">
               要件 → 可視化 → スコープ確定 → 動くMVP
             </p>
           </div>
@@ -188,7 +188,7 @@ export default function ProjectListPage() {
           <PageLoading label="プロジェクトを読み込み中…" />
         ) : projects.length === 0 ? (
           <Card className="border-dashed">
-            <CardContent className="py-12 text-center text-sm text-muted-foreground">
+            <CardContent className="py-12 text-center text-sm text-base-content/70">
               まだプロジェクトがありません。「＋
               新規プロジェクト」から作成してください。
             </CardContent>
@@ -198,17 +198,17 @@ export default function ProjectListPage() {
             {projects.map((p) => (
               <Card
                 key={p.id}
-                className="flex h-full flex-col gap-3 ring-border transition-colors hover:ring-primary/50"
+                className="flex h-full flex-col gap-3 ring-base-300 transition-colors hover:ring-primary/50"
               >
                 <Link href={`/studio/${p.id}`} className="flex-1">
                   <CardHeader>
                     <CardTitle className="truncate">{p.name}</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="line-clamp-2 h-10 text-sm text-muted-foreground">
+                    <p className="line-clamp-2 h-10 text-sm text-base-content/70">
                       {p.summary || "（概要なし）"}
                     </p>
-                    <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                    <div className="mt-3 flex items-center justify-between text-xs text-base-content/70">
                       <Badge variant="secondary">
                         {STATUS_LABEL[p.status ?? "draft"] ?? p.status}
                       </Badge>
@@ -222,7 +222,7 @@ export default function ProjectListPage() {
                 </Link>
                 {/* 管理フッター: 公開MVP / 利用状況 / 削除 */}
                 <CardContent className="flex items-center justify-between gap-2 border-t pt-3 text-xs">
-                  <div className="flex items-center gap-3 text-muted-foreground">
+                  <div className="flex items-center gap-3 text-base-content/70">
                     {p.hasPrototype ? (
                       <a
                         href={`/run/${p.id}`}
@@ -234,7 +234,7 @@ export default function ProjectListPage() {
                         🔌 公開MVP ↗
                       </a>
                     ) : (
-                      <span className="text-muted-foreground/60">未公開</span>
+                      <span className="text-base-content/70/60">未公開</span>
                     )}
                     <span title="エンドユーザー数">👤 {p.endUserCount ?? 0}</span>
                     <span title="保存データ数">🗃 {p.recordCount ?? 0}</span>
@@ -242,7 +242,7 @@ export default function ProjectListPage() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-7 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    className="h-7 px-2 text-error hover:bg-error/10 hover:text-error"
                     disabled={deletingId === p.id}
                     onClick={() => remove(p)}
                   >
@@ -264,7 +264,7 @@ export default function ProjectListPage() {
             </DialogHeader>
             <div className="space-y-3">
               {error && (
-                <div className="rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                <div className="rounded-md bg-error/10 px-4 py-3 text-sm text-error">
                   {error}
                 </div>
               )}

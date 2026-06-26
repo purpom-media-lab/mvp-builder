@@ -41,11 +41,11 @@ export const STEP_FNS = {
  * 重要な判断を伴う工程（ooui/scope/kpi/growth/brand/wireframe/datamodel/backend）は
  * 選択中のモデルのまま使う。
  */
+// navigation は OOUI オブジェクト/関連の構造推論が要るため FAST から除外し選択モデルで生成。
 export const FAST_STEPS = new Set<StepKey>([
   "actors",
   "usecases",
   "journey",
-  "navigation",
 ]);
 
 export function isStepKey(v: unknown): v is StepKey {

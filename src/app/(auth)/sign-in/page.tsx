@@ -31,7 +31,7 @@ export default function SignInPage() {
 
       <div className="pm-panel w-full max-w-sm p-7">
         <div className="flex items-center gap-2">
-          <LeanQuestLogo className="h-5 w-auto text-foreground" />
+          <LeanQuestLogo className="h-5 w-auto text-base-content" />
           <span className="font-heading text-sm font-bold tracking-tight">
             LEAN&nbsp;QUEST&nbsp;<span className="text-primary">AI</span>
           </span>
@@ -49,7 +49,7 @@ export default function SignInPage() {
             value={email}
             autoComplete="email"
             onChange={(e) => setEmail(e.target.value)}
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="h-10 w-full rounded-md border border-base-300 bg-base-100 px-3 text-sm outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/40"
           />
           <input
             type="password"
@@ -58,17 +58,17 @@ export default function SignInPage() {
             value={password}
             autoComplete="current-password"
             onChange={(e) => setPassword(e.target.value)}
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="h-10 w-full rounded-md border border-base-300 bg-base-100 px-3 text-sm outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/40"
           />
           {error && (
-            <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <p className="rounded-md bg-error/10 px-3 py-2 text-sm text-error">
               {error}
             </p>
           )}
           <button
             type="submit"
             disabled={loading}
-            className="h-10 w-full rounded-md bg-primary font-medium text-primary-foreground transition-all hover:opacity-90 active:translate-y-px disabled:opacity-50"
+            className="h-10 w-full rounded-md bg-primary font-medium text-primary-content transition-all hover:opacity-90 active:translate-y-px disabled:opacity-50"
           >
             {loading ? "サインイン中…" : "サインイン →"}
           </button>

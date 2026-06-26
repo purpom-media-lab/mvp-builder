@@ -105,7 +105,7 @@ export function JtbdChat({
     <div className="flex flex-1 flex-col gap-3">
       <div
         ref={scrollRef}
-        className="h-[55vh] min-h-[300px] space-y-3 overflow-y-auto rounded-lg border bg-muted/20 p-4"
+        className="h-[55vh] min-h-[300px] space-y-3 overflow-y-auto rounded-lg border border-base-300 bg-base-100 p-4"
       >
         {messages
           .filter((m, i) => !(i === 0 && m.role === "user")) // 起動用の最初の発話は隠す
@@ -121,7 +121,7 @@ export function JtbdChat({
                     return (
                       <span
                         key={i}
-                        className="inline-block max-w-[85%] rounded-lg bg-primary px-3 py-2 text-sm whitespace-pre-wrap text-primary-foreground"
+                        className="inline-block max-w-[85%] rounded-lg bg-primary px-3 py-2 text-sm whitespace-pre-wrap text-primary-content"
                       >
                         {p.text}
                       </span>
@@ -130,7 +130,7 @@ export function JtbdChat({
                   return (
                     <div
                       key={i}
-                      className="inline-block max-w-[85%] rounded-lg bg-background px-3 py-2 text-left text-foreground"
+                      className="inline-block max-w-[85%] rounded-lg border border-base-300 bg-base-200 px-3 py-2 text-left text-base-content"
                     >
                       <Markdown>{p.text}</Markdown>
                     </div>
@@ -140,7 +140,7 @@ export function JtbdChat({
                   return (
                     <div
                       key={i}
-                      className="my-1 inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs text-muted-foreground"
+                      className="my-1 inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs text-base-content/70"
                     >
                       ✅ 要望を入力資料に反映しました
                     </div>
@@ -151,12 +151,12 @@ export function JtbdChat({
             </div>
           ))}
         {status === "submitted" && (
-          <p className="text-left text-xs text-muted-foreground">考え中…</p>
+          <p className="text-left text-xs text-base-content/70">考え中…</p>
         )}
       </div>
 
       {saved && (
-        <div className="rounded-md bg-primary/10 px-3 py-2 text-sm text-foreground">
+        <div className="rounded-md bg-primary/10 px-3 py-2 text-sm text-base-content">
           要望をプロジェクトに反映しました。分析に戻って実行できます。
         </div>
       )}

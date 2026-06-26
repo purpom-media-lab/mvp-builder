@@ -38,7 +38,7 @@ export function AcceptForm({ token, email }: { token: string; email: string }) {
 
       <div className="pm-panel w-full max-w-sm p-7">
         <div className="flex items-center gap-2">
-          <LeanQuestLogo className="h-5 w-auto text-foreground" />
+          <LeanQuestLogo className="h-5 w-auto text-base-content" />
           <span className="font-heading text-sm font-bold tracking-tight">
             LEAN&nbsp;QUEST&nbsp;<span className="text-primary">AI</span>
           </span>
@@ -46,7 +46,7 @@ export function AcceptForm({ token, email }: { token: string; email: string }) {
         <h1 className="mt-5 font-heading text-2xl font-bold tracking-tight">
           メンバー登録
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className="mt-2 text-sm text-base-content/70">
           LEAN QUEST AI への招待を受け取りました
         </p>
 
@@ -58,7 +58,7 @@ export function AcceptForm({ token, email }: { token: string; email: string }) {
             title={email}
             autoComplete="username"
             aria-label="招待先メールアドレス"
-            className="h-10 w-full overflow-hidden text-ellipsis rounded-md border border-input bg-muted px-3 text-sm text-muted-foreground"
+            className="h-10 w-full overflow-hidden text-ellipsis rounded-md border border-base-300 bg-base-200 px-3 text-sm text-base-content/70"
           />
           <input
             required
@@ -66,7 +66,7 @@ export function AcceptForm({ token, email }: { token: string; email: string }) {
             value={name}
             autoComplete="name"
             onChange={(e) => setName(e.target.value)}
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="h-10 w-full rounded-md border border-base-300 bg-base-100 px-3 text-sm outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/40"
           />
           <input
             type="password"
@@ -76,17 +76,17 @@ export function AcceptForm({ token, email }: { token: string; email: string }) {
             value={password}
             autoComplete="new-password"
             onChange={(e) => setPassword(e.target.value)}
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="h-10 w-full rounded-md border border-base-300 bg-base-100 px-3 text-sm outline-none transition-colors focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/40"
           />
           {error && (
-            <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <p className="rounded-md bg-error/10 px-3 py-2 text-sm text-error">
               {error}
             </p>
           )}
           <button
             type="submit"
             disabled={loading}
-            className="h-10 w-full rounded-md bg-primary font-medium text-primary-foreground transition-all hover:opacity-90 active:translate-y-px disabled:opacity-50"
+            className="h-10 w-full rounded-md bg-primary font-medium text-primary-content transition-all hover:opacity-90 active:translate-y-px disabled:opacity-50"
           >
             {loading ? "登録中…" : "登録して始める →"}
           </button>

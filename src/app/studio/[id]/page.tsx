@@ -117,6 +117,10 @@ const STEP_HELP: Partial<Record<StepKey, { title: string; body: string }>> = {
     title: "ジャーニーとは",
     body: "アクターが目的を達成するまでの一連の行動・接点・感情の流れです。体験の全体像を掴みます。",
   },
+  scope: {
+    title: "MVPスコープの決め方",
+    body: "先に探索プロトタイプ（全機能版）を生成して動きを確認し、そのうえで『最初に作る機能（MVP）』を選び絞り込みます。新しい機能を足すのではなく、プロトタイプに現れた機能の取捨選択として決めます。",
+  },
 };
 
 /** 工程を 3 カテゴリに整理（一度に見えるタブを絞る） */
@@ -145,6 +149,11 @@ export default function ProjectDetailPage() {
 
   const [name, setName] = useState("");
   const [summary, setSummary] = useState("");
+  // ユーザー入力の「詳細（入力資料/intake）」。projects.detail に永続化する。
+  const [detail, setDetail] = useState("");
+  // JTBD等の背景処理が生成した「分析結果」。読み取り専用で表示する（detail とは別管理）。
+  const [analysisResult, setAnalysisResult] = useState<string | null>(null);
+  // 参考資料（URL/PDF 抽出テキスト）。コンテキストにのみ使用。
   const [sourceText, setSourceText] = useState("");
 
   const [actors, setActors] = useState<ActorView[] | null>(null);
@@ -199,6 +208,8 @@ export default function ProjectDetailPage() {
         if (cancelled) return;
         setName(d.project.name);
         setSummary(d.project.summary ?? "");
+        setDetail(d.detail ?? "");
+        setAnalysisResult(d.analysisResult ?? null);
         setSourceText(d.sourceText ?? "");
         const a = d.actors.length ? d.actors : null;
         const u = d.useCases.length ? d.useCases : null;
@@ -357,7 +368,9 @@ export default function ProjectDetailPage() {
     return [
       `# プロジェクト: ${name || "(未設定)"}`,
       summary && `## 概要\n${summary}`,
-      sourceText && `## 入力資料\n${sourceText}`,
+      detail && `## 入力資料\n${detail}`,
+      analysisResult && `## ジョブ分析\n${analysisResult}`,
+      sourceText && `## 参考資料\n${sourceText}`,
       actors && `## アクター\n${JSON.stringify(actors)}`,
       useCases && `## ユースケース\n${JSON.stringify(useCases)}`,
       ooui && `## OOUIオブジェクト\n${JSON.stringify(ooui)}`,
@@ -373,6 +386,20 @@ export default function ProjectDetailPage() {
     ]
       .filter(Boolean)
       .join("\n\n");
+  }
+
+  // 概要・詳細（入力資料）の編集を projects へ保存する（フォーカスアウト時）。
+  async function saveProjectInfo(patch: { summary?: string; detail?: string }) {
+    if (!id) return;
+    try {
+      await fetch(`/api/projects/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+    } catch {
+      // 保存失敗は致命的でないため握りつぶす（次回操作で再送される）。
+    }
   }
 
   // 単一工程ジョブの結果をローカル状態へ反映する（新規生成・遷移後の復帰で共用）。
@@ -675,13 +702,25 @@ export default function ProjectDetailPage() {
             placeholder="概要（一言で）"
             value={summary}
             onChange={(e) => setSummary(e.target.value)}
+            onBlur={() => saveProjectInfo({ summary })}
           />
           <Textarea
             className="h-48 resize-y"
             placeholder="入力資料（アイデア・要件・参考テキストを貼り付け）"
-            value={sourceText}
-            onChange={(e) => setSourceText(e.target.value)}
+            value={detail}
+            onChange={(e) => setDetail(e.target.value)}
+            onBlur={() => saveProjectInfo({ detail })}
           />
+          {analysisResult && (
+            <div className="rounded-lg border border-base-300 bg-base-200/50 p-3">
+              <p className="mb-1 text-xs font-medium text-base-content/70">
+                ジョブ分析結果（自動生成・読み取り専用）
+              </p>
+              <p className="whitespace-pre-wrap text-sm text-base-content/90">
+                {analysisResult}
+              </p>
+            </div>
+          )}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-xs text-muted-foreground">
               各ステップの結果は自動で保存されます

@@ -113,7 +113,7 @@ export default function PrototypePage() {
   } | null>(null);
   const [brand, setBrand] = useState<BrandView | null>(null);
 
-  const [engine, setEngine] = useState<"v0" | "aws" | "ds">("ds");
+  const [engine, setEngine] = useState<"aws" | "ds">("ds");
   const [engineMenuOpen, setEngineMenuOpen] = useState(false);
   const [instruction, setInstruction] = useState("");
   const [demoUrl, setDemoUrl] = useState<string | null>(null);
@@ -327,7 +327,7 @@ export default function PrototypePage() {
     useCases?: UseCaseView[];
     ooui?: OouiView[];
     nav?: NavView[];
-    engine?: "v0" | "aws" | "ds";
+    engine?: "aws" | "ds";
   }) {
     const aData = override?.actors ?? actors;
     const ucData = override?.useCases ?? useCases;
@@ -377,10 +377,8 @@ export default function PrototypePage() {
       // 部分生成のときだけ「この画面だけを過不足なく実装」と明示する。
       selectedScreens: useSelection ? selectedScreens : undefined,
       mvpStatement,
-      // スコープ確定済みなら MVP に含む機能だけを実装対象に渡す
-      scope: scope
-        .filter((f) => f.includedInMvp)
-        .map((f) => ({ name: f.name, description: f.description })),
+      // プロトタイプは探索用（broad）: includedInMvp で絞らず、全機能を網羅して渡す。
+      scope: scope.map((f) => ({ name: f.name, description: f.description })),
       kpis: kpi
         ? [kpi.northStar, ...kpi.supporting]
             .filter((m): m is KpiMetricView => !!m)
@@ -398,44 +396,30 @@ export default function PrototypePage() {
         : undefined,
     };
     try {
-      if (engineUsed === "aws" || engineUsed === "ds") {
-        // ジョブ起動 → ポーリングで進捗（文字数・生成できた画面）を表示。生成はサーバ側
-        // after() で走るので、待っている間に画面を離れても止まらない（保存もランナーが行う）。
-        // engine="ds" は構造化生成（骨格コード＋画面別生成）。runner が engine で分岐する。
-        setGenChars(0);
-        setGenScreens([]);
-        const job = await startJob({
-          ...payload,
-          kind: "prototype",
-          mode: "create",
-        });
-        const final = await pollJob(job.id, {
-          signal: pollCtl.current?.signal,
-          onProgress: applyGenProgress,
-        });
-        if (final.status === "error")
-          throw new Error(final.error ?? "生成に失敗しました");
-        const r = final.result as { html?: string; truncated?: boolean };
-        const finalHtml = r?.html ?? "";
-        setHtml(finalHtml);
-        setTruncated(Boolean(r?.truncated));
-        setLivePreview(false);
-        setDemoUrl(null);
-        setShareUrl(null);
-        setShareError(null);
-      } else {
-        // v0 エンジンはホスティング込みで JSON を返す
-        const data = await postJson<{
-          demoUrl?: string | null;
-          html?: string;
-          shareUrl?: string;
-          shareError?: string;
-        }>("/api/prototype", payload);
-        setDemoUrl(data.demoUrl ?? null);
-        if (data.html !== undefined) setHtml(data.html);
-        setShareUrl(data.shareUrl ?? data.demoUrl ?? null);
-        setShareError(data.shareError ?? null);
-      }
+      // ジョブ起動 → ポーリングで進捗（文字数・生成できた画面）を表示。生成はサーバ側
+      // after() で走るので、待っている間に画面を離れても止まらない（保存もランナーが行う）。
+      // engine="ds" は構造化生成（骨格コード＋画面別生成）。runner が engine で分岐する。
+      setGenChars(0);
+      setGenScreens([]);
+      const job = await startJob({
+        ...payload,
+        kind: "prototype",
+        mode: "create",
+      });
+      const final = await pollJob(job.id, {
+        signal: pollCtl.current?.signal,
+        onProgress: applyGenProgress,
+      });
+      if (final.status === "error")
+        throw new Error(final.error ?? "生成に失敗しました");
+      const r = final.result as { html?: string; truncated?: boolean };
+      const finalHtml = r?.html ?? "";
+      setHtml(finalHtml);
+      setTruncated(Boolean(r?.truncated));
+      setLivePreview(false);
+      setDemoUrl(null);
+      setShareUrl(null);
+      setShareError(null);
       ok = true;
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return;
@@ -703,7 +687,7 @@ export default function PrototypePage() {
       <GlobalHeader
         back={{ href: `/studio/${id}`, label: "分析に戻る" }}
         center={
-          <span className="text-sm font-medium text-foreground">
+          <span className="text-sm font-medium text-base-content">
             {name || "…"} / プロトタイプ
           </span>
         }
@@ -728,7 +712,7 @@ export default function PrototypePage() {
           className="flex flex-col gap-3 overflow-auto p-4"
         >
           {error && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-error/10 px-3 py-2 text-sm text-error">
               {error}
             </div>
           )}
@@ -751,7 +735,7 @@ export default function PrototypePage() {
           className="flex flex-col overflow-hidden"
         >
           {/* アクションツールバー */}
-          <div className="flex flex-wrap items-center gap-2 border-b bg-background px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2 border-b bg-base-200 px-3 py-2">
             {/* 主役: 構造化生成(DS)。骨格はコード製で崩れない。 */}
             <Button
               size="sm"
@@ -798,7 +782,7 @@ export default function PrototypePage() {
                   className="fixed inset-0 z-10 cursor-default"
                   onClick={() => setEngineMenuOpen(false)}
                 />
-                <div className="absolute left-0 top-full z-20 mt-1 w-64 rounded-md border bg-background p-1 shadow-md">
+                <div className="absolute left-0 top-full z-20 mt-1 w-64 rounded-md border bg-base-200 p-1 shadow-md">
                   <button
                     type="button"
                     className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-muted disabled:opacity-50"
@@ -814,7 +798,7 @@ export default function PrototypePage() {
                     }}
                   >
                     従来方式で生成（実験）
-                    <span className="mt-0.5 block text-[10px] text-muted-foreground">
+                    <span className="mt-0.5 block text-[10px] text-base-content/70">
                       単一HTMLを一括生成。途中で切れることがあります。
                     </span>
                   </button>
@@ -853,10 +837,10 @@ export default function PrototypePage() {
           {/* プレビュー完成後のアクション。OOUI 分析のワイヤー案に基づき
               「公開 / ビルド / デザイン依頼」の3グループに整理する。 */}
           {(html || demoUrl) && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b bg-background px-3 py-2">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b bg-base-200 px-3 py-2">
               {/* 公開 */}
               <div className="flex items-center gap-1.5 rounded-md border px-2 py-1">
-                <span className="text-[11px] font-medium text-muted-foreground">
+                <span className="text-[11px] font-medium text-base-content/70">
                   公開
                 </span>
                 <Button
@@ -881,7 +865,7 @@ export default function PrototypePage() {
 
               {/* ビルド */}
               <div className="flex items-center gap-1.5 rounded-md border px-2 py-1">
-                <span className="text-[11px] font-medium text-muted-foreground">
+                <span className="text-[11px] font-medium text-base-content/70">
                   ビルド
                 </span>
                 {/* 本実装: プレビューを実データ保存できる動くMVPに変換する */}
@@ -896,19 +880,6 @@ export default function PrototypePage() {
                       : "本実装（データ保存を有効化）"}
                   </Button>
                 )}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setEngine("v0");
-                    generatePrototype({ engine: "v0" });
-                  }}
-                  disabled={loading !== null || chatBusy}
-                >
-                  {loading === "prototype" && engine === "v0"
-                    ? "v0生成中…"
-                    : "v0で本格化"}
-                </Button>
                 <span className="inline-flex items-center gap-1">
                   <Button
                     size="sm"
@@ -934,7 +905,7 @@ export default function PrototypePage() {
 
               {/* デザイン依頼 */}
               <div className="flex items-center gap-1.5 rounded-md border px-2 py-1">
-                <span className="text-[11px] font-medium text-muted-foreground">
+                <span className="text-[11px] font-medium text-base-content/70">
                   デザイン依頼
                 </span>
                 <Link
@@ -951,7 +922,7 @@ export default function PrototypePage() {
               全選択なら従来どおり全画面、絞ると「選んだ画面だけを過不足なく実装」する。 */}
           {!generating && nav.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 border-b bg-muted/40 px-3 py-2 text-xs">
-              <span className="font-medium text-muted-foreground">
+              <span className="font-medium text-base-content/70">
                 生成する画面（{selectedScreens.length}/{nav.length}）:
               </span>
               {nav.map((n, i) => {
@@ -965,8 +936,8 @@ export default function PrototypePage() {
                     title={done ? "生成済み" : "未生成"}
                     className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] transition ${
                       on
-                        ? "border-primary bg-primary/10 text-foreground"
-                        : "bg-background text-muted-foreground opacity-60"
+                        ? "border-primary bg-primary/10 text-base-content"
+                        : "bg-base-200 text-base-content/70 opacity-60"
                     }`}
                   >
                     {n.parent ? `${n.parent} › ${n.label}` : n.label}
@@ -986,14 +957,14 @@ export default function PrototypePage() {
               <button
                 type="button"
                 onClick={() => setSelectedScreens(nav.map((n) => n.label))}
-                className="ml-1 text-muted-foreground underline"
+                className="ml-1 text-base-content/70 underline"
               >
                 全選択
               </button>
               <button
                 type="button"
                 onClick={() => setSelectedScreens([])}
-                className="text-muted-foreground underline"
+                className="text-base-content/70 underline"
               >
                 全解除
               </button>
@@ -1002,7 +973,7 @@ export default function PrototypePage() {
                 <button
                   type="button"
                   onClick={() => setSelectedScreens(missingScreens)}
-                  className="text-muted-foreground underline"
+                  className="text-base-content/70 underline"
                 >
                   未生成だけ選択（{missingScreens.length}）
                 </button>
@@ -1044,7 +1015,7 @@ export default function PrototypePage() {
                   </a>
                 </span>
               ) : shareError ? (
-                <span className="text-muted-foreground">
+                <span className="text-base-content/70">
                   共有URL未発行（{shareError}）
                 </span>
               ) : null}
@@ -1052,10 +1023,10 @@ export default function PrototypePage() {
                 <span
                   className={
                     publish.status === "published"
-                      ? "text-muted-foreground"
+                      ? "text-base-content/70"
                       : publish.status === "not-configured"
                         ? "text-amber-500"
-                        : "text-destructive"
+                        : "text-error"
                   }
                 >
                   {publish.status === "published"
@@ -1121,7 +1092,7 @@ export default function PrototypePage() {
               できたかを把握する。生成中はオーバーレイ側でライブ表示するため出さない。 */}
           {!generating && html && screens.length > 0 && (
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b bg-muted/40 px-3 py-2 text-xs">
-              <span className="font-medium text-muted-foreground">
+              <span className="font-medium text-base-content/70">
                 生成された画面 {screens.length}
                 {canJump ? "（クリックで該当画面へ）" : ""}:
               </span>
@@ -1132,14 +1103,14 @@ export default function PrototypePage() {
                     type="button"
                     onClick={() => gotoScreen(s)}
                     title="プレビューを この画面へ移動"
-                    className="rounded-full border bg-background px-2.5 py-0.5 text-[11px] text-foreground transition hover:border-primary hover:bg-primary/10"
+                    className="rounded-full border bg-base-200 px-2.5 py-0.5 text-[11px] text-base-content transition hover:border-primary hover:bg-primary/10"
                   >
                     {s}
                   </button>
                 ) : (
                   <span
                     key={s}
-                    className="rounded-full border bg-background px-2.5 py-0.5 text-[11px] text-foreground"
+                    className="rounded-full border bg-base-200 px-2.5 py-0.5 text-[11px] text-base-content"
                   >
                     {s}
                   </span>
@@ -1151,48 +1122,33 @@ export default function PrototypePage() {
           {/* プレビュー */}
           <div className="relative flex-1 overflow-hidden bg-muted/40 p-3">
             {(loading === "prototype" || loading === "realize") && (
-              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/70 backdrop-blur-sm">
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-base-200/70 backdrop-blur-sm">
                 <AiGenerating
-                  label={
-                    loading === "realize"
-                      ? "本実装"
-                      : engine === "v0"
-                        ? "本格プロトタイプ"
-                        : "プレビュー"
-                  }
-                  messages={
-                    engine === "v0"
-                      ? [
-                          "コンポーネントを設計しています",
-                          "画面を組み立てています",
-                          "スタイルを調整しています",
-                          "仕上げています",
-                        ]
-                      : [
-                          "ブランドを反映しています",
-                          "画面を描いています",
-                          "レイアウトを整えています",
-                          "もうすぐ表示します",
-                        ]
-                  }
+                  label={loading === "realize" ? "本実装" : "プレビュー"}
+                  messages={[
+                    "ブランドを反映しています",
+                    "画面を描いています",
+                    "レイアウトを整えています",
+                    "もうすぐ表示します",
+                  ]}
                 />
                 {(engine === "aws" || loading === "realize") &&
                   genChars > 0 && (
-                  <p className="text-xs tabular-nums text-muted-foreground">
+                  <p className="text-xs tabular-nums text-base-content/70">
                     生成中… {genChars.toLocaleString()} 文字
                   </p>
                 )}
                 {(engine === "aws" || loading === "realize") &&
                   genScreens.length > 0 && (
                   <div className="max-w-sm text-center">
-                    <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+                    <p className="mb-1.5 text-xs font-medium text-base-content/70">
                       生成できた画面 {genScreens.length}
                     </p>
                     <div className="flex flex-wrap justify-center gap-1.5">
                       {genScreens.map((s) => (
                         <span
                           key={s}
-                          className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] text-foreground"
+                          className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] text-base-content"
                         >
                           ✓ {s}
                         </span>
@@ -1203,7 +1159,7 @@ export default function PrototypePage() {
               </div>
             )}
             {livePreview && html && !demoUrl && loading !== "realize" && (
-              <div className="pointer-events-none absolute right-5 top-5 z-10 rounded-full bg-background/80 px-2.5 py-1 text-[11px] text-muted-foreground shadow-sm backdrop-blur">
+              <div className="pointer-events-none absolute right-5 top-5 z-10 rounded-full bg-base-200/80 px-2.5 py-1 text-[11px] text-base-content/70 shadow-sm backdrop-blur">
                 本実装プレビュー（データ保存が有効）
               </div>
             )}
@@ -1231,7 +1187,7 @@ export default function PrototypePage() {
                 sandbox="allow-scripts"
               />
             ) : (
-              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              <div className="flex h-full items-center justify-center text-sm text-base-content/70">
                 上の「プレビューを生成」を押すと、ここにプレビューが表示されます
               </div>
             )}

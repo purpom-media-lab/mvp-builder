@@ -155,10 +155,10 @@ export function AiConsultPanel({
   }
 
   return (
-    <Card className="flex min-h-0 flex-1 flex-col gap-3 bg-muted/40 p-4">
+    <Card className="flex min-h-0 flex-1 flex-col gap-3 bg-base-100 p-4 shadow-sm">
       <div>
         <h2 className="text-sm font-semibold">💬 AIに相談</h2>
-        <p className="mt-0.5 text-xs text-muted-foreground">
+        <p className="mt-0.5 text-xs text-base-content/70">
           例:「ホット率が下がったのでダッシュボードの優先表示を変えたい」
         </p>
       </div>
@@ -182,7 +182,7 @@ export function AiConsultPanel({
                   return (
                     <span
                       key={i}
-                      className="inline-block max-w-[90%] rounded-lg bg-primary px-3 py-1.5 text-sm whitespace-pre-wrap text-primary-foreground"
+                      className="inline-block max-w-[90%] rounded-lg bg-primary px-3 py-1.5 text-sm whitespace-pre-wrap text-primary-content"
                     >
                       {p.text}
                     </span>
@@ -191,7 +191,7 @@ export function AiConsultPanel({
                 return (
                   <div
                     key={i}
-                    className="inline-block max-w-[90%] rounded-lg bg-background px-3 py-1.5 text-left text-foreground"
+                    className="inline-block max-w-[90%] rounded-lg border border-base-300 bg-base-200 px-3 py-1.5 text-left text-base-content"
                   >
                     <Markdown>{p.text}</Markdown>
                   </div>
@@ -202,7 +202,7 @@ export function AiConsultPanel({
                 return (
                   <div
                     key={i}
-                    className="my-1 inline-flex items-center gap-1.5 rounded-md border border-info/30 bg-info/5 px-2.5 py-1 text-xs text-muted-foreground"
+                    className="my-1 inline-flex items-center gap-1.5 rounded-md border border-info/30 bg-info/5 px-2.5 py-1 text-xs text-base-content/70"
                   >
                     <span>{done ? "🔎" : "🌐"}</span>
                     <span>
@@ -217,7 +217,7 @@ export function AiConsultPanel({
                 return (
                   <div
                     key={i}
-                    className="my-1 inline-flex max-w-[90%] items-center gap-1.5 rounded-md border border-info/30 bg-info/5 px-2.5 py-1 text-xs text-muted-foreground"
+                    className="my-1 inline-flex max-w-[90%] items-center gap-1.5 rounded-md border border-info/30 bg-info/5 px-2.5 py-1 text-xs text-base-content/70"
                   >
                     <span>{done ? "📄" : "🌐"}</span>
                     <span className="truncate">
@@ -233,7 +233,7 @@ export function AiConsultPanel({
                 return (
                   <div
                     key={i}
-                    className="my-1 inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs text-muted-foreground"
+                    className="my-1 inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs text-base-content/70"
                   >
                     <span>{done ? "✅" : "⚙️"}</span>
                     <span>
@@ -248,7 +248,7 @@ export function AiConsultPanel({
           </div>
         ))}
         {status === "submitted" && (
-          <p className="text-left text-xs text-muted-foreground">考え中…</p>
+          <p className="text-left text-xs text-base-content/70">考え中…</p>
         )}
       </div>
 

@@ -448,7 +448,7 @@ export default function DesignRequestPage() {
       <GlobalHeader
         back={{ href: `/studio/${id}/prototype`, label: "プロトタイプに戻る" }}
         center={
-          <span className="text-sm font-medium text-foreground">
+          <span className="text-sm font-medium text-base-content">
             {name || "…"} / デザイナーに依頼
           </span>
         }
@@ -466,13 +466,13 @@ export default function DesignRequestPage() {
 
       <main className="mx-auto w-full max-w-3xl flex-1 space-y-8 px-4 py-6 sm:px-6">
         {error && (
-          <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <div className="rounded-md bg-error/10 px-3 py-2 text-sm text-error">
             {error}
           </div>
         )}
 
         {/* 依頼の進行状況（draft → requested → received）。各セクションの現在地を示す。 */}
-        <div className="rounded-lg border border-border bg-card/40 px-4 py-3">
+        <div className="rounded-lg border border-base-300 bg-base-100/40 px-4 py-3">
           <StepIndicator
             current={
               status === "received" ? 3 : status === "requested" ? 2 : 1
@@ -487,11 +487,11 @@ export default function DesignRequestPage() {
               <h2 className="font-heading text-base font-bold">
                 1. リファイン依頼の項目
               </h2>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-base-content/70">
                 プロトタイプと分析結果から、デザイナーに渡す依頼項目をAIが下書きします。編集できます。
               </p>
             </div>
-            <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
+            <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs text-base-content/70">
               {statusLabel}
             </span>
           </div>
@@ -507,7 +507,7 @@ export default function DesignRequestPage() {
             )}
           </Button>
 
-          <div className="space-y-4 rounded-lg border border-border bg-card/40 p-4">
+          <div className="space-y-4 rounded-lg border border-base-300 bg-base-100/40 p-4">
             <Field label="プロダクト名">
               <Input
                 value={brief.productName}
@@ -594,7 +594,7 @@ export default function DesignRequestPage() {
         <section className="space-y-3">
           <div>
             <h2 className="font-heading text-base font-bold">2. 依頼を作成</h2>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-base-content/70">
               依頼項目を保存し、デザイナーに渡すブリーフ（Markdown）をコピー / ダウンロードできます。
             </p>
           </div>
@@ -609,20 +609,20 @@ export default function DesignRequestPage() {
               Markdownをダウンロード
             </Button>
           </div>
-          <details className="rounded-lg border border-border bg-muted/30 p-3">
-            <summary className="cursor-pointer text-xs text-muted-foreground">
+          <details className="rounded-lg border border-base-300 bg-muted/30 p-3">
+            <summary className="cursor-pointer text-xs text-base-content/70">
               ブリーフのプレビュー（Markdown）
             </summary>
-            <pre className="mt-2 overflow-auto whitespace-pre-wrap text-xs text-foreground">
+            <pre className="mt-2 overflow-auto whitespace-pre-wrap text-xs text-base-content">
               {briefToMarkdown(brief)}
             </pre>
           </details>
 
           {/* メールでデザイナーに送信 */}
-          <div className="space-y-3 rounded-lg border border-border bg-card/40 p-4">
+          <div className="space-y-3 rounded-lg border border-base-300 bg-base-100/40 p-4">
             <div>
               <h3 className="text-sm font-semibold">メールで依頼を送信</h3>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-base-content/70">
                 デザイナーのメールアドレスを入力すると、上のブリーフ（全文）をメールで送信します。
               </p>
             </div>
@@ -680,12 +680,12 @@ export default function DesignRequestPage() {
             <h2 className="font-heading text-base font-bold">
               3. 成果物でブラッシュアップ
             </h2>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-base-content/70">
               デザイナーが作った Figma URL もしくは PDF を指定すると、それを参照してプロトタイプを作り直します。
             </p>
           </div>
 
-          <div className="space-y-4 rounded-lg border border-border bg-card/40 p-4">
+          <div className="space-y-4 rounded-lg border border-base-300 bg-base-100/40 p-4">
             <Field label="Figma URL">
               <Input
                 value={figmaUrl}
@@ -699,7 +699,7 @@ export default function DesignRequestPage() {
                 placeholder="https://www.figma.com/file/..."
               />
             </Field>
-            <div className="text-center text-xs text-muted-foreground">
+            <div className="text-center text-xs text-base-content/70">
               または
             </div>
             <Field label="PDF をアップロード">
@@ -707,10 +707,10 @@ export default function DesignRequestPage() {
                 type="file"
                 accept="application/pdf"
                 onChange={onPdfChange}
-                className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border file:border-border file:bg-background file:px-3 file:py-1.5 file:text-sm file:text-foreground hover:file:bg-muted"
+                className="block w-full text-sm text-base-content/70 file:mr-3 file:rounded-md file:border file:border-base-300 file:bg-base-200 file:px-3 file:py-1.5 file:text-sm file:text-base-content hover:file:bg-muted"
               />
               {pdfName && (
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-1 text-xs text-base-content/70">
                   選択中: {pdfName}
                 </p>
               )}
@@ -736,7 +736,7 @@ export default function DesignRequestPage() {
           </div>
 
           {(refinedHtml || refinedDemoUrl) && (
-            <div className="space-y-2 rounded-lg border border-border bg-card/40 p-4">
+            <div className="space-y-2 rounded-lg border border-base-300 bg-base-100/40 p-4">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold">リファイン結果</h3>
                 <a
@@ -798,7 +798,7 @@ function Field({
 }) {
   return (
     <label className="block space-y-1.5">
-      <span className="text-xs font-medium text-foreground">{label}</span>
+      <span className="text-xs font-medium text-base-content">{label}</span>
       {children}
     </label>
   );
@@ -819,10 +819,10 @@ function StepIndicator({ current }: { current: number }) {
             <span
               className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold ${
                 state === "current"
-                  ? "bg-primary text-primary-foreground"
+                  ? "bg-primary text-primary-content"
                   : state === "done"
                     ? "bg-primary/15 text-primary"
-                    : "bg-muted text-muted-foreground"
+                    : "bg-muted text-base-content/70"
               }`}
             >
               {state === "done" ? "✓" : n}
@@ -830,14 +830,14 @@ function StepIndicator({ current }: { current: number }) {
             <span
               className={
                 state === "upcoming"
-                  ? "text-muted-foreground"
-                  : "font-medium text-foreground"
+                  ? "text-base-content/70"
+                  : "font-medium text-base-content"
               }
             >
               {label}
             </span>
             {i < REQUEST_STEPS.length - 1 && (
-              <span className="mx-1 h-px w-6 bg-border" />
+              <span className="mx-1 h-px w-6 bg-base-300" />
             )}
           </li>
         );

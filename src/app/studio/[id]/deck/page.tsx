@@ -172,7 +172,7 @@ export default function DeckPage() {
       <GlobalHeader
         back={{ href: `/studio/${id}`, label: "分析に戻る" }}
         center={
-          <span className="text-sm font-medium text-foreground">
+          <span className="text-sm font-medium text-base-content">
             {name || "…"} / 資料
           </span>
         }
@@ -191,7 +191,7 @@ export default function DeckPage() {
       <div className="flex-1 overflow-auto p-6">
         <div className="mx-auto max-w-4xl space-y-4">
           {error && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-error/10 px-3 py-2 text-sm text-error">
               {error}
             </div>
           )}
@@ -212,7 +212,7 @@ export default function DeckPage() {
                 <Button variant="outline" onClick={downloadJson}>
                   JSONをダウンロード
                 </Button>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs text-base-content/70">
                   figma-slide-gen / gslide-data-gen に貼り付けて実スライド化できます
                 </span>
               </>
@@ -236,7 +236,7 @@ export default function DeckPage() {
           ) : deck ? (
             <SlideDeck slides={deck} theme={theme} />
           ) : (
-            <div className="flex h-64 items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
+            <div className="flex h-64 items-center justify-center rounded-xl border border-dashed text-sm text-base-content/70">
               「提案資料を生成」を押すと、分析結果からスライドを作成します
             </div>
           )}

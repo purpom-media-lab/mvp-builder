@@ -304,7 +304,7 @@ export default function EngineerRequestPage() {
       <GlobalHeader
         back={{ href: `/studio/${id}/prototype`, label: "プロトタイプに戻る" }}
         center={
-          <span className="text-sm font-medium text-foreground">
+          <span className="text-sm font-medium text-base-content">
             {name || "…"} / エンジニアに依頼
           </span>
         }
@@ -322,7 +322,7 @@ export default function EngineerRequestPage() {
 
       <main className="mx-auto w-full max-w-3xl flex-1 space-y-8 px-4 py-6 sm:px-6">
         {error && (
-          <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <div className="rounded-md bg-error/10 px-3 py-2 text-sm text-error">
             {error}
           </div>
         )}
@@ -334,11 +334,11 @@ export default function EngineerRequestPage() {
               <h2 className="font-heading text-base font-bold">
                 1. 開発依頼の項目
               </h2>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-base-content/70">
                 プロトタイプと分析・設計結果から、エンジニアに渡す開発依頼（開発仕様書/チケット）をAIが下書きします。編集できます。
               </p>
             </div>
-            <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
+            <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs text-base-content/70">
               {statusLabel}
             </span>
           </div>
@@ -354,7 +354,7 @@ export default function EngineerRequestPage() {
             )}
           </Button>
 
-          <div className="space-y-4 rounded-lg border border-border bg-card/40 p-4">
+          <div className="space-y-4 rounded-lg border border-base-300 bg-base-100/40 p-4">
             <Field label="プロダクト名">
               <Input
                 value={brief.productName}
@@ -449,7 +449,7 @@ export default function EngineerRequestPage() {
         <section className="space-y-3">
           <div>
             <h2 className="font-heading text-base font-bold">2. 依頼を作成</h2>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-base-content/70">
               依頼項目を保存し、エンジニアに渡す開発依頼（Markdown）をコピー / ダウンロードできます。
             </p>
           </div>
@@ -464,11 +464,11 @@ export default function EngineerRequestPage() {
               Markdownをダウンロード
             </Button>
           </div>
-          <details className="rounded-lg border border-border bg-muted/30 p-3">
-            <summary className="cursor-pointer text-xs text-muted-foreground">
+          <details className="rounded-lg border border-base-300 bg-muted/30 p-3">
+            <summary className="cursor-pointer text-xs text-base-content/70">
               開発依頼のプレビュー（Markdown）
             </summary>
-            <pre className="mt-2 overflow-auto whitespace-pre-wrap text-xs text-foreground">
+            <pre className="mt-2 overflow-auto whitespace-pre-wrap text-xs text-base-content">
               {briefToMarkdown(brief)}
             </pre>
           </details>
@@ -498,7 +498,7 @@ function Field({
 }) {
   return (
     <label className="block space-y-1.5">
-      <span className="text-xs font-medium text-foreground">{label}</span>
+      <span className="text-xs font-medium text-base-content">{label}</span>
       {children}
     </label>
   );

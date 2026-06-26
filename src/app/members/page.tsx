@@ -128,14 +128,14 @@ export default function MembersPage() {
   const history = invitations.filter((i) => i.status !== "pending");
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-base-200">
       <GlobalHeader back={{ href: "/studio", label: "プロジェクト" }} />
       <main className="mx-auto max-w-3xl px-6 py-8">
         <p className="pm-eyebrow">team · access control</p>
         <h1 className="mt-2 font-heading text-3xl font-bold tracking-tight">
           メンバー
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-sm text-base-content/70">
           オープン登録は無効です。招待したメールアドレスのみ登録できます。登録済みメンバーは誰でも招待できます。
         </p>
 
@@ -158,7 +158,7 @@ export default function MembersPage() {
               {busy ? "発行中…" : "招待を発行"}
             </Button>
           </form>
-          {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
+          {error && <p className="mt-2 text-sm text-error">{error}</p>}
           {inviteUrl && (
             <div className="mt-3 rounded-md bg-muted p-3 text-sm">
               {emailSent ? (
@@ -173,7 +173,7 @@ export default function MembersPage() {
               <div className="flex items-center gap-2">
                 <code
                   title={inviteUrl}
-                  className="flex-1 truncate rounded bg-background px-2 py-1 text-xs"
+                  className="flex-1 truncate rounded bg-base-200 px-2 py-1 text-xs"
                 >
                   {inviteUrl}
                 </code>
@@ -195,7 +195,7 @@ export default function MembersPage() {
                 招待中（{pending.length}）
               </h2>
               {pending.length === 0 ? (
-                <p className="mt-2 text-sm text-muted-foreground">
+                <p className="mt-2 text-sm text-base-content/70">
                   招待中のメンバーはいません。
                 </p>
               ) : (
@@ -207,7 +207,7 @@ export default function MembersPage() {
                     >
                       <div className="min-w-0">
                         <p className="truncate text-sm">{inv.email}</p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-base-content/70">
                           期限:{" "}
                           {new Date(inv.expiresAt).toLocaleDateString("ja-JP")}
                         </p>
@@ -238,7 +238,7 @@ export default function MembersPage() {
                 <button
                   type="button"
                   onClick={() => setShowHistory((v) => !v)}
-                  className="mt-3 text-xs text-muted-foreground underline-offset-4 hover:underline"
+                  className="mt-3 text-xs text-base-content/70 underline-offset-4 hover:underline"
                 >
                   {showHistory
                     ? "履歴を隠す"
@@ -252,7 +252,7 @@ export default function MembersPage() {
                       key={inv.id}
                       className="flex items-center justify-between gap-3 px-4 py-2.5"
                     >
-                      <p className="truncate text-sm text-muted-foreground">
+                      <p className="truncate text-sm text-base-content/70">
                         {inv.email}
                       </p>
                       <Badge variant="secondary">
@@ -284,12 +284,12 @@ export default function MembersPage() {
                         <p className="truncate text-sm font-medium">
                           {m.name}
                           {isMe && (
-                            <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                            <span className="ml-1.5 text-xs font-normal text-base-content/70">
                               （あなた）
                             </span>
                           )}
                         </p>
-                        <p className="truncate text-xs text-muted-foreground">
+                        <p className="truncate text-xs text-base-content/70">
                           {m.email}
                         </p>
                       </div>
@@ -303,7 +303,7 @@ export default function MembersPage() {
       </main>
 
       {toast && (
-        <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-full bg-foreground px-4 py-2 text-sm text-background shadow-lg">
+        <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-full bg-base-content px-4 py-2 text-sm text-base-200 shadow-lg">
           {toast}
         </div>
       )}

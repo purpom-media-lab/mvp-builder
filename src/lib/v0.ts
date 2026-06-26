@@ -167,6 +167,8 @@ export function buildPrototypePrompt(ctx: PrototypeContext): string {
   const lines: string[] = [
     `次のアプリの「クリック可能なUIプロトタイプ」を Next.js で作ってください。モックデータで画面遷移できること。`,
     ``,
+    `これは機能を絞り込まない**探索用プロトタイプ**です。下記の全ユースケース・全ナビ画面を網羅して実装し、特定機能だけに絞り込まない（MVPスコープによる取捨選択はしない・列挙された機能や画面は省略せず作る）。`,
+    ``,
     `## アプリ概要`,
     `- ${ctx.projectName}${ctx.summary ? `：${ctx.summary}` : ""}`,
     ``,
@@ -215,12 +217,19 @@ export function buildPrototypePrompt(ctx: PrototypeContext): string {
     );
   }
   if (ctx.mvpStatement) {
-    lines.push("", "## このMVPで検証する仮説・提供価値", ctx.mvpStatement);
-  }
-  if (ctx.scope?.length) {
+    // 参考情報（背景）として渡すのみ。プロトタイプはこれに絞らず全機能を見せる。
     lines.push(
       "",
-      "## MVPに含む機能（これらだけを実装すること。スコープ外の機能は作らない）",
+      "## （参考）このプロダクトの中心的な価値・仮説",
+      "次は背景情報です。プロトタイプは探索用なのでこれに絞り込まず、全機能を網羅して見せること。",
+      ctx.mvpStatement,
+    );
+  }
+  if (ctx.scope?.length) {
+    // broad プロトタイプ: scope は「絞り込み」ではなく「網羅すべき機能の一覧」として扱う。
+    lines.push(
+      "",
+      "## 主な機能（すべて実装対象。探索用に網羅し、取捨選択しない）",
       ...ctx.scope.map(
         (f) => `- ${f.name}${f.description ? `：${f.description}` : ""}`,
       ),

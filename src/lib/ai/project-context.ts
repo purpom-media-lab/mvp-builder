@@ -64,7 +64,9 @@ export function buildDeckContext(p: ProjectArtifacts): string {
     `# プロジェクト: ${p.project.name}`,
     p.project.summary && `## 概要\n${p.project.summary}`,
     p.mvpStatement && `## MVPの仮説・提供価値\n${p.mvpStatement}`,
-    p.sourceText && `## 入力資料(抜粋)\n${p.sourceText.slice(0, 2000)}`,
+    p.detail && `## 入力資料\n${p.detail}`,
+    p.analysisResult && `## ジョブ分析\n${p.analysisResult}`,
+    p.sourceText && `## 参考資料(抜粋)\n${p.sourceText.slice(0, 2000)}`,
     p.actors.length && `## アクター\n${JSON.stringify(p.actors)}`,
     p.useCases.length && `## ユースケース\n${JSON.stringify(p.useCases)}`,
     mvpScope.length &&

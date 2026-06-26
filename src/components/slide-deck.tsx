@@ -49,7 +49,7 @@ export function SlideDeck({
         >
           ←
         </Button>
-        <span className="text-sm text-muted-foreground tabular-nums">
+        <span className="text-sm text-base-content/70 tabular-nums">
           {i + 1} / {total}
         </span>
         <Button
@@ -63,7 +63,7 @@ export function SlideDeck({
       </div>
 
       {current.notes && (
-        <p className="mx-auto max-w-3xl rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+        <p className="mx-auto max-w-3xl rounded-md bg-muted/50 px-3 py-2 text-xs text-base-content/70">
           🎤 {current.notes}
         </p>
       )}
@@ -78,7 +78,7 @@ export function SlideDeck({
             aria-label={`スライド ${idx + 1}`}
             className={cn(
               "w-28 shrink-0 overflow-hidden rounded-md ring-2 transition-all",
-              idx === i ? "ring-primary" : "ring-transparent hover:ring-border",
+              idx === i ? "ring-primary" : "ring-transparent hover:ring-base-300",
             )}
           >
             <div className="pointer-events-none">

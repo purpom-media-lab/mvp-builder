@@ -12,19 +12,34 @@ import {
   resolveModel,
   type LlmProvider,
 } from "./ai/models";
+import { DAISYUI_REFERENCE } from "./prototype-ds/daisyui-reference";
 import { buildPrototypePrompt, type PrototypeContext } from "./v0";
 
 const SYSTEM = `あなたは熟練のフロントエンドエンジニアです。与えられた要件から、クリック可能な UI プロトタイプを「単一の HTML ファイル」として出力してください。
 
 厳守事項:
 - 出力は完全な HTML ドキュメント 1 つのみ。説明文・マークダウン・コードフェンス(\`\`\`)は一切付けない。
-- <!DOCTYPE html> から始め </html> で終わる。
-- Tailwind CSS は CDN(<script src="https://cdn.tailwindcss.com"></script>)で読み込む。
+- <!DOCTYPE html> から始め </html> で終わる。<html lang="ja" data-theme="light"> とする。
+- スタイルは **daisyUI 5 + Tailwind CSS v4** で組む。<head> に次の2つを **この順**で読み込む（他の CSS フレームワーク・Tailwind v3 の \`cdn.tailwindcss.com\` は使わない）:
+  - <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css" />
+  - <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 - 画面遷移はタブ/ビュー切替で実現し、JavaScript で動作させる（ページ遷移でなく状態切替）。
-- データはすべてモック（ハードコード）。外部 API は呼ばない（CDN の読み込みのみ許可）。
+- データはすべてモック（ハードコード）。外部 API は呼ばない（上記 CDN の読み込みのみ許可）。
 - 日本語 UI。実データ風のサンプルを十分に入れ、一覧→詳細→ダッシュボード等が実際にクリックで行き来できること。
 - レスポンシブで、見た目は清潔でモダンに。
-- 各画面（タブ/ビューで切り替わる1単位）の実装の直前に、その画面の日本語表示名を表す HTML コメントを必ず1つ置く: \`<!-- @screen:ダッシュボード -->\`。これは生成進捗の把握用マーカーでレンダリングに影響しない。ナビメニューの列挙部分やボタンには置かず、実際にその画面の中身を実装する箇所にだけ、画面ごとに1つ置くこと。`;
+- 各画面（タブ/ビューで切り替わる1単位）の実装の直前に、その画面の日本語表示名を表す HTML コメントを必ず1つ置く: \`<!-- @screen:ダッシュボード -->\`。これは生成進捗の把握用マーカーでレンダリングに影響しない。ナビメニューの列挙部分やボタンには置かず、実際にその画面の中身を実装する箇所にだけ、画面ごとに1つ置くこと。
+
+# daisyUI 5 の使い方（厳守）
+- 別途与える「daisyUI リファレンス」のクラス名・構文・ルールに**厳密に従う**。存在しないクラスを発明しない。意図に合うコンポーネントを振る舞いで選び、本体クラス＋子パーツクラス＋修飾子の3層で正しく組む。
+- 色は daisyUI のセマンティックカラー（primary/secondary/accent/info/success/warning/error と base-100/200/300・base-content）を使う。生のカラー（bg-white, bg-gray-100, text-black, bg-blue-500 等）は使わない。面の重なりは base 階層で表す: ページ地=bg-base-200、カード/パネル等の面=bg-base-100、境界線=border-base-300、文字=text-base-content。primary はアクション/アクセントにのみ使う。
+- v5 の修飾子を使う（v4 の旧名は使わない）: 選択タブ=\`tab-active\`、選択メニュー項目=\`menu-active\`、タブ容器は \`tabs tabs-box\`/\`tabs-border\`/\`tabs-lift\`（× \`tabs-boxed\`/\`tab-bordered\`）、カードのボーダーは \`card-border\`（× \`card-bordered\`）、入力は \`input\`/\`select\`/\`textarea\` 単体（× \`input-bordered\`/\`form-control\`）、淡色は \`*-soft\`、輪郭は \`*-outline\`。
+- サイドバー＋本文の土台は daisyUI の \`drawer\`（\`drawer-toggle\`/\`drawer-content\`/\`drawer-side\`/\`drawer-overlay\`）、サイドナビは \`menu\`、上部バーは \`navbar\` を使う。`;
+
+/** daisyUI 仕様（リファレンス）を生成プロンプトの先頭に添える。
+ *  生成エンジンが daisyUI 5 のクラス構成に厳密準拠するための参照テキスト。 */
+function withDaisyReference(prompt: string): string {
+  return `# daisyUI リファレンス（厳守）\n${DAISYUI_REFERENCE}\n\n${prompt}`;
+}
 
 /** コードフェンスや前後の余計なテキストを除去して HTML 本体だけ取り出す */
 function extractHtml(text: string): string {
@@ -44,7 +59,7 @@ export async function generatePrototypeHtml(
   const { text } = await generateText({
     model: resolveModel(provider, modelId),
     system: SYSTEM,
-    prompt: buildPrototypePrompt(ctx),
+    prompt: withDaisyReference(buildPrototypePrompt(ctx)),
     temperature: 0.6,
     maxOutputTokens: maxOutputTokensFor(),
   });
@@ -66,7 +81,9 @@ export async function updatePrototypeHtml(
   const { text } = await generateText({
     model: resolveModel(provider, modelId),
     system: UPDATE_SYSTEM,
-    prompt: `## 現在のHTML\n${currentHtml}\n\n## 修正指示\n${instruction}`,
+    prompt: withDaisyReference(
+      `## 現在のHTML\n${currentHtml}\n\n## 修正指示\n${instruction}`,
+    ),
     temperature: 0.5,
     maxOutputTokens: maxOutputTokensFor(),
   });
@@ -89,7 +106,7 @@ export function streamPrototypeHtml(
   return streamText({
     model: resolveModel(provider, modelId),
     system: SYSTEM,
-    prompt: buildPrototypePrompt(ctx),
+    prompt: withDaisyReference(buildPrototypePrompt(ctx)),
     temperature: 0.6,
     maxOutputTokens: maxOutputTokensFor(),
     onFinish: async ({ text }) => {
@@ -188,7 +205,9 @@ export function streamUpdatePrototypeHtml(
   return streamText({
     model: resolveModel(provider, modelId),
     system: UPDATE_SYSTEM,
-    prompt: `## 現在のHTML\n${currentHtml}\n\n## 修正指示\n${instruction}`,
+    prompt: withDaisyReference(
+      `## 現在のHTML\n${currentHtml}\n\n## 修正指示\n${instruction}`,
+    ),
     temperature: 0.5,
     maxOutputTokens: maxOutputTokensFor(),
     onFinish: async ({ text }) => {
