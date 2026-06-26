@@ -126,8 +126,8 @@ const STEP_HELP: Partial<Record<StepKey, { title: string; body: string }>> = {
     body: "プロダクトが扱う『オブジェクト（名詞）』と、その『プロパティ（属性）』『アクション（操作）』を整理する設計です。画面やデータの単位になります。",
   },
   journey: {
-    title: "ジャーニーとは",
-    body: "アクターが目的を達成するまでの一連の行動・接点・感情の流れです。体験の全体像を掴みます。",
+    title: "ユーザージャーニーマップとは",
+    body: "ペルソナ（アクター）が目標を達成するまでの体験を時系列で可視化したマップです。各ステージでの行動・接点・感情・課題（ペイン）・改善の機会を整理し、ペインは MVP スコープの優先度判断に活かします。画面構造そのものは OOUI のオブジェクトから導くため、ジャーニーは体験を捉えるレンズとして使います。",
   },
   scope: {
     title: "MVPスコープの決め方",
@@ -137,7 +137,7 @@ const STEP_HELP: Partial<Record<StepKey, { title: string; body: string }>> = {
 
 /** 工程を 3 カテゴリに整理（一度に見えるタブを絞る） */
 const CATEGORIES: { key: string; label: string; steps: StepKey[] }[] = [
-  { key: "analyze", label: "分析", steps: ["actors", "usecases", "ooui", "journey"] },
+  { key: "analyze", label: "分析", steps: ["actors", "usecases", "journey", "ooui"] },
   {
     key: "design",
     label: "設計",
@@ -1255,41 +1255,74 @@ export default function ProjectDetailPage() {
               <TabsContent value="journey">
                 <GenerateButton />
                 {journey ? (
-                  <div className="space-y-3">
-                    {journey.map((jr, i) => (
-                      <div key={i} className="rounded-md border p-3">
-                        <div className="mb-2 font-semibold">{jr.name}</div>
-                        <ol className="space-y-1.5">
-                          {jr.steps.map((s, j) => (
-                            <li
-                              key={j}
-                              className="rounded border border-dashed bg-base-200/30 px-2 py-1.5 text-sm"
-                            >
-                              <div className="flex items-start gap-2">
-                                <span className="font-medium text-base-content/70">
-                                  {j + 1}.
-                                </span>
-                                <div className="flex-1">
-                                  <span className="font-medium">{s.step}</span>
-                                  <div className="mt-1 flex flex-wrap gap-1">
-                                    {s.touchpoint && (
-                                      <Badge variant="secondary">
-                                        接点: {s.touchpoint}
-                                      </Badge>
-                                    )}
-                                    {s.emotion && (
-                                      <Badge variant="outline">
-                                        感情: {s.emotion}
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </li>
-                          ))}
-                        </ol>
-                      </div>
-                    ))}
+                  <div className="space-y-4">
+                    {journey.map((jr, i) => {
+                      // ジャーニーマップ: 行＝レーン、列＝時系列ステップ（左→右）。
+                      const LANES: {
+                        key: keyof JourneyView["steps"][number];
+                        label: string;
+                        cell?: string;
+                      }[] = [
+                        { key: "action", label: "行動" },
+                        { key: "touchpoint", label: "接点" },
+                        {
+                          key: "emotion",
+                          label: "感情",
+                          cell: "italic text-base-content/80",
+                        },
+                        {
+                          key: "painpoint",
+                          label: "課題",
+                          cell: "text-error",
+                        },
+                        {
+                          key: "opportunity",
+                          label: "機会",
+                          cell: "text-success",
+                        },
+                      ];
+                      return (
+                        <div key={i} className="rounded-md border p-3">
+                          <div className="mb-2 font-semibold">{jr.name}</div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full min-w-[640px] border-collapse text-sm">
+                              <thead>
+                                <tr>
+                                  <th className="w-20 border bg-base-200 p-2 text-left text-xs font-medium text-base-content/60">
+                                    フェーズ
+                                  </th>
+                                  {jr.steps.map((s, j) => (
+                                    <th
+                                      key={j}
+                                      className="border bg-base-200 p-2 text-left text-xs font-semibold"
+                                    >
+                                      {s.phase || `ステップ ${j + 1}`}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {LANES.map((lane) => (
+                                  <tr key={lane.key as string}>
+                                    <th className="border bg-base-200/60 p-2 text-left text-xs font-medium text-base-content/60">
+                                      {lane.label}
+                                    </th>
+                                    {jr.steps.map((s, j) => (
+                                      <td
+                                        key={j}
+                                        className={`border p-2 align-top ${lane.cell ?? ""}`}
+                                      >
+                                        {(s[lane.key] as string | null) || "—"}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <Empty />

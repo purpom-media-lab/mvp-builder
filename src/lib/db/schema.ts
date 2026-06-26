@@ -140,7 +140,14 @@ export const journeys = pgTable("journeys", {
   name: text("name").notNull(),
   steps:
     jsonb("steps").$type<
-      { step: string; touchpoint?: string; emotion?: string }[]
+      {
+        phase?: string;
+        action: string;
+        touchpoint?: string;
+        emotion?: string;
+        painpoint?: string;
+        opportunity?: string;
+      }[]
     >(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

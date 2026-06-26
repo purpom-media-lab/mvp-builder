@@ -49,9 +49,12 @@ export type OouiView = {
   relations?: { to: string; type: string; cardinality?: string | null }[] | null;
 };
 export type JourneyStep = {
-  step: string;
+  phase?: string | null;
+  action: string;
   touchpoint?: string | null;
   emotion?: string | null;
+  painpoint?: string | null;
+  opportunity?: string | null;
 };
 export type JourneyView = { name: string; steps: JourneyStep[] };
 export type DataModelField = { name: string; type: string };

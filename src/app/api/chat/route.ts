@@ -51,8 +51,8 @@ const STEP_FNS = {
 const STEP_ORDER: StepKey[] = [
   "actors",
   "usecases",
-  "ooui",
   "journey",
+  "ooui",
   "navigation",
   "wireframe",
   "datamodel",

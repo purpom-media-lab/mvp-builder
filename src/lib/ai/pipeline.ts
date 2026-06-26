@@ -68,7 +68,10 @@ const FAST_STEPS = new Set<StepKey>([
 const WAVES: StepKey[][] = [
   ["actors"],
   ["usecases"],
-  ["ooui", "journey", "scope", "brand"],
+  // ユーザージャーニーマップ（体験レンズ）。アクター=ペルソナ／ユースケース=目標から導出し、
+  // 抽出した painpoint/opportunity を scope の優先度判断に流すため scope の前に置く。
+  ["journey"],
+  ["ooui", "scope", "brand"],
   ["navigation", "datamodel", "kpi"],
   ["wireframe", "backend", "growth"],
 ];

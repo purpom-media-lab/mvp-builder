@@ -413,9 +413,12 @@ export async function saveStepResult(
           projectId,
           name: j.name,
           steps: j.steps.map((s) => ({
-            step: s.step,
+            phase: s.phase ?? undefined,
+            action: s.action,
             touchpoint: s.touchpoint ?? undefined,
             emotion: s.emotion ?? undefined,
+            painpoint: s.painpoint ?? undefined,
+            opportunity: s.opportunity ?? undefined,
           })),
         })),
       );

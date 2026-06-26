@@ -62,11 +62,19 @@ export const oouiSchema = z.object({
 export const journeySchema = z.object({
   journeys: z.array(
     z.object({
-      name: z.string().describe("ジャーニー名（日本語）"),
+      name: z
+        .string()
+        .describe(
+          "ジャーニー名（ペルソナ×目標の単位。例: 新規リードを初回商談につなげる）",
+        ),
       steps: z
         .array(
           z.object({
-            step: z.string().describe("行動（ユーザーの行動・日本語）"),
+            phase: z
+              .string()
+              .nullable()
+              .describe("ステージ/フェーズ（例: 認知/検討/利用/定着・日本語）"),
+            action: z.string().describe("ユーザーの行動（日本語）"),
             touchpoint: z
               .string()
               .nullable()
@@ -75,6 +83,14 @@ export const journeySchema = z.object({
               .string()
               .nullable()
               .describe("感情（その時の気持ち・日本語）"),
+            painpoint: z
+              .string()
+              .nullable()
+              .describe("課題・ペインポイント（改善余地。scope の優先度判断に使う・日本語）"),
+            opportunity: z
+              .string()
+              .nullable()
+              .describe("改善の機会・インサイト（日本語）"),
           }),
         )
         .describe("ジャーニーを構成するステップ（時系列順）"),

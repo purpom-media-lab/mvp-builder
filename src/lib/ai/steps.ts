@@ -43,7 +43,7 @@ export function planOrchestration({
     modelId,
     temperature: 0.2,
     system:
-      "あなたは LEAN QUEST AI のオーケストレーターです。ユーザーの要望と現在の分析状態を踏まえ、最適なUIを再提案するために、どの分析工程(actors/usecases/ooui/journey/navigation/wireframe/datamodel/backend/scope/kpi/brand)を再実行すべきか、プロトタイプ(UI)を作り直すべきかを判断します。工程の依存順は actors→usecases→ooui→journey→navigation→wireframe→datamodel→backend→scope→kpi→brand。navigation はメインナビ(画面/メニュー構成)、wireframe は各画面のセクション構成(レイアウト)の設計です。scope は機能候補をMVPに絞り込むスコープ確定、kpi は成功指標(KPI)設計、brand はブランド設計(配色・トーン等)です。画面構成・メニューの変更要望では navigation を、画面内のレイアウト・要素配置の変更要望では wireframe を、MVPで作る機能の取捨選択の要望では scope を、成功指標の要望では kpi を、世界観・配色・トーンの要望では brand を選びます。要望に関係する最小限の工程だけ選んでください。UIの見た目・画面構成の変更を伴うなら regeneratePrototype を true にします。",
+      "あなたは LEAN QUEST AI のオーケストレーターです。ユーザーの要望と現在の分析状態を踏まえ、最適なUIを再提案するために、どの分析工程(actors/usecases/ooui/journey/navigation/wireframe/datamodel/backend/scope/kpi/brand)を再実行すべきか、プロトタイプ(UI)を作り直すべきかを判断します。工程の依存順は actors→usecases→journey→ooui→navigation→wireframe→datamodel→backend→scope→kpi→brand。journey はユーザージャーニーマップ(体験の可視化・painは scope に効く)。navigation はメインナビ(画面/メニュー構成)、wireframe は各画面のセクション構成(レイアウト)の設計です。scope は機能候補をMVPに絞り込むスコープ確定、kpi は成功指標(KPI)設計、brand はブランド設計(配色・トーン等)です。画面構成・メニューの変更要望では navigation を、画面内のレイアウト・要素配置の変更要望では wireframe を、MVPで作る機能の取捨選択の要望では scope を、成功指標の要望では kpi を、世界観・配色・トーンの要望では brand を選びます。要望に関係する最小限の工程だけ選んでください。UIの見た目・画面構成の変更を伴うなら regeneratePrototype を true にします。",
     prompt: `## 現在の分析状態\n${context}\n\n## ユーザー要望\n${message}`,
   });
 }
@@ -97,7 +97,8 @@ export function generateJourney({ context, provider, modelId }: StepArgs) {
     provider,
     modelId,
     system:
-      "あなたはUXデザイナーです。アクターとユースケースから主要なユーザージャーニーを整理してください。各ジャーニーは name と、step（行動）・touchpoint（接点）・emotion（感情）を持つステップ列で表現します。日本語で。なおジャーニーは体験の流れを掴む補助的な UX レンズであり、画面・ナビゲーションの構造を駆動するものではありません（画面構造は ooui のオブジェクトから導出します）。タスクの時系列把握と、後工程での体験の抜け漏れ検証に用います。",
+      "あなたはUXデザイナーです。ユーザージャーニーマップ（ユーザーがプロダクトを通して目標を達成するまでの体験を時系列で可視化したもの）を作成してください。アクター=ペルソナ、ユースケース=目標を基盤に、主要なジャーニーを 1〜3 本。各ジャーニーは name（ペルソナ×目標の単位）と、時系列のステップ列で表現します。各ステップには phase（ステージ: 認知/検討/利用/定着 など）・action（ユーザーの行動）・touchpoint（接点: 画面/チャネル）・emotion（その時の感情）・painpoint（課題・ペインポイント）・opportunity（改善の機会・インサイト）を、分かる範囲で日本語で記述します（不明な項目は無理に埋めず null 可）。\n" +
+      "ジャーニーは体験を捉える UX レンズであり、画面・ナビゲーションの構造を駆動するものではありません（画面構造は ooui のオブジェクトから導出する）。抽出した painpoint / opportunity は後続のスコープ確定(scope)で機能の優先度判断に活用され、完成画面に対する体験の抜け漏れ検証にも用います。",
     prompt: context,
   });
 }
@@ -167,7 +168,7 @@ export function generateScope({ context, provider, modelId }: StepArgs) {
     provider,
     modelId,
     system:
-      "あなたは新規事業のプロダクトマネージャーです。**探索プロトタイプで提示された画面・ナビゲーション・機能（MVPに絞らず全機能を含む探索版）を起点に**、そこに現れた機能候補を洗い出し、各機能を影響度(impact 1-5)と実装工数(effort 1-5)で評価し、**プロトタイプで見えた機能の中から** MVPで最初に作るべき機能を10個以下に絞り込みます。プロトタイプに無い機能を新たに足さず、提示済みの機能の取捨選択に徹してください。さらに各機能を3つの判断軸で見積もってください: initialCost=初期開発コスト（日本円。例: 30〜50万円）、operationCost=運用コスト（継続運用の金額・時間。例: 月3万円+月5時間）、learningCost=顧客の学習コスト（ユーザーが使い方を習得する負担。例: 低/中/高）。includedInMvp で MVPに含むか明示し、絞り込みの理由(rationale)を述べてください。mvpStatement に『このMVPで検証する仮説と提供価値』を1-2文で。",
+      "あなたは新規事業のプロダクトマネージャーです。**探索プロトタイプで提示された画面・ナビゲーション・機能（MVPに絞らず全機能を含む探索版）を起点に**、そこに現れた機能候補を洗い出し、各機能を影響度(impact 1-5)と実装工数(effort 1-5)で評価し、ユーザージャーニーで挙がった painpoint（課題）/ opportunity（機会）に効く機能を優先度判断に反映し、**プロトタイプで見えた機能の中から** MVPで最初に作るべき機能を10個以下に絞り込みます。プロトタイプに無い機能を新たに足さず、提示済みの機能の取捨選択に徹してください。さらに各機能を3つの判断軸で見積もってください: initialCost=初期開発コスト（日本円。例: 30〜50万円）、operationCost=運用コスト（継続運用の金額・時間。例: 月3万円+月5時間）、learningCost=顧客の学習コスト（ユーザーが使い方を習得する負担。例: 低/中/高）。includedInMvp で MVPに含むか明示し、絞り込みの理由(rationale)を述べてください。mvpStatement に『このMVPで検証する仮説と提供価値』を1-2文で。",
     prompt: context,
   });
 }
