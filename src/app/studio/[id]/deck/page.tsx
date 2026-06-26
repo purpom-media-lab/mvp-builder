@@ -203,6 +203,15 @@ export default function DeckPage() {
                   ? "資料を再生成"
                   : "提案資料を生成"}
             </Button>
+            <span
+              className={
+                deck
+                  ? "badge badge-soft badge-success whitespace-nowrap"
+                  : "badge badge-soft badge-ghost whitespace-nowrap"
+              }
+            >
+              {deck ? "生成済み" : "未生成"}
+            </span>
             {deck && (
               <>
                 <Button variant="outline" onClick={copyJson}>

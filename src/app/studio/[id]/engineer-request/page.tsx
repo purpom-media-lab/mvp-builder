@@ -22,6 +22,7 @@ import {
 } from "@/lib/model-prefs";
 import { LoadingOverlay, Spinner } from "@/components/spinner";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -337,7 +338,12 @@ export default function EngineerRequestPage() {
                 プロトタイプと分析・設計結果から、エンジニアに渡す開発依頼（開発仕様書/チケット）をAIが下書きします。編集できます。
               </p>
             </div>
-            <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs text-base-content/70">
+            <span
+              className={cn(
+                "badge badge-soft whitespace-nowrap",
+                status === "requested" ? "badge-info" : "badge-ghost",
+              )}
+            >
               {statusLabel}
             </span>
           </div>
@@ -353,7 +359,7 @@ export default function EngineerRequestPage() {
             )}
           </Button>
 
-          <div className="space-y-4 rounded-lg border border-base-300 bg-base-100/40 p-4">
+          <div className="fieldset space-y-4 rounded-box border border-base-300 bg-base-100 p-4">
             <Field label="プロダクト名">
               <Input
                 value={brief.productName}
@@ -463,7 +469,7 @@ export default function EngineerRequestPage() {
               Markdownをダウンロード
             </Button>
           </div>
-          <details className="rounded-lg border border-base-300 bg-muted/30 p-3">
+          <details className="rounded-box border border-base-300 bg-base-200 p-3">
             <summary className="cursor-pointer text-xs text-base-content/70">
               開発依頼のプレビュー（Markdown）
             </summary>

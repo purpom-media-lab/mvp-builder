@@ -23,6 +23,7 @@ import {
 } from "@/lib/model-prefs";
 import { LoadingOverlay, Spinner } from "@/components/spinner";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -471,7 +472,7 @@ export default function DesignRequestPage() {
         )}
 
         {/* 依頼の進行状況（draft → requested → received）。各セクションの現在地を示す。 */}
-        <div className="rounded-lg border border-base-300 bg-base-100/40 px-4 py-3">
+        <div className="rounded-lg border border-base-300 bg-base-100 px-4 py-3">
           <StepIndicator
             current={
               status === "received" ? 3 : status === "requested" ? 2 : 1
@@ -490,7 +491,16 @@ export default function DesignRequestPage() {
                 プロトタイプと分析結果から、デザイナーに渡す依頼項目をAIが下書きします。編集できます。
               </p>
             </div>
-            <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs text-base-content/70">
+            <span
+              className={cn(
+                "badge badge-soft whitespace-nowrap",
+                status === "received"
+                  ? "badge-success"
+                  : status === "requested"
+                    ? "badge-info"
+                    : "badge-ghost",
+              )}
+            >
               {statusLabel}
             </span>
           </div>
@@ -506,7 +516,7 @@ export default function DesignRequestPage() {
             )}
           </Button>
 
-          <div className="space-y-4 rounded-lg border border-base-300 bg-base-100/40 p-4">
+          <div className="fieldset space-y-4 rounded-box border border-base-300 bg-base-100 p-4">
             <Field label="プロダクト名">
               <Input
                 value={brief.productName}
@@ -608,7 +618,7 @@ export default function DesignRequestPage() {
               Markdownをダウンロード
             </Button>
           </div>
-          <details className="rounded-lg border border-base-300 bg-muted/30 p-3">
+          <details className="rounded-box border border-base-300 bg-base-200 p-3">
             <summary className="cursor-pointer text-xs text-base-content/70">
               ブリーフのプレビュー（Markdown）
             </summary>
@@ -618,7 +628,7 @@ export default function DesignRequestPage() {
           </details>
 
           {/* メールでデザイナーに送信 */}
-          <div className="space-y-3 rounded-lg border border-base-300 bg-base-100/40 p-4">
+          <div className="space-y-3 rounded-lg border border-base-300 bg-base-100 p-4">
             <div>
               <h3 className="text-sm font-semibold">メールで依頼を送信</h3>
               <p className="text-xs text-base-content/70">
@@ -653,12 +663,12 @@ export default function DesignRequestPage() {
             </div>
 
             {sendResult?.sent && (
-              <div className="rounded-md bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-400">
-                {designerEmail.trim()} に依頼メールを送信しました。
+              <div className="alert alert-success alert-soft text-sm">
+                <span>{designerEmail.trim()} に依頼メールを送信しました。</span>
               </div>
             )}
             {sendResult && !sendResult.sent && (
-              <div className="rounded-md bg-amber-500/10 px-3 py-2 text-sm text-amber-700 dark:text-amber-500">
+              <div className="alert alert-warning alert-soft block text-sm">
                 {sendResult.reason === "not-configured" ? (
                   <>
                     メール送信が設定されていません。お手数ですが「ブリーフをコピー」または「Markdownをダウンロード」して、デザイナーへ直接共有してください。
@@ -684,7 +694,7 @@ export default function DesignRequestPage() {
             </p>
           </div>
 
-          <div className="space-y-4 rounded-lg border border-base-300 bg-base-100/40 p-4">
+          <div className="fieldset space-y-4 rounded-box border border-base-300 bg-base-100 p-4">
             <Field label="Figma URL">
               <Input
                 value={figmaUrl}
@@ -706,7 +716,7 @@ export default function DesignRequestPage() {
                 type="file"
                 accept="application/pdf"
                 onChange={onPdfChange}
-                className="block w-full text-sm text-base-content/70 file:mr-3 file:rounded-md file:border file:border-base-300 file:bg-base-200 file:px-3 file:py-1.5 file:text-sm file:text-base-content hover:file:bg-muted"
+                className="block w-full text-sm text-base-content/70 file:mr-3 file:rounded-md file:border file:border-base-300 file:bg-base-200 file:px-3 file:py-1.5 file:text-sm file:text-base-content hover:file:bg-base-300"
               />
               {pdfName && (
                 <p className="mt-1 text-xs text-base-content/70">
@@ -735,7 +745,7 @@ export default function DesignRequestPage() {
           </div>
 
           {(refinedHtml || refinedDemoUrl) && (
-            <div className="space-y-2 rounded-lg border border-base-300 bg-base-100/40 p-4">
+            <div className="space-y-2 rounded-lg border border-base-300 bg-base-100 p-4">
               <div className="flex items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold">リファイン結果</h3>
                 <a
@@ -808,39 +818,15 @@ const REQUEST_STEPS = ["ブリーフ作成", "依頼確定", "成果物受領"] 
 /** デザイン依頼の進行ステップ（draft=1 / requested=2 / received=3）を表示する。 */
 function StepIndicator({ current }: { current: number }) {
   return (
-    <ol className="flex flex-wrap items-center gap-x-2 gap-y-2 text-xs">
-      {REQUEST_STEPS.map((label, i) => {
-        const n = i + 1;
-        const state =
-          n < current ? "done" : n === current ? "current" : "upcoming";
-        return (
-          <li key={label} className="flex items-center gap-2">
-            <span
-              className={`flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold ${
-                state === "current"
-                  ? "bg-primary text-primary-content"
-                  : state === "done"
-                    ? "bg-primary/15 text-primary"
-                    : "bg-muted text-base-content/70"
-              }`}
-            >
-              {state === "done" ? "✓" : n}
-            </span>
-            <span
-              className={
-                state === "upcoming"
-                  ? "text-base-content/70"
-                  : "font-medium text-base-content"
-              }
-            >
-              {label}
-            </span>
-            {i < REQUEST_STEPS.length - 1 && (
-              <span className="mx-1 h-px w-6 bg-base-300" />
-            )}
-          </li>
-        );
-      })}
-    </ol>
+    <ul className="steps w-full text-xs">
+      {REQUEST_STEPS.map((label, i) => (
+        <li
+          key={label}
+          className={cn("step", i + 1 <= current && "step-primary")}
+        >
+          {label}
+        </li>
+      ))}
+    </ul>
   );
 }

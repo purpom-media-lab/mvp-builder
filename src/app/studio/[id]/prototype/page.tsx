@@ -29,6 +29,7 @@ import {
 import { AiGenerating } from "@/components/ai-generating";
 import { LoadingOverlay } from "@/components/spinner";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import {
   ResizableHandle,
@@ -784,7 +785,7 @@ export default function PrototypePage() {
                 <div className="absolute left-0 top-full z-20 mt-1 w-64 rounded-md border bg-base-200 p-1 shadow-md">
                   <button
                     type="button"
-                    className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-muted disabled:opacity-50"
+                    className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-base-300 disabled:opacity-50"
                     disabled={
                       loading !== null ||
                       chatBusy ||
@@ -889,7 +890,7 @@ export default function PrototypePage() {
                     {loading === "publish" ? "引き継ぎ中…" : "公開・引き継ぎ"}
                   </Button>
                   {publish?.status === "not-configured" && (
-                    <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-600 dark:text-amber-400">
+                    <span className="badge badge-warning badge-soft badge-sm whitespace-nowrap">
                       未連携
                     </span>
                   )}
@@ -920,7 +921,7 @@ export default function PrototypePage() {
           {/* 生成する画面の選択。出力量を抑えて途中切れを防ぎ、作りたい画面に集中する。
               全選択なら従来どおり全画面、絞ると「選んだ画面だけを過不足なく実装」する。 */}
           {!generating && nav.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5 border-b bg-muted/40 px-3 py-2 text-xs">
+            <div className="flex flex-wrap items-center gap-1.5 border-b bg-base-200 px-3 py-2 text-xs">
               <span className="font-medium text-base-content/70">
                 生成する画面（{selectedScreens.length}/{nav.length}）:
               </span>
@@ -942,11 +943,10 @@ export default function PrototypePage() {
                     {n.parent ? `${n.parent} › ${n.label}` : n.label}
                     {/* 生成状況: 済（生成済み）/ 未（未生成） */}
                     <span
-                      className={`rounded px-1 text-[9px] ${
-                        done
-                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                          : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                      }`}
+                      className={cn(
+                        "badge badge-xs",
+                        done ? "badge-success" : "badge-warning",
+                      )}
                     >
                       {done ? "済" : "未"}
                     </span>
@@ -978,9 +978,7 @@ export default function PrototypePage() {
                 </button>
               )}
               {selectedScreens.length === 0 && (
-                <span className="text-amber-600 dark:text-amber-400">
-                  ※ 1つ以上選択してください
-                </span>
+                <span className="text-warning">※ 1つ以上選択してください</span>
               )}
               {/* 追記生成: 既存プレビューを保持したまま、選択画面を追加する（UC-更新2・追記型）。 */}
               {html && selectedScreens.length > 0 && (
@@ -1000,7 +998,7 @@ export default function PrototypePage() {
 
           {/* 結果ストリップ（共有URL / 引き継ぎ） */}
           {(shareUrl || shareError || publish) && (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b bg-muted/40 px-3 py-2 text-xs">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b bg-base-200 px-3 py-2 text-xs">
               {shareUrl ? (
                 <span>
                   共有URL:{" "}
@@ -1024,7 +1022,7 @@ export default function PrototypePage() {
                     publish.status === "published"
                       ? "text-base-content/70"
                       : publish.status === "not-configured"
-                        ? "text-amber-500"
+                        ? "text-warning"
                         : "text-error"
                   }
                 >
@@ -1066,7 +1064,7 @@ export default function PrototypePage() {
 
           {/* 出力上限による途中切れの警告。無言の部分生成を防ぐ。 */}
           {!generating && truncated && html && (
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
               <span>
                 生成が途中で切れています（HTML が未完で、ナビの <code>navigate()</code>{" "}
                 等が欠落し遷移できないことがあります）。
@@ -1090,7 +1088,7 @@ export default function PrototypePage() {
           {/* 生成された画面の一覧（@screen マーカーから抽出）。生成後にどんな画面が
               できたかを把握する。生成中はオーバーレイ側でライブ表示するため出さない。 */}
           {!generating && html && screens.length > 0 && (
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b bg-muted/40 px-3 py-2 text-xs">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b bg-base-200 px-3 py-2 text-xs">
               <span className="font-medium text-base-content/70">
                 生成された画面 {screens.length}
                 {canJump ? "（クリックで該当画面へ）" : ""}:
@@ -1119,7 +1117,7 @@ export default function PrototypePage() {
           )}
 
           {/* プレビュー */}
-          <div className="relative flex-1 overflow-hidden bg-muted/40 p-3">
+          <div className="relative flex-1 overflow-hidden bg-base-200 p-3">
             {(loading === "prototype" || loading === "realize") && (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-base-200/70 backdrop-blur-sm">
                 <AiGenerating
@@ -1147,7 +1145,7 @@ export default function PrototypePage() {
                       {genScreens.map((s) => (
                         <span
                           key={s}
-                          className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] text-base-content"
+                          className="badge badge-soft badge-primary badge-sm whitespace-nowrap"
                         >
                           ✓ {s}
                         </span>
@@ -1162,34 +1160,47 @@ export default function PrototypePage() {
                 本実装プレビュー（データ保存が有効）
               </div>
             )}
-            {demoUrl ? (
-              <iframe
-                src={demoUrl}
-                className="h-full w-full rounded-md border bg-white"
-                title="prototype preview"
-              />
-            ) : livePreview && html ? (
-              // 本実装版は /run で表示（SDK注入・実オリジンで LQ.db 等の保存が動く）。
-              // runNonce を key にして realize 完了ごとに最新HTMLを再取得する。
-              <iframe
-                key={runNonce}
-                src={`/run/${id}`}
-                className="h-full w-full rounded-md border bg-white"
-                title="prototype preview (live)"
-              />
-            ) : html ? (
-              <iframe
-                ref={iframeRef}
-                srcDoc={srcDocWithBridge ?? undefined}
-                className="h-full w-full rounded-md border bg-white"
-                title="prototype preview (aws)"
-                sandbox="allow-scripts"
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center text-sm text-base-content/70">
-                上の「プレビューを生成」を押すと、ここにプレビューが表示されます
+            <div className="mockup-browser flex h-full flex-col border border-base-300 bg-base-100">
+              <div className="mockup-browser-toolbar">
+                <div className="input pointer-events-none border border-base-300 text-xs text-base-content/70">
+                  {demoUrl
+                    ? demoUrl
+                    : livePreview && html
+                      ? `/run/${id}`
+                      : "preview"}
+                </div>
               </div>
-            )}
+              <div className="relative flex-1 overflow-hidden bg-white">
+                {demoUrl ? (
+                  <iframe
+                    src={demoUrl}
+                    className="h-full w-full bg-white"
+                    title="prototype preview"
+                  />
+                ) : livePreview && html ? (
+                  // 本実装版は /run で表示（SDK注入・実オリジンで LQ.db 等の保存が動く）。
+                  // runNonce を key にして realize 完了ごとに最新HTMLを再取得する。
+                  <iframe
+                    key={runNonce}
+                    src={`/run/${id}`}
+                    className="h-full w-full bg-white"
+                    title="prototype preview (live)"
+                  />
+                ) : html ? (
+                  <iframe
+                    ref={iframeRef}
+                    srcDoc={srcDocWithBridge ?? undefined}
+                    className="h-full w-full bg-white"
+                    title="prototype preview (aws)"
+                    sandbox="allow-scripts"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm text-base-content/70">
+                    上の「プレビューを生成」を押すと、ここにプレビューが表示されます
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>
