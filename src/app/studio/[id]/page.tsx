@@ -35,6 +35,7 @@ import { AiGenerating } from "@/components/ai-generating";
 import { LoadingOverlay } from "@/components/spinner";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -639,7 +640,7 @@ export default function ProjectDetailPage() {
         />
       )}
       {error && loading === null && (
-        <div className="flex items-start justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+        <div className="flex items-start justify-between gap-3 rounded-lg border border-error/30 bg-error/10 px-3 py-2.5 text-sm text-error">
           <span>⚠️ {error}</span>
           <button
             type="button"
@@ -689,7 +690,7 @@ export default function ProjectDetailPage() {
       {loading === "load" && <LoadingOverlay label="プロジェクトを読み込み中…" />}
       <div className="mx-auto max-w-5xl px-6 py-8">
         {error && (
-          <div className="mb-6 rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <div className="mb-6 rounded-md bg-error/10 px-4 py-3 text-sm text-error">
             {error}
           </div>
         )}
@@ -720,7 +721,7 @@ export default function ProjectDetailPage() {
             </div>
           )}
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-base-content/70">
               各ステップの結果は自動で保存されます
             </p>
             <div className="flex items-center gap-2">
@@ -764,56 +765,47 @@ export default function ProjectDetailPage() {
           value={activeTab}
           onValueChange={(v) => setActiveTab(v as StepKey)}
         >
-          {/* カテゴリ進捗（分析 / 設計 / MVP定義）。完了状況をプログレスで可視化 */}
-          <div className="mb-3 grid grid-cols-3 gap-2">
+          {/* カテゴリ進捗（分析 / 設計 / MVP定義）。daisyUI steps で完了状況を可視化。
+              各ステップはクリックでそのカテゴリへ切替（挙動は従来どおり）。 */}
+          <ul className="steps steps-horizontal mb-4 w-full">
             {CATEGORIES.map((c) => {
               const isActive = c.key === activeCategory.key;
               const total = c.steps.length;
               const done = c.steps.filter((k) => hasData[k]).length;
               const complete = done === total;
-              const pct = Math.round((done / total) * 100);
               return (
-                <button
+                <li
                   key={c.key}
-                  type="button"
-                  onClick={() => {
-                    if (!c.steps.includes(activeTab)) setActiveTab(c.steps[0]);
-                  }}
-                  className={`rounded-lg border p-2.5 text-left transition-colors ${
-                    isActive
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/40"
-                  }`}
+                  data-content={complete ? "✓" : undefined}
+                  className={cn("step", complete && "step-primary")}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-semibold">{c.label}</span>
-                    <span
-                      className={`flex items-center gap-1 text-xs ${
-                        complete
-                          ? "font-semibold text-primary"
-                          : "text-muted-foreground"
-                      }`}
-                    >
-                      {complete ? "✓ 完了" : `${done}/${total}`}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!c.steps.includes(activeTab))
+                        setActiveTab(c.steps[0]);
+                    }}
+                    className={cn(
+                      "flex flex-col items-center gap-0.5 px-3 py-1 leading-tight",
+                      isActive && "font-semibold text-primary",
+                    )}
+                  >
+                    <span className="text-sm">{c.label}</span>
+                    <span className="text-xs text-base-content/70">
+                      {complete ? "完了" : `${done}/${total}`}
                     </span>
-                  </div>
-                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-primary transition-all"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </button>
+                  </button>
+                </li>
               );
             })}
-          </div>
+          </ul>
 
           {/* 選択カテゴリの工程だけ表示 */}
           <TabsList className="w-full justify-start">
             {STEPS.map((s, i) =>
               activeCategory.steps.includes(s.key) ? (
                 <TabsTrigger key={s.key} value={s.key} className="gap-1">
-                  <span className="text-muted-foreground">{i + 1}.</span>
+                  <span className="text-base-content/70">{i + 1}.</span>
                   {s.label}
                   {loading === s.key ? (
                     <span className="text-primary">⏳</span>
@@ -828,8 +820,8 @@ export default function ProjectDetailPage() {
           {STEP_HELP[activeTab] && (
             <div className="mt-3 flex gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm">
               <span className="shrink-0">ℹ️</span>
-              <p className="text-muted-foreground">
-                <span className="font-semibold text-foreground">
+              <p className="text-base-content/70">
+                <span className="font-semibold text-base-content">
                   {STEP_HELP[activeTab]?.title}
                 </span>
                 {" — "}
@@ -1051,7 +1043,7 @@ export default function ProjectDetailPage() {
                           className="overflow-hidden rounded-lg border"
                         >
                           {/* オブジェクト名（クラス図のヘッダ相当） */}
-                          <div className="flex items-center gap-2 border-b bg-muted/50 px-2 py-1.5">
+                          <div className="flex items-center gap-2 border-b bg-base-200/50 px-2 py-1.5">
                             <Input
                               className="h-8 border-transparent bg-transparent font-heading font-semibold shadow-none focus-visible:bg-background"
                               value={o.name}
@@ -1079,10 +1071,10 @@ export default function ProjectDetailPage() {
                           {/* プロパティ */}
                           <div className="space-y-1 px-2 py-2">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-xs font-semibold tracking-wide text-muted-foreground">
+                              <span className="text-xs font-semibold tracking-wide text-base-content/70">
                                 プロパティ
                               </span>
-                              <span className="text-[0.7rem] text-muted-foreground/60">
+                              <span className="text-[0.7rem] text-base-content/70/60">
                                 ({o.attributes?.length ?? 0})
                               </span>
                             </div>
@@ -1132,7 +1124,7 @@ export default function ProjectDetailPage() {
                               <span className="text-xs font-semibold tracking-wide text-primary">
                                 アクション
                               </span>
-                              <span className="text-[0.7rem] text-muted-foreground/60">
+                              <span className="text-[0.7rem] text-base-content/70/60">
                                 ({o.actions?.length ?? 0})
                               </span>
                             </div>
@@ -1246,10 +1238,10 @@ export default function ProjectDetailPage() {
                           {jr.steps.map((s, j) => (
                             <li
                               key={j}
-                              className="rounded border border-dashed bg-muted/30 px-2 py-1.5 text-sm"
+                              className="rounded border border-dashed bg-base-200/30 px-2 py-1.5 text-sm"
                             >
                               <div className="flex items-start gap-2">
-                                <span className="font-medium text-muted-foreground">
+                                <span className="font-medium text-base-content/70">
                                   {j + 1}.
                                 </span>
                                 <div className="flex-1">
@@ -1450,7 +1442,7 @@ export default function ProjectDetailPage() {
                             {scr.sections.map((s, j) => (
                               <div
                                 key={j}
-                                className="flex items-start gap-2 rounded border border-dashed bg-muted/30 p-2"
+                                className="flex items-start gap-2 rounded border border-dashed bg-base-200/30 p-2"
                               >
                                 <div className="grid flex-1 gap-1.5 sm:grid-cols-[120px_1fr]">
                                   <select
@@ -1596,10 +1588,10 @@ export default function ProjectDetailPage() {
                           {ent.fields.map((f, j) => (
                             <div
                               key={j}
-                              className="flex items-center gap-2 rounded border border-dashed bg-muted/30 px-2 py-1 text-sm"
+                              className="flex items-center gap-2 rounded border border-dashed bg-base-200/30 px-2 py-1 text-sm"
                             >
                               <span className="font-medium">{f.name}</span>
-                              <span className="text-muted-foreground">
+                              <span className="text-base-content/70">
                                 : {f.type}
                               </span>
                             </div>
@@ -1630,7 +1622,7 @@ export default function ProjectDetailPage() {
                         DB {backend.needsDb ? "要" : "不要"}
                       </Badge>
                     </div>
-                    <p className="text-muted-foreground">{backend.rationale}</p>
+                    <p className="text-base-content/70">{backend.rationale}</p>
                   </div>
                 ) : (
                   <Empty />
@@ -1643,7 +1635,7 @@ export default function ProjectDetailPage() {
                 {scope ? (
                   <div className="space-y-4">
                     <div className="space-y-1.5">
-                      <p className="text-xs font-medium text-muted-foreground">
+                      <p className="text-xs font-medium text-base-content/70">
                         このMVPで検証する仮説・提供価値
                       </p>
                       <Textarea
@@ -1658,13 +1650,13 @@ export default function ProjectDetailPage() {
                       ).length;
                       const over = selected > MVP_LIMIT;
                       return (
-                        <div className="flex items-center justify-between rounded-lg bg-muted px-3 py-2 text-sm">
+                        <div className="flex items-center justify-between rounded-lg bg-base-200 px-3 py-2 text-sm">
                           <span>
                             MVPに含む機能{" "}
                             <span
                               className={
                                 over
-                                  ? "font-bold text-destructive"
+                                  ? "font-bold text-error"
                                   : "font-bold text-primary"
                               }
                             >
@@ -1673,7 +1665,7 @@ export default function ProjectDetailPage() {
                             / 最初に作るのは {MVP_LIMIT} 以下
                           </span>
                           {over && (
-                            <span className="text-xs text-destructive">
+                            <span className="text-xs text-error">
                               絞り込みましょう
                             </span>
                           )}
@@ -1712,38 +1704,38 @@ export default function ProjectDetailPage() {
                               <Badge variant="outline">影響 {f.impact}</Badge>
                             </div>
                             {f.description && (
-                              <p className="mt-1 text-sm text-muted-foreground">
+                              <p className="mt-1 text-sm text-base-content/70">
                                 {f.description}
                               </p>
                             )}
                             <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
                               {f.initialCost && (
-                                <span className="text-muted-foreground">
+                                <span className="text-base-content/70">
                                   初期開発:{" "}
-                                  <span className="font-medium text-foreground">
+                                  <span className="font-medium text-base-content">
                                     {f.initialCost}
                                   </span>
                                 </span>
                               )}
                               {f.operationCost && (
-                                <span className="text-muted-foreground">
+                                <span className="text-base-content/70">
                                   運用:{" "}
-                                  <span className="font-medium text-foreground">
+                                  <span className="font-medium text-base-content">
                                     {f.operationCost}
                                   </span>
                                 </span>
                               )}
                               {f.learningCost && (
-                                <span className="text-muted-foreground">
+                                <span className="text-base-content/70">
                                   顧客の学習:{" "}
-                                  <span className="font-medium text-foreground">
+                                  <span className="font-medium text-base-content">
                                     {f.learningCost}
                                   </span>
                                 </span>
                               )}
                             </div>
                             {f.rationale && (
-                              <p className="mt-1 text-xs text-muted-foreground/80">
+                              <p className="mt-1 text-xs text-base-content/70/80">
                                 判断: {f.rationale}
                               </p>
                             )}
@@ -1787,7 +1779,7 @@ export default function ProjectDetailPage() {
                       </div>
                     )}
                     <div className="space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground">
+                      <p className="text-xs font-medium text-base-content/70">
                         補助KPI
                       </p>
                       {kpi.supporting.map((m, i) => (
@@ -1851,10 +1843,10 @@ export default function ProjectDetailPage() {
                     {/* マイルストーン（到達ステッパー） */}
                     {growth.milestones?.length ? (
                       <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground">
+                        <p className="text-xs font-medium text-base-content/70">
                           マイルストーン
                         </p>
-                        <ol className="flex flex-col gap-4 rounded-lg border bg-muted/20 p-4 sm:flex-row sm:gap-0">
+                        <ol className="flex flex-col gap-4 rounded-lg border bg-base-200/20 p-4 sm:flex-row sm:gap-0">
                           {growth.milestones.map((m, i) => {
                             const last = i === growth.milestones!.length - 1;
                             return (
@@ -1867,7 +1859,7 @@ export default function ProjectDetailPage() {
                                   <span className="absolute top-4 left-1/2 hidden h-0.5 w-full bg-primary/30 sm:block" />
                                 )}
                                 <span
-                                  className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-primary-foreground"
+                                  className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-primary-content"
                                   style={{ backgroundColor: "var(--primary)" }}
                                 >
                                   {last ? "🏁" : i + 1}
@@ -1875,7 +1867,7 @@ export default function ProjectDetailPage() {
                                 <span className="mt-2 text-xs font-semibold text-primary">
                                   {m.period}
                                 </span>
-                                <span className="mt-0.5 text-sm text-foreground">
+                                <span className="mt-0.5 text-sm text-base-content">
                                   {m.target}
                                 </span>
                               </li>
@@ -1887,7 +1879,7 @@ export default function ProjectDetailPage() {
 
                     {growth.experiments?.length ? (
                       <div className="space-y-1.5">
-                        <p className="text-xs font-medium text-muted-foreground">
+                        <p className="text-xs font-medium text-base-content/70">
                           施策・実験
                         </p>
                         <ol className="space-y-1.5">
@@ -1906,12 +1898,12 @@ export default function ProjectDetailPage() {
                                 )}
                               </div>
                               {ex.hypothesis && (
-                                <p className="mt-1 text-xs text-muted-foreground">
+                                <p className="mt-1 text-xs text-base-content/70">
                                   仮説: {ex.hypothesis}
                                 </p>
                               )}
                               {ex.metric && (
-                                <p className="text-xs text-muted-foreground">
+                                <p className="text-xs text-base-content/70">
                                   指標: {ex.metric}
                                 </p>
                               )}
@@ -1933,7 +1925,7 @@ export default function ProjectDetailPage() {
                   <div className="space-y-4">
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1.5">
-                        <p className="text-xs font-medium text-muted-foreground">
+                        <p className="text-xs font-medium text-base-content/70">
                           ブランド名
                         </p>
                         <Input
@@ -1946,7 +1938,7 @@ export default function ProjectDetailPage() {
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <p className="text-xs font-medium text-muted-foreground">
+                        <p className="text-xs font-medium text-base-content/70">
                           タグライン
                         </p>
                         <Input
@@ -1961,7 +1953,7 @@ export default function ProjectDetailPage() {
                     </div>
                     {brand.paletteOptions?.length ? (
                       <div className="space-y-1.5">
-                        <p className="text-xs font-medium text-muted-foreground">
+                        <p className="text-xs font-medium text-base-content/70">
                           配色案（クリックで採用）
                         </p>
                         <div className="grid gap-2 sm:grid-cols-3">
@@ -2021,7 +2013,7 @@ export default function ProjectDetailPage() {
                     ) : null}
 
                     <div className="space-y-1.5">
-                      <p className="text-xs font-medium text-muted-foreground">
+                      <p className="text-xs font-medium text-base-content/70">
                         パレット（採用中）
                       </p>
                       <div className="flex flex-wrap gap-3">
@@ -2058,7 +2050,7 @@ export default function ProjectDetailPage() {
                                 }
                                 className="h-9 w-9 cursor-pointer rounded-md border"
                               />
-                              <span className="text-xs text-muted-foreground">
+                              <span className="text-xs text-base-content/70">
                                 {key}
                                 <br />
                                 {val}
@@ -2070,7 +2062,7 @@ export default function ProjectDetailPage() {
                     </div>
                     {brand.tone?.length ? (
                       <div className="space-y-1.5">
-                        <p className="text-xs font-medium text-muted-foreground">
+                        <p className="text-xs font-medium text-base-content/70">
                           トーンマナー
                         </p>
                         <div className="flex flex-wrap gap-1.5">
@@ -2083,12 +2075,12 @@ export default function ProjectDetailPage() {
                       </div>
                     ) : null}
                     {brand.voice && (
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-base-content/70">
                         ボイス: {brand.voice}
                       </p>
                     )}
                     {brand.imageryKeywords?.length ? (
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-base-content/70">
                         イメージ: {brand.imageryKeywords.join(" / ")}
                       </p>
                     ) : null}
@@ -2151,7 +2143,7 @@ export default function ProjectDetailPage() {
             type="button"
             onClick={() => setChatOpen(true)}
             aria-label="AIに相談を開く"
-            className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-medium text-primary-foreground shadow-lg transition-transform hover:scale-105 active:scale-95"
+            className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full bg-primary px-4 py-3 text-sm font-medium text-primary-content shadow-lg transition-transform hover:scale-105 active:scale-95"
           >
             💬 AIに相談
           </button>
@@ -2170,7 +2162,7 @@ export default function ProjectDetailPage() {
                 type="button"
                 onClick={() => setChatOpen(false)}
                 aria-label="チャットを閉じる"
-                className="absolute right-3 top-3 z-10 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="absolute right-3 top-3 z-10 rounded-md p-1 text-base-content/70 transition-colors hover:bg-base-200 hover:text-base-content"
               >
                 ✕
               </button>
@@ -2191,7 +2183,7 @@ export default function ProjectDetailPage() {
 
 function Empty() {
   return (
-    <p className="text-sm text-muted-foreground">
+    <p className="text-sm text-base-content/70">
       まだ生成されていません。「AIで生成」を押してください。
     </p>
   );
@@ -2226,10 +2218,10 @@ function MetricEditor({
         />
       </div>
       {metric.definition && (
-        <p className="text-xs text-muted-foreground">定義: {metric.definition}</p>
+        <p className="text-xs text-base-content/70">定義: {metric.definition}</p>
       )}
       {(metric.measurement || metric.cadence) && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-base-content/70">
           計測: {metric.measurement}
           {metric.cadence ? `（${metric.cadence}）` : ""}
         </p>
