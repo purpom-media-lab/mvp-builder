@@ -462,6 +462,7 @@ export async function saveStepResult(
             screenType:
               navScreenType.get(s.screenName.trim()) ?? s.screenType,
             targetObject: s.targetObject ?? null,
+            layoutPattern: s.layoutPattern ?? null,
             sections: s.sections,
           },
         })),

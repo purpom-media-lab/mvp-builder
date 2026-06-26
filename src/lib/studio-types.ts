@@ -24,6 +24,8 @@ export type WireframeView = {
   // この画面が扱う OOUI オブジェクト名（ナビの targetObject と一致）。
   targetObject?: string | null;
   screenType?: string | null;
+  // OOUI レイアウト配置パターン（stack/master-detail/grid/single）
+  layoutPattern?: string | null;
   sections: WireframeSection[];
 };
 

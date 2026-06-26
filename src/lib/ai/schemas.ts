@@ -144,6 +144,12 @@ export const wireframeSchema = z.object({
         .string()
         .nullable()
         .describe("画面種別（dashboard/list/detail/form など）"),
+      layoutPattern: z
+        .enum(["stack", "master-detail", "grid", "single"])
+        .nullable()
+        .describe(
+          "レイアウト配置パターン。stack=画面遷移(コレクション→シングルを画面切替), master-detail=2ペイン(左コレクション→右シングル同時表示), grid=ダッシュボード等の集約グリッド, single=フォーム等の単一ビュー",
+        ),
       sections: z
         .array(
           z.object({

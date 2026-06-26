@@ -85,6 +85,14 @@ const SECTION_TYPES = [
   "other",
 ] as const;
 
+// ワイヤーフレームのレイアウト配置パターン（API の wireframeSchema enum と一致）
+const LAYOUT_PATTERNS: { value: string; label: string }[] = [
+  { value: "stack", label: "画面遷移" },
+  { value: "master-detail", label: "2ペイン(左右)" },
+  { value: "grid", label: "グリッド集約" },
+  { value: "single", label: "単一ビュー" },
+];
+
 const STEPS: { key: StepKey; label: string }[] = [
   { key: "actors", label: "アクター" },
   { key: "usecases", label: "ユースケース" },
@@ -260,12 +268,14 @@ export default function ProjectDetailPage() {
                 layout?: {
                   screenType?: string | null;
                   targetObject?: string | null;
+                  layoutPattern?: string | null;
                   sections?: WireframeView["sections"];
                 } | null;
               }) => ({
                 screenName: row.screenName,
                 screenType: row.layout?.screenType ?? null,
                 targetObject: row.layout?.targetObject ?? null,
+                layoutPattern: row.layout?.layoutPattern ?? null,
                 sections: row.layout?.sections ?? [],
               }),
             )
@@ -1467,6 +1477,23 @@ export default function ProjectDetailPage() {
                                 }
                               />
                             )}
+                            <select
+                              className="h-8 w-32 rounded-md border bg-background px-2 text-xs"
+                              title="レイアウト配置パターン（OOUI）"
+                              value={scr.layoutPattern ?? ""}
+                              onChange={(e) =>
+                                setScreen({
+                                  layoutPattern: e.target.value || null,
+                                })
+                              }
+                            >
+                              <option value="">配置</option>
+                              {LAYOUT_PATTERNS.map((p) => (
+                                <option key={p.value} value={p.value}>
+                                  {p.label}
+                                </option>
+                              ))}
+                            </select>
                             <Button
                               variant="ghost"
                               size="icon"
@@ -1585,6 +1612,8 @@ export default function ProjectDetailPage() {
                             screens: (wireframe ?? []).map((scr) => ({
                               screenName: scr.screenName,
                               screenType: scr.screenType ?? null,
+                              targetObject: scr.targetObject ?? null,
+                              layoutPattern: scr.layoutPattern ?? null,
                               sections: scr.sections.map((s) => ({
                                 type: s.type as WireframeView["sections"][number]["type"],
                                 label: s.label,
