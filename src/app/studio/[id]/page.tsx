@@ -765,40 +765,50 @@ export default function ProjectDetailPage() {
           value={activeTab}
           onValueChange={(v) => setActiveTab(v as StepKey)}
         >
-          {/* カテゴリ進捗（分析 / 設計 / MVP定義）。daisyUI steps で完了状況を可視化。
-              各ステップはクリックでそのカテゴリへ切替（挙動は従来どおり）。 */}
-          <ul className="steps steps-horizontal mb-4 w-full">
+          {/* カテゴリ切替（分析 / 設計 / MVP定義）。daisyUI tabs-box のセグメント型で
+              「いま選択中のフェーズ」を塗りつぶしで明示しつつ、完了状況をバッジ表示。
+              steps は受動的な進捗表示に見えて切替操作が伝わりづらかったため置換。 */}
+          <div
+            role="tablist"
+            className="tabs tabs-box mb-4 w-full bg-base-200 p-1"
+          >
             {CATEGORIES.map((c) => {
               const isActive = c.key === activeCategory.key;
               const total = c.steps.length;
               const done = c.steps.filter((k) => hasData[k]).length;
               const complete = done === total;
               return (
-                <li
+                <button
                   key={c.key}
-                  data-content={complete ? "✓" : undefined}
-                  className={cn("step", complete && "step-primary")}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => {
+                    if (!c.steps.includes(activeTab))
+                      setActiveTab(c.steps[0]);
+                  }}
+                  className={cn(
+                    "tab h-auto flex-1 flex-col gap-1 py-2 leading-tight",
+                    isActive && "tab-active font-semibold",
+                  )}
                 >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!c.steps.includes(activeTab))
-                        setActiveTab(c.steps[0]);
-                    }}
+                  <span className="text-sm">{c.label}</span>
+                  <span
                     className={cn(
-                      "flex flex-col items-center gap-0.5 px-3 py-1 leading-tight",
-                      isActive && "font-semibold text-primary",
+                      "badge badge-sm whitespace-nowrap",
+                      complete
+                        ? "badge-primary"
+                        : done > 0
+                          ? "badge-warning badge-outline"
+                          : "badge-ghost",
                     )}
                   >
-                    <span className="text-sm">{c.label}</span>
-                    <span className="text-xs text-base-content/70">
-                      {complete ? "完了" : `${done}/${total}`}
-                    </span>
-                  </button>
-                </li>
+                    {complete ? "完了" : `${done}/${total}`}
+                  </span>
+                </button>
               );
             })}
-          </ul>
+          </div>
 
           {/* 選択カテゴリの工程だけ表示 */}
           <TabsList className="w-full justify-start">
