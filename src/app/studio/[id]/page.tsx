@@ -1416,6 +1416,13 @@ export default function ProjectDetailPage() {
                             k === si ? { ...s, ...patch } : s,
                           ),
                         });
+                      // screenType は navigation を正とする。同名(label===screenName)の
+                      // ナビ項目があれば、その種別を読み取り専用で表示する。
+                      const navType = (nav ?? []).find(
+                        (n) =>
+                          n.label.trim() === scr.screenName.trim() &&
+                          !!n.screenType,
+                      )?.screenType;
                       return (
                         <div key={i} className="rounded-md border p-3">
                           <div className="mb-2 flex items-center gap-2">
@@ -1438,16 +1445,25 @@ export default function ProjectDetailPage() {
                                 })
                               }
                             />
-                            <Input
-                              className="h-8 w-28"
-                              placeholder="種別"
-                              value={scr.screenType ?? ""}
-                              onChange={(e) =>
-                                setScreen({
-                                  screenType: e.target.value || null,
-                                })
-                              }
-                            />
+                            {navType ? (
+                              <span
+                                className="flex h-8 w-28 items-center justify-center rounded-md border border-base-300 bg-base-200 px-2 text-xs text-base-content/70"
+                                title="種別はナビゲーションを正として同期しています（ナビ準拠）"
+                              >
+                                {navType}・ナビ準拠
+                              </span>
+                            ) : (
+                              <Input
+                                className="h-8 w-28"
+                                placeholder="種別"
+                                value={scr.screenType ?? ""}
+                                onChange={(e) =>
+                                  setScreen({
+                                    screenType: e.target.value || null,
+                                  })
+                                }
+                              />
+                            )}
                             <Button
                               variant="ghost"
                               size="icon"

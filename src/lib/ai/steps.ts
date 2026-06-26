@@ -117,7 +117,7 @@ export function generateWireframes({ context, provider, modelId }: StepArgs) {
     system:
       "あなたは OOUI（オブジェクト指向UI）と UI レイアウトの専門家です。【OOUIオブジェクト起点】で各画面の低忠実度ワイヤーフレーム（セクション構成）を設計してください。ユースケースから先にレイアウトを作るのではなく、ooui のオブジェクト構造（属性・アクション・関係）から各画面の提示を導きます。\n" +
       "手順と原則:\n" +
-      "(1) 各 wireframe 画面の targetObject に、その画面が扱う ooui オブジェクト名を設定する（navigation の targetObject と一致させ表記ゆれを防ぐ。横断集約のダッシュボードのみ空可）。\n" +
+      "(1) 各 wireframe 画面の targetObject に、その画面が扱う ooui オブジェクト名を設定する（navigation の targetObject と一致させ表記ゆれを防ぐ。横断集約のダッシュボードのみ空可）。画面名(screenName)は navigation の対応メニュー名(label)と一致させ、screenType も navigation の対応画面に合わせる（screenType は navigation を正とする）。\n" +
       "(2) 【コレクション/シングルの対】主要オブジェクトには原則 list（コレクション）画面と detail（シングル）画面の両方を用意する。ナビのトップに detail が出ていなくても、コレクションから遷移する detail 画面をここで設計する。\n" +
       "(3) list（コレクション）画面: そのオブジェクトの主要『属性(attributes)』を列にした table または cards を中心に、上部にコレクション操作の toolbar（検索/絞り込み/並び替え＋新規作成などのコレクション系 action）を置く。\n" +
       "(4) detail（シングル）画面: 1インスタンスの『属性(attributes)』を提示する detail/header を置き、そのオブジェクトの『アクション(actions)』をアクション群（ボタン）として配置し、relations 先の従属オブジェクトを『関連コレクション一覧』(table/list)として載せる。\n" +

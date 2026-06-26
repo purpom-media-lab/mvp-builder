@@ -440,6 +440,18 @@ export async function saveStepResult(
     }
   } else if (step === "wireframe") {
     const r = result as WireframeOutput;
+    // screenType は navigation を正とする: 同名画面(label===screenName)が
+    // ナビにあれば、その screenType で上書きして二重管理のズレを防ぐ。
+    const navRows = await db
+      .select({
+        label: navigationItems.label,
+        screenType: navigationItems.screenType,
+      })
+      .from(navigationItems)
+      .where(eq(navigationItems.projectId, projectId));
+    const navScreenType = new Map(
+      navRows.map((n) => [n.label.trim(), n.screenType]),
+    );
     await db.delete(wireframes).where(eq(wireframes.projectId, projectId));
     if (r.screens.length) {
       await db.insert(wireframes).values(
@@ -447,7 +459,8 @@ export async function saveStepResult(
           projectId,
           screenName: s.screenName,
           layout: {
-            screenType: s.screenType,
+            screenType:
+              navScreenType.get(s.screenName.trim()) ?? s.screenType,
             targetObject: s.targetObject ?? null,
             sections: s.sections,
           },
