@@ -276,6 +276,27 @@ export const chatMessages = pgTable("chat_messages", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+/**
+ * 実ユーザー（回答者）の声。公開プロト(/run)に埋め込んだウィジェットから、
+ * 匿名の回答者ごとに JTBD インタビューの全文と構造化サマリを蓄積する。
+ * ビルダー側の chat_messages（builder本人用）とは別物。
+ */
+export const userVoices = pgTable("user_voices", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  // 匿名の回答者識別子（localStorage 生成）。同一回答者の追記に使う。
+  respondentId: text("respondent_id").notNull(),
+  // インタビュー全文 [{ role: 'user' | 'assistant', content: string }]
+  messages: jsonb("messages").$type<{ role: string; content: string }[]>(),
+  // 会話末に抽出する構造化サマリ（状況/ジョブ/代替/障壁/成功基準 等）
+  jobSummary: jsonb("job_summary").$type<Record<string, unknown> | null>(),
+  status: text("status").notNull().default("in_progress"), // in_progress | completed
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 /** モック生成（v0）→ 公開 */
 export const prototypes = pgTable("prototypes", {
   id: uuid("id").defaultRandom().primaryKey(),
