@@ -45,6 +45,12 @@ export const oouiSchema = z.object({
           z.object({
             to: z.string().describe("関係先のオブジェクト名（日本語）"),
             type: z.string().describe("関係の種別（日本語。例: 保有する）"),
+            cardinality: z
+              .string()
+              .nullable()
+              .describe(
+                "多重度（日本語。例: 1対多 / 多対多 / 1対1）。ナビ階層と画面の親子関係の判断に使う",
+              ),
           }),
         )
         .describe("他オブジェクトとの関係"),
@@ -128,6 +134,12 @@ export const wireframeSchema = z.object({
       screenName: z
         .string()
         .describe("画面名（日本語。ナビのメニュー名に対応）"),
+      targetObject: z
+        .string()
+        .nullable()
+        .describe(
+          "この画面が扱う OOUI オブジェクト名（日本語。ナビの targetObject と一致させる。横断ダッシュボード等は空可）",
+        ),
       screenType: z
         .string()
         .nullable()

@@ -446,7 +446,11 @@ export async function saveStepResult(
         r.screens.map((s) => ({
           projectId,
           screenName: s.screenName,
-          layout: { screenType: s.screenType, sections: s.sections },
+          layout: {
+            screenType: s.screenType,
+            targetObject: s.targetObject ?? null,
+            sections: s.sections,
+          },
         })),
       );
     }

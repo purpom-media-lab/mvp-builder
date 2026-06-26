@@ -256,11 +256,13 @@ export default function ProjectDetailPage() {
                 screenName: string;
                 layout?: {
                   screenType?: string | null;
+                  targetObject?: string | null;
                   sections?: WireframeView["sections"];
                 } | null;
               }) => ({
                 screenName: row.screenName,
                 screenType: row.layout?.screenType ?? null,
+                targetObject: row.layout?.targetObject ?? null,
                 sections: row.layout?.sections ?? [],
               }),
             )
@@ -1426,7 +1428,18 @@ export default function ProjectDetailPage() {
                               }
                             />
                             <Input
-                              className="h-8 w-32"
+                              className="h-8 w-36"
+                              placeholder="対象オブジェクト"
+                              title="この画面が扱う OOUI オブジェクト（ナビの対象オブジェクトと一致）"
+                              value={scr.targetObject ?? ""}
+                              onChange={(e) =>
+                                setScreen({
+                                  targetObject: e.target.value || null,
+                                })
+                              }
+                            />
+                            <Input
+                              className="h-8 w-28"
                               placeholder="種別"
                               value={scr.screenType ?? ""}
                               onChange={(e) =>

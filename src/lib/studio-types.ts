@@ -21,6 +21,8 @@ export type WireframeSection = {
 };
 export type WireframeView = {
   screenName: string;
+  // この画面が扱う OOUI オブジェクト名（ナビの targetObject と一致）。
+  targetObject?: string | null;
   screenType?: string | null;
   sections: WireframeSection[];
 };
@@ -42,7 +44,7 @@ export type OouiView = {
   actions?: OouiTerm[] | null;
   // 編集時に失わないよう保持（UIでは直接編集しないが保存時に引き回す）
   collectionOf?: string | null;
-  relations?: { to: string; type: string }[] | null;
+  relations?: { to: string; type: string; cardinality?: string | null }[] | null;
 };
 export type JourneyStep = {
   step: string;
