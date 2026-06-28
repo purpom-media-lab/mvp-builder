@@ -246,10 +246,26 @@ async function runDsPrototypeJob(
   job: JobRow,
   p: PrototypePayload,
 ): Promise<void> {
-  const navItems =
+  // メニュー全項目（親子・順序つき）。
+  const allNav: {
+    label: string;
+    parent?: string | null;
+    icon?: string | null;
+    screenType?: string | null;
+    targetObject?: string | null;
+  }[] =
     p.navigation && p.navigation.length
       ? p.navigation
       : [{ label: p.projectName || "ホーム" }];
+
+  // 親(=他項目の parent になっている label)はグループ見出しとして扱い、画面は生成しない。
+  // これで2階層ナビが描画でき、カテゴリ親の空画面ノイズも出ない。
+  const parentLabels = new Set(
+    allNav.map((n) => n.parent).filter((x): x is string => !!x),
+  );
+  const leafNav = allNav.filter((n) => !parentLabels.has(n.label));
+  // 念のため: すべてが親扱いになった場合は全項目をリーフとして扱う。
+  const navItems = leafNav.length ? leafNav : allNav;
 
   // 探索プロトタイプ: MVPスコープで絞らず、全ユースケース・全画面を網羅的に作る。
   // （MVPスコープはこの探索プロトタイプを見たあとに確定する設計）。
@@ -340,6 +356,12 @@ async function runDsPrototypeJob(
     projectName: p.projectName || "プロトタイプ",
     theme,
     brand: p.brand ? { palette: p.brand.palette } : null,
+    // メニューは全項目(親子)で2階層描画。親はグループ見出し(画面なし)になる。
+    nav: allNav.map((n) => ({
+      label: n.label,
+      parent: n.parent ?? null,
+      icon: n.icon ?? null,
+    })),
     screens: results.map((r) => ({
       label: r.label,
       componentName: r.componentName,
