@@ -14,6 +14,7 @@ import {
   generateGrowth,
   generateJourney,
   generateKpi,
+  generateMarket,
   generateNavigation,
   generateOoui,
   generateScope,
@@ -27,6 +28,7 @@ const STEP_FNS = {
   usecases: generateUseCases,
   ooui: generateOoui,
   journey: generateJourney,
+  market: generateMarket,
   navigation: generateNavigation,
   wireframe: generateWireframes,
   datamodel: generateDataModel,
@@ -43,6 +45,7 @@ export const STEP_ROLES: Record<StepKey, string> = {
   usecases: "ビジネスアナリスト",
   ooui: "UXアーキテクト",
   journey: "UXデザイナー",
+  market: "事業開発／市場アナリスト",
   navigation: "情報設計（IA）デザイナー",
   wireframe: "UIデザイナー",
   datamodel: "データアーキテクト",
@@ -71,6 +74,9 @@ const WAVES: StepKey[][] = [
   // ユーザージャーニーマップ（体験レンズ）。アクター=ペルソナ／ユースケース=目標から導出し、
   // 抽出した painpoint/opportunity を scope の優先度判断に流すため scope の前に置く。
   ["journey"],
+  // 市場規模(TAM/SAM/SOM)・競合・参入余地の分析。事業情報とジャーニーまでを前提に、
+  // scope の優先度判断や差別化仮説の材料になるため ooui/scope の前に置く。
+  ["market"],
   ["ooui", "scope", "brand"],
   ["navigation", "datamodel", "kpi"],
   ["wireframe", "backend", "growth"],

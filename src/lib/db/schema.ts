@@ -39,6 +39,24 @@ export const projects = pgTable("projects", {
   // detail（ユーザー入力）とは別管理にし、分析が手入力を上書きしないようにする。
   analysisResult: text("analysis_result"),
   mvpStatement: text("mvp_statement"), // スコープ確定で生成するMVPの仮説と提供価値
+  // market 工程で生成する市場・競合分析（marketSchema 互換）。
+  // 1プロジェクト1件のため、独立テーブルにせず projects 直下に jsonb で持つ（growthPlan と同方針）。
+  marketAnalysis: jsonb("market_analysis").$type<{
+    marketSize: { tam: string; sam: string; som: string; assumptions: string };
+    trends: string[];
+    positioning: { xAxis: string; yAxis: string };
+    competitors: {
+      name: string;
+      type: "direct" | "indirect" | "alternative";
+      description?: string | null;
+      strengths: string;
+      weaknesses: string;
+      x: number;
+      y: number;
+    }[];
+    whitespace: string;
+    differentiation: string;
+  }>(),
   // KPI工程で生成するグロース計画（model/levers/experiments/milestones）
   growthPlan: jsonb("growth_plan").$type<{
     model: string;

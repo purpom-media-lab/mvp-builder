@@ -10,6 +10,7 @@ import type {
   BackendSpecOutput,
   BrandOutput,
   KpiOutput,
+  MarketOutput,
   NavigationOutput,
   OouiOutput,
   ScopeOutput,
@@ -27,7 +28,8 @@ interface Body {
     | BackendSpecOutput
     | ScopeOutput
     | KpiOutput
-    | BrandOutput;
+    | BrandOutput
+    | MarketOutput;
 }
 
 export async function POST(req: Request) {

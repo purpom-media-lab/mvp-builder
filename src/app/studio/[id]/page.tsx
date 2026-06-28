@@ -53,6 +53,7 @@ import type {
   GrowthPlanView,
   JourneyView,
   KpiMetricView,
+  MarketView,
   NavView,
   OouiView,
   ScopeFeatureView,
@@ -98,6 +99,7 @@ const STEPS: { key: StepKey; label: string }[] = [
   { key: "usecases", label: "ユースケース" },
   { key: "ooui", label: "モデリング" },
   { key: "journey", label: "ジャーニー" },
+  { key: "market", label: "市場・競合" },
   { key: "navigation", label: "ナビゲーション" },
   { key: "wireframe", label: "ワイヤー" },
   { key: "datamodel", label: "データ設計" },
@@ -129,6 +131,10 @@ const STEP_HELP: Partial<Record<StepKey, { title: string; body: string }>> = {
     title: "ユーザージャーニーマップとは",
     body: "ペルソナ（アクター）が目標を達成するまでの体験を時系列で可視化したマップです。各ステージでの行動・接点・感情・課題（ペイン）・改善の機会を整理し、ペインは MVP スコープの優先度判断に活かします。画面構造そのものは OOUI のオブジェクトから導くため、ジャーニーは体験を捉えるレンズとして使います。",
   },
+  market: {
+    title: "市場・競合分析とは",
+    body: "事業の市場規模（TAM/SAM/SOM）・主要な競合（直接/間接/代替手段）・ポジショニング・参入余地（空白地帯）を整理し、『どこで勝つか』の差別化仮説を立てます。作る前に勝ち筋を見るための工程で、結果は MVP スコープの優先度判断にも活かします。",
+  },
   scope: {
     title: "MVPスコープの決め方",
     body: "先に探索プロトタイプ（全機能版）を生成して動きを確認し、そのうえで『最初に作る機能（MVP）』を選び絞り込みます。新しい機能を足すのではなく、プロトタイプに現れた機能の取捨選択として決めます。",
@@ -137,7 +143,11 @@ const STEP_HELP: Partial<Record<StepKey, { title: string; body: string }>> = {
 
 /** 工程を 3 カテゴリに整理（一度に見えるタブを絞る） */
 const CATEGORIES: { key: string; label: string; steps: StepKey[] }[] = [
-  { key: "analyze", label: "分析", steps: ["actors", "usecases", "journey", "ooui"] },
+  {
+    key: "analyze",
+    label: "分析",
+    steps: ["actors", "usecases", "journey", "market", "ooui"],
+  },
   {
     key: "design",
     label: "設計",
@@ -172,6 +182,7 @@ export default function ProjectDetailPage() {
   const [useCases, setUseCases] = useState<UseCaseView[] | null>(null);
   const [ooui, setOoui] = useState<OouiView[] | null>(null);
   const [journey, setJourney] = useState<JourneyView[] | null>(null);
+  const [market, setMarket] = useState<MarketView | null>(null);
   const [nav, setNav] = useState<NavView[] | null>(null);
   const [wireframe, setWireframe] = useState<WireframeView[] | null>(null);
   const [dataModel, setDataModel] = useState<DataModelView[] | null>(null);
@@ -284,6 +295,7 @@ export default function ProjectDetailPage() {
         setUseCases(u);
         setOoui(o);
         setJourney(j);
+        setMarket(d.market ?? null);
         setNav(n);
         setWireframe(w);
         setDataModel(dm);
@@ -308,6 +320,7 @@ export default function ProjectDetailPage() {
           w && "wireframe",
           n && "navigation",
           j && "journey",
+          (d.market ?? null) && "market",
           o && "ooui",
           u && "usecases",
           a && "actors",
@@ -391,6 +404,7 @@ export default function ProjectDetailPage() {
       useCases && `## ユースケース\n${JSON.stringify(useCases)}`,
       ooui && `## OOUIオブジェクト\n${JSON.stringify(ooui)}`,
       journey && `## ジャーニー\n${JSON.stringify(journey)}`,
+      market && `## 市場・競合\n${JSON.stringify(market)}`,
       nav && `## ナビゲーション\n${JSON.stringify(nav)}`,
       wireframe && `## ワイヤーフレーム\n${JSON.stringify(wireframe)}`,
       dataModel && `## データ設計\n${JSON.stringify(dataModel)}`,
@@ -435,6 +449,7 @@ export default function ProjectDetailPage() {
     if (step === "usecases") setUseCases(r.useCases ?? null);
     if (step === "ooui") setOoui(r.objects ?? null);
     if (step === "journey") setJourney(r.journeys ?? null);
+    if (step === "market") setMarket(result as MarketView);
     if (step === "navigation") setNav(r.items ?? null);
     if (step === "wireframe") setWireframe(r.screens ?? null);
     if (step === "datamodel") setDataModel(r.entities ?? null);
@@ -569,6 +584,7 @@ export default function ProjectDetailPage() {
     const u = r.usecases as { useCases?: UseCaseView[] } | undefined;
     const o = r.ooui as { objects?: OouiView[] } | undefined;
     const j = r.journey as { journeys?: JourneyView[] } | undefined;
+    const mk = r.market as MarketView | undefined;
     const dm = r.datamodel as { entities?: DataModelView[] } | undefined;
     const n = r.navigation as { items?: NavView[] } | undefined;
     const w = r.wireframe as { screens?: WireframeView[] } | undefined;
@@ -583,6 +599,7 @@ export default function ProjectDetailPage() {
     if (u?.useCases) setUseCases(u.useCases);
     if (o?.objects) setOoui(o.objects);
     if (j?.journeys) setJourney(j.journeys);
+    if (mk) setMarket(mk);
     if (dm?.entities) setDataModel(dm.entities);
     if (n?.items) setNav(n.items);
     if (w?.screens) setWireframe(w.screens);
@@ -601,6 +618,7 @@ export default function ProjectDetailPage() {
     usecases: !!useCases,
     ooui: !!ooui,
     journey: !!journey?.length,
+    market: !!market,
     navigation: !!nav,
     wireframe: !!wireframe,
     datamodel: !!dataModel?.length,
@@ -1323,6 +1341,162 @@ export default function ProjectDetailPage() {
                         </div>
                       );
                     })}
+                  </div>
+                ) : (
+                  <Empty />
+                )}
+              </TabsContent>
+
+              {/* 市場・競合分析 */}
+              <TabsContent value="market">
+                <GenerateButton />
+                {market ? (
+                  <div className="space-y-5">
+                    {/* 市場規模 TAM/SAM/SOM */}
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      {(
+                        [
+                          { k: "TAM", v: market.marketSize?.tam },
+                          { k: "SAM", v: market.marketSize?.sam },
+                          { k: "SOM", v: market.marketSize?.som },
+                        ] as const
+                      ).map((m) => (
+                        <div
+                          key={m.k}
+                          className="rounded-lg border bg-base-200/20 p-3"
+                        >
+                          <p className="text-xs font-bold text-primary">{m.k}</p>
+                          <p className="mt-1 text-sm leading-relaxed text-base-content">
+                            {m.v}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                    {market.marketSize?.assumptions && (
+                      <p className="text-xs text-base-content/70">
+                        前提・根拠: {market.marketSize.assumptions}
+                      </p>
+                    )}
+
+                    {/* 市場トレンド */}
+                    {market.trends?.length ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {market.trends.map((t, i) => (
+                          <Badge key={i} variant="secondary">
+                            {t}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : null}
+
+                    {/* ポジショニングマップ */}
+                    {market.competitors?.length ? (
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium text-base-content/70">
+                          ポジショニングマップ
+                        </p>
+                        <div className="relative mx-auto aspect-[4/3] w-full max-w-xl rounded-lg border bg-base-200/20">
+                          {/* 軸の十字線 */}
+                          <span className="absolute top-0 bottom-0 left-1/2 w-px bg-base-content/10" />
+                          <span className="absolute top-1/2 right-0 left-0 h-px bg-base-content/10" />
+                          {/* 軸ラベル */}
+                          <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[10px] text-base-content/50">
+                            {market.positioning?.xAxis}
+                          </span>
+                          <span className="absolute top-1/2 left-1 -translate-y-1/2 [writing-mode:vertical-rl] text-[10px] text-base-content/50">
+                            {market.positioning?.yAxis}
+                          </span>
+                          {market.competitors.map((c, i) => {
+                            const left = `${Math.min(Math.max(c.x ?? 0.5, 0), 1) * 100}%`;
+                            const bottom = `${Math.min(Math.max(c.y ?? 0.5, 0), 1) * 100}%`;
+                            const color =
+                              c.type === "direct"
+                                ? "var(--color-error, #ef4444)"
+                                : c.type === "indirect"
+                                  ? "var(--color-warning, #f59e0b)"
+                                  : "var(--color-info, #3b82f6)";
+                            return (
+                              <span
+                                key={i}
+                                className="absolute flex -translate-x-1/2 translate-y-1/2 items-center gap-1"
+                                style={{ left, bottom }}
+                              >
+                                <span
+                                  className="h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-base-100"
+                                  style={{ backgroundColor: color }}
+                                />
+                                <span className="whitespace-nowrap rounded bg-base-100/80 px-1 text-[10px] font-medium text-base-content">
+                                  {c.name}
+                                </span>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {/* 競合一覧 */}
+                    {market.competitors?.length ? (
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium text-base-content/70">
+                          競合
+                        </p>
+                        <ul className="space-y-1.5">
+                          {market.competitors.map((c, i) => {
+                            const typeLabel =
+                              c.type === "direct"
+                                ? "直接"
+                                : c.type === "indirect"
+                                  ? "間接"
+                                  : "代替";
+                            return (
+                              <li
+                                key={i}
+                                className="rounded-md border bg-background p-2 text-sm"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{c.name}</span>
+                                  <Badge variant="outline">{typeLabel}</Badge>
+                                </div>
+                                {c.description && (
+                                  <p className="mt-1 text-xs text-base-content/70">
+                                    {c.description}
+                                  </p>
+                                )}
+                                <p className="mt-1 text-xs text-base-content/70">
+                                  強み: {c.strengths}
+                                </p>
+                                <p className="text-xs text-base-content/70">
+                                  弱み・隙: {c.weaknesses}
+                                </p>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
+                    ) : null}
+
+                    {/* 参入余地・差別化仮説 */}
+                    {market.whitespace && (
+                      <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+                        <p className="text-xs font-bold text-primary">
+                          参入余地（空白地帯）
+                        </p>
+                        <p className="mt-1 text-sm leading-relaxed text-base-content">
+                          {market.whitespace}
+                        </p>
+                      </div>
+                    )}
+                    {market.differentiation && (
+                      <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+                        <p className="text-xs font-bold text-primary">
+                          差別化仮説
+                        </p>
+                        <p className="mt-1 text-sm leading-relaxed text-base-content">
+                          {market.differentiation}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <Empty />

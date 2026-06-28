@@ -5,6 +5,7 @@ export type StepKey =
   | "usecases"
   | "ooui"
   | "journey"
+  | "market"
   | "navigation"
   | "wireframe"
   | "datamodel"
@@ -107,6 +108,23 @@ export type GrowthPlanView = {
     effort?: string | null;
   }[];
   milestones?: { period: string; target: string }[] | null;
+};
+export type MarketCompetitorView = {
+  name: string;
+  type: "direct" | "indirect" | "alternative";
+  description?: string | null;
+  strengths: string;
+  weaknesses: string;
+  x: number;
+  y: number;
+};
+export type MarketView = {
+  marketSize: { tam: string; sam: string; som: string; assumptions: string };
+  trends: string[];
+  positioning: { xAxis: string; yAxis: string };
+  competitors: MarketCompetitorView[];
+  whitespace: string;
+  differentiation: string;
 };
 export type BrandView = {
   brandName?: string | null;

@@ -36,6 +36,7 @@ import type {
   GrowthOutput,
   JourneyOutput,
   KpiOutput,
+  MarketOutput,
   NavigationOutput,
   OouiOutput,
   ScopeOutput,
@@ -48,6 +49,7 @@ export type StepKey =
   | "usecases"
   | "ooui"
   | "journey"
+  | "market"
   | "navigation"
   | "wireframe"
   | "datamodel"
@@ -234,6 +236,7 @@ export async function getProjectWithArtifacts(
     useCases: useCaseRows,
     ooui: oouiRows,
     journey: journeyRows,
+    market: project.marketAnalysis ?? null,
     navigation: navRows,
     wireframes: wireframeRows,
     dataModel: dataModelRows,
@@ -359,7 +362,8 @@ export async function saveStepResult(
     | ScopeOutput
     | KpiOutput
     | GrowthOutput
-    | BrandOutput,
+    | BrandOutput
+    | MarketOutput,
 ): Promise<boolean> {
   const owned = await getOwnedProject(ownerId, projectId);
   if (!owned) return false;
@@ -554,6 +558,12 @@ export async function saveStepResult(
     await db
       .update(projects)
       .set({ growthPlan: r })
+      .where(eq(projects.id, projectId));
+  } else if (step === "market") {
+    const r = result as MarketOutput;
+    await db
+      .update(projects)
+      .set({ marketAnalysis: r })
       .where(eq(projects.id, projectId));
   } else if (step === "brand") {
     const r = result as BrandOutput;
