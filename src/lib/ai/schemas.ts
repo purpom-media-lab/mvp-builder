@@ -316,6 +316,85 @@ export const brandSchema = z.object({
   voice: z.string().optional().describe("ボイス"),
 });
 
+/** 市場・競合分析（market）。事業の市場規模・競合状況・参入余地を構造化する。 */
+export const marketSchema = z.object({
+  marketSize: z
+    .object({
+      tam: z
+        .string()
+        .describe("TAM（獲得可能な最大市場規模）。金額・規模感と概算の前提"),
+      sam: z
+        .string()
+        .describe("SAM（獲得可能なサービス市場規模）。金額・規模感と前提"),
+      som: z
+        .string()
+        .describe(
+          "SOM（初期に現実的に獲得しうる市場規模）。金額・規模感と前提",
+        ),
+      assumptions: z
+        .string()
+        .describe(
+          "TAM/SAM/SOM 概算の前提・算出根拠（数値の出どころ・仮定。日本語）",
+        ),
+    })
+    .describe("市場規模（TAM/SAM/SOM）"),
+  trends: z
+    .array(z.string())
+    .describe("市場トレンド・追い風/向かい風（3〜5個・日本語）"),
+  positioning: z
+    .object({
+      xAxis: z
+        .string()
+        .describe(
+          "ポジショニングマップの横軸ラベル（両端を示す。例: アイデア生成↔検証・実装）",
+        ),
+      yAxis: z
+        .string()
+        .describe(
+          "縦軸ラベル（両端を示す。例: セルフサーブ(自走)↔伴走・制度運営）",
+        ),
+    })
+    .describe("ポジショニングマップの2軸"),
+  competitors: z
+    .array(
+      z.object({
+        name: z.string().describe("競合サービス/企業名"),
+        type: z
+          .enum(["direct", "indirect", "alternative"])
+          .describe(
+            "種別: direct=直接競合 / indirect=間接競合 / alternative=代替手段",
+          ),
+        description: z
+          .string()
+          .nullable()
+          .describe("どんなサービスか（1文・日本語）"),
+        strengths: z.string().describe("強み（日本語）"),
+        weaknesses: z.string().describe("弱み・隙（日本語）"),
+        x: z
+          .number()
+          .min(0)
+          .max(1)
+          .describe("ポジショニング横軸上の位置（0=左端, 1=右端）"),
+        y: z
+          .number()
+          .min(0)
+          .max(1)
+          .describe("ポジショニング縦軸上の位置（0=下端, 1=上端）"),
+      }),
+    )
+    .describe(
+      "主要競合（3〜6件）。直接競合だけでなく間接競合・代替手段も含める",
+    ),
+  whitespace: z
+    .string()
+    .describe("競合が手薄な空白地帯（参入余地）。日本語"),
+  differentiation: z
+    .string()
+    .describe(
+      "この事業がとるべき差別化仮説（空白地帯をどう取るか）。日本語",
+    ),
+});
+
 /** チャット要望から「どの工程を再実行し、プロトタイプを作り直すか」を決める計画 */
 export const orchestratePlanSchema = z.object({
   steps: z
@@ -325,6 +404,7 @@ export const orchestratePlanSchema = z.object({
         "usecases",
         "ooui",
         "journey",
+        "market",
         "navigation",
         "wireframe",
         "datamodel",
@@ -468,6 +548,7 @@ export type ScopeOutput = z.infer<typeof scopeSchema>;
 export type KpiOutput = z.infer<typeof kpiSchema>;
 export type GrowthOutput = z.infer<typeof growthSchema>;
 export type BrandOutput = z.infer<typeof brandSchema>;
+export type MarketOutput = z.infer<typeof marketSchema>;
 export type OrchestratePlan = z.infer<typeof orchestratePlanSchema>;
 export type DesignBriefOutput = z.infer<typeof designBriefSchema>;
 export type EngineerBriefOutput = z.infer<typeof engineerBriefSchema>;

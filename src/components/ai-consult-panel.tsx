@@ -28,6 +28,7 @@ const STEP_LABEL: Record<StepKey, string> = {
   usecases: "ユースケース",
   ooui: "モデリング",
   journey: "ジャーニー",
+  market: "市場・競合",
   navigation: "ナビゲーション",
   wireframe: "ワイヤー",
   datamodel: "データ設計",

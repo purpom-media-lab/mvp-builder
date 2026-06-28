@@ -16,6 +16,7 @@ import {
   growthSchema,
   journeySchema,
   kpiSchema,
+  marketSchema,
   navigationSchema,
   oouiSchema,
   orchestratePlanSchema,
@@ -43,7 +44,7 @@ export function planOrchestration({
     modelId,
     temperature: 0.2,
     system:
-      "あなたは LEAN QUEST AI のオーケストレーターです。ユーザーの要望と現在の分析状態を踏まえ、最適なUIを再提案するために、どの分析工程(actors/usecases/ooui/journey/navigation/wireframe/datamodel/backend/scope/kpi/brand)を再実行すべきか、プロトタイプ(UI)を作り直すべきかを判断します。工程の依存順は actors→usecases→journey→ooui→navigation→wireframe→datamodel→backend→scope→kpi→brand。journey はユーザージャーニーマップ(体験の可視化・painは scope に効く)。navigation はメインナビ(画面/メニュー構成)、wireframe は各画面のセクション構成(レイアウト)の設計です。scope は機能候補をMVPに絞り込むスコープ確定、kpi は成功指標(KPI)設計、brand はブランド設計(配色・トーン等)です。画面構成・メニューの変更要望では navigation を、画面内のレイアウト・要素配置の変更要望では wireframe を、MVPで作る機能の取捨選択の要望では scope を、成功指標の要望では kpi を、世界観・配色・トーンの要望では brand を選びます。要望に関係する最小限の工程だけ選んでください。UIの見た目・画面構成の変更を伴うなら regeneratePrototype を true にします。",
+      "あなたは LEAN QUEST AI のオーケストレーターです。ユーザーの要望と現在の分析状態を踏まえ、最適なUIを再提案するために、どの分析工程(actors/usecases/ooui/journey/market/navigation/wireframe/datamodel/backend/scope/kpi/brand)を再実行すべきか、プロトタイプ(UI)を作り直すべきかを判断します。工程の依存順は actors→usecases→journey→market→ooui→navigation→wireframe→datamodel→backend→scope→kpi→brand。journey はユーザージャーニーマップ(体験の可視化・painは scope に効く)。market は市場規模(TAM/SAM/SOM)・競合分析・参入余地の分析で、市場・競合・差別化に関する要望で選びます。navigation はメインナビ(画面/メニュー構成)、wireframe は各画面のセクション構成(レイアウト)の設計です。scope は機能候補をMVPに絞り込むスコープ確定、kpi は成功指標(KPI)設計、brand はブランド設計(配色・トーン等)です。市場規模・競合・差別化の要望では market を、画面構成・メニューの変更要望では navigation を、画面内のレイアウト・要素配置の変更要望では wireframe を、MVPで作る機能の取捨選択の要望では scope を、成功指標の要望では kpi を、世界観・配色・トーンの要望では brand を選びます。要望に関係する最小限の工程だけ選んでください。UIの見た目・画面構成の変更を伴うなら regeneratePrototype を true にします。",
     prompt: `## 現在の分析状態\n${context}\n\n## ユーザー要望\n${message}`,
   });
 }
@@ -99,6 +100,21 @@ export function generateJourney({ context, provider, modelId }: StepArgs) {
     system:
       "あなたはUXデザイナーです。ユーザージャーニーマップ（ユーザーがプロダクトを通して目標を達成するまでの体験を時系列で可視化したもの）を作成してください。アクター=ペルソナ、ユースケース=目標を基盤に、主要なジャーニーを 1〜3 本。各ジャーニーは name（ペルソナ×目標の単位）と、時系列のステップ列で表現します。各ステップには phase（ステージ: 認知/検討/利用/定着 など）・action（ユーザーの行動）・touchpoint（接点: 画面/チャネル）・emotion（その時の感情）・painpoint（課題・ペインポイント）・opportunity（改善の機会・インサイト）を、分かる範囲で日本語で記述します（不明な項目は無理に埋めず null 可）。\n" +
       "ジャーニーは体験を捉える UX レンズであり、画面・ナビゲーションの構造を駆動するものではありません（画面構造は ooui のオブジェクトから導出する）。抽出した painpoint / opportunity は後続のスコープ確定(scope)で機能の優先度判断に活用され、完成画面に対する体験の抜け漏れ検証にも用います。",
+    prompt: context,
+  });
+}
+
+/** 市場・競合分析（市場規模・競合マップ・参入余地） */
+export function generateMarket({ context, provider, modelId }: StepArgs) {
+  return generateStructured({
+    schema: marketSchema,
+    provider,
+    modelId,
+    system:
+      "あなたは新規事業の市場・競合アナリストです。与えられた事業情報から、(1) 市場規模 TAM/SAM/SOM の概算（必ず算出の前提・根拠を添える。数値が不確かでも『どういう仮定でいくらか』を明示する）、(2) 市場トレンド（追い風/向かい風）、(3) 競合分析を行ってください。\n" +
+      "【競合】直接競合だけでなく、間接競合・代替手段（例: 汎用ツールや人手・既存業務フロー）も必ず含めること。各競合に type（direct/indirect/alternative）・強み・弱み(隙)を付け、ポジショニングマップ上の位置を x,y（各 0〜1）で与えます。\n" +
+      "【ポジショニング】事業の競争構造を最もよく説明する2軸を選び（positioning.xAxis / yAxis に両端が分かるラベルを日本語で。例『アイデア生成↔検証・実装』）、各競合をその座標(x=横0左〜1右, y=縦0下〜1上)に配置します。\n" +
+      "【空白地帯と差別化】競合が手薄な空白地帯(whitespace=参入余地)を特定し、この事業がそこをどう取るかの差別化仮説(differentiation)を述べます。すべて日本語で、具体的に。",
     prompt: context,
   });
 }
