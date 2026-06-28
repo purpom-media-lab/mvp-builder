@@ -122,7 +122,32 @@ export default function PrototypePage() {
     "generate" | "publish" | "build" | "request" | null
   >(null);
   // 左の AI 相談チャットを畳んでプレビューを全幅にできる。
+  // 開閉状態は localStorage に記録し、次回以降も維持する（UI 設定として全プロジェクト共通）。
   const [chatCollapsed, setChatCollapsed] = useState(false);
+  // 復元: マウント後に localStorage から読む（SSR ハイドレーション不整合を避けるため初期値は false）。
+  const chatPrefHydrated = useRef(false);
+  useEffect(() => {
+    try {
+      setChatCollapsed(
+        localStorage.getItem("lq_prototype_chat_collapsed") === "1",
+      );
+    } catch {
+      // localStorage 不可（プライベートモード等）は既定のまま
+    }
+    chatPrefHydrated.current = true;
+  }, []);
+  // 保存: 復元後の変更のみ書き込む。
+  useEffect(() => {
+    if (!chatPrefHydrated.current) return;
+    try {
+      localStorage.setItem(
+        "lq_prototype_chat_collapsed",
+        chatCollapsed ? "1" : "0",
+      );
+    } catch {
+      // 保存失敗は無視（UX を止めない）
+    }
+  }, [chatCollapsed]);
   const [instruction, setInstruction] = useState("");
   const [demoUrl, setDemoUrl] = useState<string | null>(null);
   const [html, setHtml] = useState<string | null>(null);
