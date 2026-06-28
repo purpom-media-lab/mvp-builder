@@ -121,6 +121,8 @@ export default function PrototypePage() {
   const [activePanel, setActivePanel] = useState<
     "screens" | "publish" | "generated" | null
   >("screens");
+  // 左の AI 相談チャットを畳んでプレビューを全幅にできる。
+  const [chatCollapsed, setChatCollapsed] = useState(false);
   const [instruction, setInstruction] = useState("");
   const [demoUrl, setDemoUrl] = useState<string | null>(null);
   const [html, setHtml] = useState<string | null>(null);
@@ -709,38 +711,69 @@ export default function PrototypePage() {
     >
       {loadingProject && <LoadingOverlay label="読み込み中…" />}
       <ResizablePanelGroup className="flex-1">
-        {/* 左ペイン: AI相談チャットのみ */}
-        <ResizablePanel
-          defaultSize="30%"
-          minSize="22%"
-          maxSize="46%"
-          className="flex flex-col gap-3 overflow-auto p-4"
-        >
-          {error && (
-            <div className="rounded-md bg-error/10 px-3 py-2 text-sm text-error">
-              {error}
-            </div>
-          )}
-          {id && (
-            <AiConsultPanel
-              projectId={id}
-              model={model}
-              busy={loading !== null}
-              onBusyChange={setChatBusy}
-              onResults={applyOrchestrate}
-            />
-          )}
-        </ResizablePanel>
+        {/* 左ペイン: AI相談チャット（畳むとプレビューが全幅になる） */}
+        {!chatCollapsed && (
+          <>
+            <ResizablePanel
+              id="chat"
+              defaultSize="30%"
+              minSize="22%"
+              maxSize="46%"
+              className="flex flex-col gap-3 overflow-auto p-4"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-base-content/60">
+                  💬 AIに相談
+                </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => setChatCollapsed(true)}
+                  title="チャットを畳んでプレビューを広げる"
+                >
+                  ⟨ 縮小
+                </Button>
+              </div>
+              {error && (
+                <div className="rounded-md bg-error/10 px-3 py-2 text-sm text-error">
+                  {error}
+                </div>
+              )}
+              {id && (
+                <AiConsultPanel
+                  projectId={id}
+                  model={model}
+                  busy={loading !== null}
+                  onBusyChange={setChatBusy}
+                  onResults={applyOrchestrate}
+                />
+              )}
+            </ResizablePanel>
 
-        <ResizableHandle withHandle />
+            <ResizableHandle withHandle />
+          </>
+        )}
 
         {/* 右ペイン: アクションツールバー + プレビュー */}
         <ResizablePanel
+          id="main"
           defaultSize="70%"
           className="flex flex-col overflow-hidden"
         >
           {/* アクションツールバー */}
           <div className="flex flex-wrap items-center gap-2 border-b bg-base-200 px-3 py-2">
+            {/* チャットを畳んでいる時の再オープン */}
+            {chatCollapsed && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setChatCollapsed(false)}
+                title="AI相談チャットを開く"
+              >
+                💬 相談
+              </Button>
+            )}
             {/* 主役: 構造化生成(DS)。骨格はコード製で崩れない。 */}
             <Button
               size="sm"
