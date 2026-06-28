@@ -618,6 +618,41 @@ export default function ProjectDetailPage() {
     if (br) setBrand(br);
   }
 
+  // スコープ確定時の「競合観点で再点検」。市場・競合(market)の差別化仮説/空白地帯を
+  // 踏まえて scope を競合観点で再評価する（market 未生成なら先に market を生成）。
+  // リーンの「①分析時の競合調査 → ②スコープ確定時に差別化観点で見直す」の②導線。
+  async function recheckScopeAgainstMarket() {
+    setLoading("scope");
+    setError(null);
+    const steps: StepKey[] = market ? ["scope"] : ["market", "scope"];
+    const message =
+      "確定済みの市場・競合分析(market)の差別化仮説と空白地帯を踏まえ、MVPスコープを競合観点で再点検してください。" +
+      "競合と差別化できる/空白地帯を取る機能の優先度を上げ、競合に埋もれる(差別化に寄与しない)機能は優先度を下げるかMVPから外す。" +
+      "各機能の rationale に競合観点での判断理由を明記すること。";
+    try {
+      const res = await fetch("/api/orchestrate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: id,
+          mode: "execute",
+          steps,
+          message,
+          provider: model.provider,
+          modelId: model.modelId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "再点検に失敗しました");
+      applyOrchestrate(data as OrchestrateResponse);
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      setError(e instanceof Error ? e.message : "エラー");
+    } finally {
+      setLoading(null);
+    }
+  }
+
   const hasData: Record<StepKey, boolean> = {
     actors: !!actors,
     usecases: !!useCases,
@@ -1937,6 +1972,22 @@ export default function ProjectDetailPage() {
               {/* スコープ確定: 100 → ≤10 の選定 */}
               <TabsContent value="scope">
                 <GenerateButton />
+                {(hasData.scope || market) && (
+                  <div className="mb-4 -mt-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={recheckScopeAgainstMarket}
+                      disabled={busy}
+                      title="市場・競合(market)の差別化仮説・空白地帯を踏まえ、MVPスコープを競合観点で再点検します（market 未生成なら先に生成）"
+                    >
+                      🔍 競合観点で再点検
+                    </Button>
+                    <p className="mt-1 text-xs text-base-content/60">
+                      競合と差別化できる機能を優先し、埋もれる機能の優先度を下げます。
+                    </p>
+                  </div>
+                )}
                 {scope ? (
                   <div className="space-y-4">
                     <div className="space-y-1.5">
