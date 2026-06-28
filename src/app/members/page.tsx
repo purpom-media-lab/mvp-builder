@@ -2,12 +2,18 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { GlobalHeader } from "@/components/global-header";
+import { AppShell } from "@/components/app-shell";
 import { PageLoading } from "@/components/spinner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { useSession } from "@/lib/auth/client";
+import { cn } from "@/lib/utils";
 
 type Member = {
   id: string;
@@ -29,6 +35,26 @@ const STATUS_LABEL: Record<Invitation["status"], string> = {
   accepted: "参加済み",
   revoked: "取消済み",
 };
+
+/** 招待ステータス → daisyUI badge の色（soft スタイル）。 */
+const STATUS_BADGE: Record<Invitation["status"], string> = {
+  pending: "badge-warning",
+  accepted: "badge-success",
+  revoked: "badge-ghost",
+};
+
+function InvitationStatusBadge({ status }: { status: Invitation["status"] }) {
+  return (
+    <span
+      className={cn(
+        "badge badge-sm badge-soft whitespace-nowrap",
+        STATUS_BADGE[status],
+      )}
+    >
+      {STATUS_LABEL[status]}
+    </span>
+  );
+}
 
 export default function MembersPage() {
   const router = useRouter();
@@ -128,185 +154,224 @@ export default function MembersPage() {
   const history = invitations.filter((i) => i.status !== "pending");
 
   return (
-    <div className="min-h-screen bg-background">
-      <GlobalHeader back={{ href: "/studio", label: "プロジェクト" }} />
-      <main className="mx-auto max-w-3xl px-6 py-8">
+    <AppShell back={{ href: "/studio", label: "プロジェクト" }}>
+      <div className="mx-auto max-w-4xl px-6 py-8">
         <p className="pm-eyebrow">team · access control</p>
         <h1 className="mt-2 font-heading text-3xl font-bold tracking-tight">
           メンバー
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1 text-sm text-base-content/70">
           オープン登録は無効です。招待したメールアドレスのみ登録できます。登録済みメンバーは誰でも招待できます。
         </p>
-
-        {/* 招待フォーム */}
-        <section className="pm-panel mt-6 p-5">
-          <h2 className="font-heading font-bold">メンバーを招待</h2>
-          <form
-            onSubmit={invite}
-            className="mt-3 flex flex-col gap-2 sm:flex-row"
-          >
-            <Input
-              type="email"
-              required
-              autoComplete="off"
-              placeholder="invitee@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <Button type="submit" disabled={busy} className="sm:w-auto">
-              {busy ? "発行中…" : "招待を発行"}
-            </Button>
-          </form>
-          {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
-          {inviteUrl && (
-            <div className="mt-3 rounded-md bg-muted p-3 text-sm">
-              {emailSent ? (
-                <p className="mb-1 font-medium text-primary">
-                  ✅ 招待メールを送信しました（届かない場合は下のリンクを共有）
-                </p>
-              ) : (
-                <p className="mb-1 font-medium">
-                  招待リンク（本人に共有してください）
-                </p>
-              )}
-              <div className="flex items-center gap-2">
-                <code
-                  title={inviteUrl}
-                  className="flex-1 truncate rounded bg-background px-2 py-1 text-xs"
-                >
-                  {inviteUrl}
-                </code>
-                <Button size="sm" variant="outline" onClick={copyUrl}>
-                  {copied ? "コピー済み" : "コピー"}
-                </Button>
-              </div>
-            </div>
-          )}
-        </section>
 
         {loadingMembers ? (
           <PageLoading label="読み込み中…" />
         ) : (
-          <>
-            {/* 招待中 */}
-            <section className="mt-8">
-              <h2 className="font-heading font-semibold">
-                招待中（{pending.length}）
-              </h2>
-              {pending.length === 0 ? (
-                <p className="mt-2 text-sm text-muted-foreground">
-                  招待中のメンバーはいません。
-                </p>
-              ) : (
-                <ul className="mt-3 divide-y rounded-lg border">
-                  {pending.map((inv) => (
-                    <li
-                      key={inv.id}
-                      className="flex items-center justify-between gap-3 px-4 py-3"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm">{inv.email}</p>
-                        <p className="text-xs text-muted-foreground">
-                          期限:{" "}
-                          {new Date(inv.expiresAt).toLocaleDateString("ja-JP")}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => copyRowLink(inv)}
-                          title="招待リンクをコピーして本人に共有できます"
-                        >
-                          {copiedId === inv.id ? "コピー済み" : "リンク"}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => revoke(inv.id, inv.email)}
-                        >
-                          取消
-                        </Button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
+          <Tabs defaultValue="members" className="mt-6">
+            <TabsList>
+              <TabsTrigger value="members">
+                メンバー（{members.length}）
+              </TabsTrigger>
+              <TabsTrigger value="invitations">
+                招待（{pending.length}）
+              </TabsTrigger>
+            </TabsList>
 
-              {history.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setShowHistory((v) => !v)}
-                  className="mt-3 text-xs text-muted-foreground underline-offset-4 hover:underline"
-                >
-                  {showHistory
-                    ? "履歴を隠す"
-                    : `履歴を表示（${history.length}）`}
-                </button>
-              )}
-              {showHistory && history.length > 0 && (
-                <ul className="mt-3 divide-y rounded-lg border border-dashed">
-                  {history.map((inv) => (
-                    <li
-                      key={inv.id}
-                      className="flex items-center justify-between gap-3 px-4 py-2.5"
-                    >
-                      <p className="truncate text-sm text-muted-foreground">
-                        {inv.email}
+            {/* === メンバー === */}
+            <TabsContent value="members" className="mt-4">
+              <div className="overflow-x-auto rounded-xl border border-base-300 bg-base-100">
+                <table className="table table-zebra">
+                  <thead>
+                    <tr>
+                      <th>氏名</th>
+                      <th>メール</th>
+                      <th className="whitespace-nowrap">参加日</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {members.map((m) => {
+                      const isMe = m.id === session?.user?.id;
+                      return (
+                        <tr key={m.id}>
+                          <td>
+                            <div className="flex items-center gap-2.5">
+                              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-base-300 text-xs font-semibold">
+                                {(m.name || m.email).charAt(0).toUpperCase()}
+                              </div>
+                              <span className="font-medium">
+                                {m.name}
+                                {isMe && (
+                                  <span className="ml-1.5 text-xs font-normal text-base-content/70">
+                                    （あなた）
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="text-base-content/70">{m.email}</td>
+                          <td className="whitespace-nowrap text-base-content/70">
+                            {m.createdAt
+                              ? new Date(m.createdAt).toLocaleDateString("ja-JP")
+                              : "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </TabsContent>
+
+            {/* === 招待 === */}
+            <TabsContent value="invitations" className="mt-4 space-y-8">
+              {/* 招待フォーム（join: input + button） */}
+              <section>
+                <h2 className="font-heading font-bold">メンバーを招待</h2>
+                <form onSubmit={invite} className="mt-3">
+                  <div className="join w-full sm:max-w-md">
+                    <Input
+                      type="email"
+                      required
+                      autoComplete="off"
+                      placeholder="invitee@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="join-item"
+                    />
+                    <Button type="submit" disabled={busy} className="join-item">
+                      {busy ? "発行中…" : "招待を発行"}
+                    </Button>
+                  </div>
+                </form>
+                {error && <p className="mt-2 text-sm text-error">{error}</p>}
+                {inviteUrl && (
+                  <div className="mt-3 rounded-md border border-base-300 bg-base-200 p-3 text-sm">
+                    {emailSent ? (
+                      <p className="mb-1 font-medium text-primary">
+                        ✅
+                        招待メールを送信しました（届かない場合は下のリンクを共有）
                       </p>
-                      <Badge variant="secondary">
-                        {STATUS_LABEL[inv.status]}
-                      </Badge>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
+                    ) : (
+                      <p className="mb-1 font-medium">
+                        招待リンク（本人に共有してください）
+                      </p>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <code
+                        title={inviteUrl}
+                        className="flex-1 truncate rounded bg-base-100 px-2 py-1 text-xs"
+                      >
+                        {inviteUrl}
+                      </code>
+                      <Button size="sm" variant="outline" onClick={copyUrl}>
+                        {copied ? "コピー済み" : "コピー"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </section>
 
-            {/* 参加メンバー */}
-            <section className="mt-10 border-t pt-8">
-              <h2 className="font-heading font-semibold">
-                参加メンバー（{members.length}）
-              </h2>
-              <ul className="mt-3 divide-y rounded-lg border">
-                {members.map((m) => {
-                  const isMe = m.id === session?.user?.id;
-                  return (
-                    <li
-                      key={m.id}
-                      className="flex items-center gap-3 px-4 py-3"
-                    >
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-sm font-semibold">
-                        {(m.name || m.email).charAt(0).toUpperCase()}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">
-                          {m.name}
-                          {isMe && (
-                            <span className="ml-1.5 text-xs font-normal text-muted-foreground">
-                              （あなた）
-                            </span>
-                          )}
-                        </p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {m.email}
-                        </p>
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          </>
+              {/* 招待中 */}
+              <section>
+                <h2 className="font-heading font-semibold">
+                  招待中（{pending.length}）
+                </h2>
+                {pending.length === 0 ? (
+                  <p className="mt-2 text-sm text-base-content/70">
+                    招待中のメンバーはいません。
+                  </p>
+                ) : (
+                  <div className="mt-3 overflow-x-auto rounded-xl border border-base-300 bg-base-100">
+                    <table className="table table-zebra">
+                      <thead>
+                        <tr>
+                          <th>メール</th>
+                          <th>状態</th>
+                          <th className="whitespace-nowrap">期限</th>
+                          <th className="text-right">操作</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pending.map((inv) => (
+                          <tr key={inv.id}>
+                            <td className="font-medium">{inv.email}</td>
+                            <td>
+                              <InvitationStatusBadge status={inv.status} />
+                            </td>
+                            <td className="whitespace-nowrap text-base-content/70">
+                              {new Date(inv.expiresAt).toLocaleDateString(
+                                "ja-JP",
+                              )}
+                            </td>
+                            <td className="text-right whitespace-nowrap">
+                              <Button
+                                size="xs"
+                                variant="outline"
+                                onClick={() => copyRowLink(inv)}
+                                title="招待リンクをコピーして本人に共有できます"
+                              >
+                                {copiedId === inv.id ? "コピー済み" : "リンク"}
+                              </Button>
+                              <Button
+                                size="xs"
+                                variant="ghost"
+                                className="ml-2"
+                                onClick={() => revoke(inv.id, inv.email)}
+                              >
+                                取消
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {history.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowHistory((v) => !v)}
+                    className="mt-3 text-xs text-base-content/70 underline-offset-4 hover:underline"
+                  >
+                    {showHistory
+                      ? "履歴を隠す"
+                      : `履歴を表示（${history.length}）`}
+                  </button>
+                )}
+                {showHistory && history.length > 0 && (
+                  <div className="mt-3 overflow-x-auto rounded-xl border border-dashed border-base-300 bg-base-100">
+                    <table className="table table-zebra">
+                      <thead>
+                        <tr>
+                          <th>メール</th>
+                          <th>状態</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {history.map((inv) => (
+                          <tr key={inv.id}>
+                            <td className="text-base-content/70">{inv.email}</td>
+                            <td>
+                              <InvitationStatusBadge status={inv.status} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            </TabsContent>
+          </Tabs>
         )}
-      </main>
+      </div>
 
       {toast && (
-        <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-full bg-foreground px-4 py-2 text-sm text-background shadow-lg">
+        <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-full bg-base-content px-4 py-2 text-sm text-base-200 shadow-lg">
           {toast}
         </div>
       )}
-    </div>
+    </AppShell>
   );
 }

@@ -45,11 +45,11 @@ export function GlobalHeader({
   );
 
   return (
-    <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border bg-background/80 px-4 py-2.5 backdrop-blur-md sm:px-6">
+    <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-base-300 bg-base-200/80 px-4 py-2.5 backdrop-blur-md sm:px-6">
       {/* 左: ロゴ + デスクトップナビ + センター */}
       <div className="flex min-w-0 items-center gap-5">
         <Link href="/studio" className="group flex shrink-0 items-center gap-2">
-          <LeanQuestLogo className="h-5 w-auto text-foreground" />
+          <LeanQuestLogo className="h-5 w-auto text-base-content" />
           <span className="font-heading text-base font-bold tracking-tight">
             LEAN&nbsp;QUEST&nbsp;<span className="text-primary">AI</span>
           </span>
@@ -58,7 +58,7 @@ export function GlobalHeader({
           {back && (
             <Link
               href={back.href}
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              className="text-sm text-base-content/70 transition-colors hover:text-base-content"
             >
               ← {back.label}
             </Link>
@@ -66,7 +66,7 @@ export function GlobalHeader({
           {data?.user && (
             <Link
               href="/members"
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              className="text-sm text-base-content/70 transition-colors hover:text-base-content"
             >
               メンバー
             </Link>
@@ -83,7 +83,7 @@ export function GlobalHeader({
         <div className="hidden items-center gap-3 sm:flex">
           {ThemeButton}
           {data?.user && (
-            <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2.5 text-sm text-base-content/70">
               <span className="hidden text-xs lg:inline">{data.user.email}</span>
               <Button variant="outline" size="sm" onClick={handleSignOut}>
                 サインアウト
@@ -105,13 +105,13 @@ export function GlobalHeader({
 
       {/* モバイルメニュー */}
       {menuOpen && (
-        <div className="absolute inset-x-0 top-full border-b border-border bg-background p-3 shadow-lg sm:hidden">
+        <div className="absolute inset-x-0 top-full border-b border-base-300 bg-base-200 p-3 shadow-lg sm:hidden">
           <nav className="flex flex-col gap-0.5">
             {back && (
               <Link
                 href={back.href}
                 onClick={() => setMenuOpen(false)}
-                className="rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="rounded-md px-3 py-2 text-sm text-base-content/70 hover:bg-muted hover:text-base-content"
               >
                 ← {back.label}
               </Link>
@@ -140,8 +140,8 @@ export function GlobalHeader({
               テーマ切替（{resolvedTheme === "dark" ? "ライト" : "ダーク"}）
             </button>
             {data?.user && (
-              <div className="mt-1 border-t border-border pt-2">
-                <p className="truncate px-3 text-xs text-muted-foreground">
+              <div className="mt-1 border-t border-base-300 pt-2">
+                <p className="truncate px-3 text-xs text-base-content/70">
                   {data.user.email}
                 </p>
                 <Button

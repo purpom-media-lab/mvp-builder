@@ -8,15 +8,15 @@ import {
   streamUpdatePrototypeHtml,
 } from "@/lib/prototype-html";
 import { isS3Configured, publishHtml } from "@/lib/s3-publish";
-import { createPrototype, type PrototypeContext } from "@/lib/v0";
+import type { PrototypeContext } from "@/lib/v0";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
 interface Body extends PrototypeContext {
   projectId?: string;
-  /** 生成エンジン: "v0"=v0 Platform API / "aws"=Claude生成HTML(プレビューのみ) */
-  engine?: "v0" | "aws";
+  /** 生成エンジン: "aws"=Claude生成HTML(プレビューのみ)。v0 経路は廃止。 */
+  engine?: "aws";
   provider?: LlmProvider;
   modelId?: string;
   /**
@@ -149,16 +149,11 @@ export async function POST(req: Request) {
       return result.toTextStreamResponse();
     }
 
-    // v0 エンジン: 生成にホスティングが含まれる（v0 がホストする）。
-    // UI 上はプレビューに納得した後にだけ実行する導線にする。
-    const result = await createPrototype(body);
-    if (body.projectId) {
-      await savePrototype(user.id, body.projectId, {
-        v0ChatId: result.chatId,
-        demoUrl: result.demoUrl,
-      });
-    }
-    return NextResponse.json(result);
+    // ここに到達するのは未対応のエンジン/モードの組み合わせ（v0 経路は廃止済み）。
+    return NextResponse.json(
+      { error: "Unsupported engine or mode" },
+      { status: 400 },
+    );
   } catch (err) {
     const message =
       err instanceof Error ? err.message : "Prototype generation failed";

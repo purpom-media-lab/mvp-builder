@@ -80,9 +80,9 @@ function PrefRow({
       <span className="w-40 shrink-0 text-sm">
         {label}
         {isSet ? null : (
-          <span className="ml-1 text-[0.65rem] text-muted-foreground">（既定）</span>
+          <span className="ml-1 text-[0.65rem] text-base-content/70">（既定）</span>
         )}
-        <span className="block text-[0.65rem] text-muted-foreground">
+        <span className="block text-[0.65rem] text-base-content/70">
           {usage
             ? `平均 ${usage.avgMs.toLocaleString()}ms・${usage.count}回・成功 ${Math.round(
                 usage.okRate * 100,
@@ -235,7 +235,7 @@ export function ModelPrefsDialog({
   return (
     <Modal open={open} onClose={onClose} title="⚙️ モデル設定（工程ごと）" size="md">
       <div className="space-y-4">
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-base-content/70">
           工程ごとに使うモデルを選べます。未設定の工程は、軽い工程は高速モデル・それ以外は
           下の「基準モデル」が既定で使われます。設定はこのブラウザに保存されます。
         </p>
@@ -244,7 +244,7 @@ export function ModelPrefsDialog({
         <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2">
           <span className="w-40 shrink-0 text-sm font-medium">
             基準モデル
-            <span className="block text-[0.65rem] font-normal text-muted-foreground">
+            <span className="block text-[0.65rem] font-normal text-base-content/70">
               プリセット・未設定工程の既定
             </span>
           </span>
@@ -308,7 +308,7 @@ export function ModelPrefsDialog({
         </div>
 
         {optError && (
-          <div className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          <div className="rounded-md bg-error/10 px-3 py-2 text-xs text-error">
             {optError}
           </div>
         )}
@@ -317,14 +317,14 @@ export function ModelPrefsDialog({
             AIが各工程に推奨モデルを設定しました。内容を確認して「保存」してください。
           </div>
         )}
-        <p className="text-[0.7rem] text-muted-foreground">
+        <p className="text-[0.7rem] text-base-content/70">
           履歴が少ない工程は、工程の性質（軽い抽出系 / 重い推論系）とモデル特性をもとに提案されます。
         </p>
 
         <div className="space-y-4">
           {PREF_GROUPS.map((group) => (
             <div key={group.label} className="space-y-1">
-              <p className="text-xs font-semibold tracking-wide text-muted-foreground">
+              <p className="text-xs font-semibold tracking-wide text-base-content/70">
                 {group.label}
               </p>
               <div className="divide-y rounded-lg border px-3">

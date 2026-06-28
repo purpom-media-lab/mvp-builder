@@ -108,7 +108,9 @@ async function runOrchestrateJob(job: JobRow): Promise<void> {
   const baseContext = [
     `# プロジェクト: ${artifacts.project.name}`,
     artifacts.project.summary && `## 概要\n${artifacts.project.summary}`,
-    artifacts.sourceText && `## 入力資料\n${artifacts.sourceText}`,
+    artifacts.detail && `## 入力資料\n${artifacts.detail}`,
+    artifacts.analysisResult && `## ジョブ分析\n${artifacts.analysisResult}`,
+    artifacts.sourceText && `## 参考資料\n${artifacts.sourceText}`,
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -249,9 +251,11 @@ async function runDsPrototypeJob(
       ? p.navigation
       : [{ label: p.projectName || "ホーム" }];
 
+  // 探索プロトタイプ: MVPスコープで絞らず、全ユースケース・全画面を網羅的に作る。
+  // （MVPスコープはこの探索プロトタイプを見たあとに確定する設計）。
   const baseContext = [
     `# アプリ: ${p.projectName ?? ""}${p.summary ? `：${p.summary}` : ""}`,
-    p.mvpStatement ? `# MVPの提供価値: ${p.mvpStatement}` : "",
+    p.mvpStatement ? `# 想定する提供価値(参考): ${p.mvpStatement}` : "",
     p.oouiObjects?.length
       ? `# 主要オブジェクト（データ単位）: ${p.oouiObjects
           .map(
@@ -261,8 +265,11 @@ async function runDsPrototypeJob(
           )
           .join(" / ")}`
       : "",
+    `# 方針: これは探索用プロトタイプです。MVPに絞り込まず、全ユースケース・全画面を網羅的に作成してください（取捨選択はこのプロトタイプを見てから別途行います）。`,
     p.scope?.length
-      ? `# MVPに含む機能: ${p.scope.map((f) => f.name).join(" / ")}`
+      ? `# 主な機能（すべて網羅対象・取捨選択しない）: ${p.scope
+          .map((f) => f.name)
+          .join(" / ")}`
       : "",
     `# 全画面構成: ${navItems.map((n) => n.label).join(" / ")}`,
   ]

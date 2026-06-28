@@ -45,7 +45,9 @@ export async function POST(req: Request) {
   const baseContext = [
     `# プロジェクト: ${artifacts.project.name}`,
     artifacts.project.summary && `## 概要\n${artifacts.project.summary}`,
-    artifacts.sourceText && `## 入力資料\n${artifacts.sourceText}`,
+    artifacts.detail && `## 入力資料\n${artifacts.detail}`,
+    artifacts.analysisResult && `## ジョブ分析\n${artifacts.analysisResult}`,
+    artifacts.sourceText && `## 参考資料\n${artifacts.sourceText}`,
   ]
     .filter(Boolean)
     .join("\n\n");

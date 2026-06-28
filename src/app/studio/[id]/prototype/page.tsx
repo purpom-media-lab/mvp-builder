@@ -16,7 +16,7 @@ import {
   AiConsultPanel,
   type OrchestrateResponse,
 } from "@/components/ai-consult-panel";
-import { GlobalHeader } from "@/components/global-header";
+import { AppShell } from "@/components/app-shell";
 import type { ModelSelection } from "@/components/model-selector";
 import { ModelPrefsDialog } from "@/components/model-prefs-dialog";
 import {
@@ -29,6 +29,7 @@ import {
 import { AiGenerating } from "@/components/ai-generating";
 import { LoadingOverlay } from "@/components/spinner";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import {
   ResizableHandle,
@@ -113,8 +114,15 @@ export default function PrototypePage() {
   } | null>(null);
   const [brand, setBrand] = useState<BrandView | null>(null);
 
-  const [engine, setEngine] = useState<"v0" | "aws" | "ds">("ds");
+  const [engine, setEngine] = useState<"aws" | "ds">("ds");
   const [engineMenuOpen, setEngineMenuOpen] = useState(false);
+  // 右ペインのコントロール帯を「生成 / 公開 / ビルド / 依頼」のメニューに分け、
+  // 一度に1つだけ開く。null=全て畳んでプレビューを最大化（既定は閉じる）。
+  const [activePanel, setActivePanel] = useState<
+    "generate" | "publish" | "build" | "request" | null
+  >(null);
+  // 左の AI 相談チャットを畳んでプレビューを全幅にできる。
+  const [chatCollapsed, setChatCollapsed] = useState(false);
   const [instruction, setInstruction] = useState("");
   const [demoUrl, setDemoUrl] = useState<string | null>(null);
   const [html, setHtml] = useState<string | null>(null);
@@ -327,7 +335,7 @@ export default function PrototypePage() {
     useCases?: UseCaseView[];
     ooui?: OouiView[];
     nav?: NavView[];
-    engine?: "v0" | "aws" | "ds";
+    engine?: "aws" | "ds";
   }) {
     const aData = override?.actors ?? actors;
     const ucData = override?.useCases ?? useCases;
@@ -377,10 +385,8 @@ export default function PrototypePage() {
       // 部分生成のときだけ「この画面だけを過不足なく実装」と明示する。
       selectedScreens: useSelection ? selectedScreens : undefined,
       mvpStatement,
-      // スコープ確定済みなら MVP に含む機能だけを実装対象に渡す
-      scope: scope
-        .filter((f) => f.includedInMvp)
-        .map((f) => ({ name: f.name, description: f.description })),
+      // プロトタイプは探索用（broad）: includedInMvp で絞らず、全機能を網羅して渡す。
+      scope: scope.map((f) => ({ name: f.name, description: f.description })),
       kpis: kpi
         ? [kpi.northStar, ...kpi.supporting]
             .filter((m): m is KpiMetricView => !!m)
@@ -398,44 +404,30 @@ export default function PrototypePage() {
         : undefined,
     };
     try {
-      if (engineUsed === "aws" || engineUsed === "ds") {
-        // ジョブ起動 → ポーリングで進捗（文字数・生成できた画面）を表示。生成はサーバ側
-        // after() で走るので、待っている間に画面を離れても止まらない（保存もランナーが行う）。
-        // engine="ds" は構造化生成（骨格コード＋画面別生成）。runner が engine で分岐する。
-        setGenChars(0);
-        setGenScreens([]);
-        const job = await startJob({
-          ...payload,
-          kind: "prototype",
-          mode: "create",
-        });
-        const final = await pollJob(job.id, {
-          signal: pollCtl.current?.signal,
-          onProgress: applyGenProgress,
-        });
-        if (final.status === "error")
-          throw new Error(final.error ?? "生成に失敗しました");
-        const r = final.result as { html?: string; truncated?: boolean };
-        const finalHtml = r?.html ?? "";
-        setHtml(finalHtml);
-        setTruncated(Boolean(r?.truncated));
-        setLivePreview(false);
-        setDemoUrl(null);
-        setShareUrl(null);
-        setShareError(null);
-      } else {
-        // v0 エンジンはホスティング込みで JSON を返す
-        const data = await postJson<{
-          demoUrl?: string | null;
-          html?: string;
-          shareUrl?: string;
-          shareError?: string;
-        }>("/api/prototype", payload);
-        setDemoUrl(data.demoUrl ?? null);
-        if (data.html !== undefined) setHtml(data.html);
-        setShareUrl(data.shareUrl ?? data.demoUrl ?? null);
-        setShareError(data.shareError ?? null);
-      }
+      // ジョブ起動 → ポーリングで進捗（文字数・生成できた画面）を表示。生成はサーバ側
+      // after() で走るので、待っている間に画面を離れても止まらない（保存もランナーが行う）。
+      // engine="ds" は構造化生成（骨格コード＋画面別生成）。runner が engine で分岐する。
+      setGenChars(0);
+      setGenScreens([]);
+      const job = await startJob({
+        ...payload,
+        kind: "prototype",
+        mode: "create",
+      });
+      const final = await pollJob(job.id, {
+        signal: pollCtl.current?.signal,
+        onProgress: applyGenProgress,
+      });
+      if (final.status === "error")
+        throw new Error(final.error ?? "生成に失敗しました");
+      const r = final.result as { html?: string; truncated?: boolean };
+      const finalHtml = r?.html ?? "";
+      setHtml(finalHtml);
+      setTruncated(Boolean(r?.truncated));
+      setLivePreview(false);
+      setDemoUrl(null);
+      setShareUrl(null);
+      setShareError(null);
       ok = true;
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return;
@@ -698,60 +690,90 @@ export default function PrototypePage() {
   }
 
   return (
-    <div className="relative flex h-screen flex-col">
-      {loadingProject && <LoadingOverlay label="読み込み中…" />}
-      <GlobalHeader
-        back={{ href: `/studio/${id}`, label: "分析に戻る" }}
-        center={
-          <span className="text-sm font-medium text-foreground">
-            {name || "…"} / プロトタイプ
-          </span>
-        }
-        right={
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setPrefsOpen(true)}
-            title="基準モデルと工程ごとのモデル（速い/賢い）を設定します"
-          >
-            ⚙️ モデル設定
-          </Button>
-        }
-      />
-
-      <ResizablePanelGroup className="flex-1">
-        {/* 左ペイン: AI相談チャットのみ */}
-        <ResizablePanel
-          defaultSize="30%"
-          minSize="22%"
-          maxSize="46%"
-          className="flex flex-col gap-3 overflow-auto p-4"
+    <AppShell
+      fullHeight
+      back={{ href: `/studio/${id}`, label: "分析に戻る" }}
+      center={
+        <span className="text-sm font-medium text-base-content">
+          {name || "…"} / プロトタイプ
+        </span>
+      }
+      right={
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setPrefsOpen(true)}
+          title="基準モデルと工程ごとのモデル（速い/賢い）を設定します"
         >
-          {error && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              {error}
-            </div>
-          )}
-          {id && (
-            <AiConsultPanel
-              projectId={id}
-              model={model}
-              busy={loading !== null}
-              onBusyChange={setChatBusy}
-              onResults={applyOrchestrate}
-            />
-          )}
-        </ResizablePanel>
+          ⚙️ モデル設定
+        </Button>
+      }
+    >
+      {loadingProject && <LoadingOverlay label="読み込み中…" />}
+      <ResizablePanelGroup className="flex-1">
+        {/* 左ペイン: AI相談チャット（畳むとプレビューが全幅になる） */}
+        {!chatCollapsed && (
+          <>
+            <ResizablePanel
+              id="chat"
+              defaultSize="30%"
+              minSize="22%"
+              maxSize="46%"
+              className="flex flex-col gap-3 overflow-auto p-4"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-base-content/60">
+                  💬 AIに相談
+                </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => setChatCollapsed(true)}
+                  title="チャットを畳んでプレビューを広げる"
+                >
+                  ⟨ 縮小
+                </Button>
+              </div>
+              {error && (
+                <div className="rounded-md bg-error/10 px-3 py-2 text-sm text-error">
+                  {error}
+                </div>
+              )}
+              {id && (
+                <AiConsultPanel
+                  projectId={id}
+                  model={model}
+                  busy={loading !== null}
+                  onBusyChange={setChatBusy}
+                  onResults={applyOrchestrate}
+                />
+              )}
+            </ResizablePanel>
 
-        <ResizableHandle withHandle />
+            <ResizableHandle withHandle />
+          </>
+        )}
 
         {/* 右ペイン: アクションツールバー + プレビュー */}
         <ResizablePanel
+          id="main"
           defaultSize="70%"
           className="flex flex-col overflow-hidden"
         >
           {/* アクションツールバー */}
-          <div className="flex flex-wrap items-center gap-2 border-b bg-background px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2 border-b bg-base-200 px-3 py-2">
+            {/* チャットを畳んでいる時の再オープン */}
+            {chatCollapsed && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setChatCollapsed(false)}
+                title="AI相談チャットを開く"
+              >
+                💬 相談
+              </Button>
+            )}
             {/* 主役: 構造化生成(DS)。骨格はコード製で崩れない。 */}
             <Button
               size="sm"
@@ -798,10 +820,10 @@ export default function PrototypePage() {
                   className="fixed inset-0 z-10 cursor-default"
                   onClick={() => setEngineMenuOpen(false)}
                 />
-                <div className="absolute left-0 top-full z-20 mt-1 w-64 rounded-md border bg-background p-1 shadow-md">
+                <div className="absolute left-0 top-full z-20 mt-1 w-64 rounded-md border bg-base-200 p-1 shadow-md">
                   <button
                     type="button"
-                    className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-muted disabled:opacity-50"
+                    className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-base-300 disabled:opacity-50"
                     disabled={
                       loading !== null ||
                       chatBusy ||
@@ -814,7 +836,7 @@ export default function PrototypePage() {
                     }}
                   >
                     従来方式で生成（実験）
-                    <span className="mt-0.5 block text-[10px] text-muted-foreground">
+                    <span className="mt-0.5 block text-[10px] text-base-content/70">
                       単一HTMLを一括生成。途中で切れることがあります。
                     </span>
                   </button>
@@ -850,108 +872,174 @@ export default function PrototypePage() {
             )}
           </div>
 
-          {/* プレビュー完成後のアクション。OOUI 分析のワイヤー案に基づき
-              「公開 / ビルド / デザイン依頼」の3グループに整理する。 */}
-          {(html || demoUrl) && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b bg-background px-3 py-2">
-              {/* 公開 */}
-              <div className="flex items-center gap-1.5 rounded-md border px-2 py-1">
-                <span className="text-[11px] font-medium text-muted-foreground">
-                  公開
-                </span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={hostPrototype}
-                  disabled={loading !== null || chatBusy}
-                >
-                  {loading === "host" ? "ホスティング中…" : "ホスティング"}
-                </Button>
-                {html && (
-                  <a
-                    href={`/run/${id}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={buttonVariants({ variant: "outline", size: "sm" })}
-                  >
-                    公開URLを開く ↗
-                  </a>
-                )}
-              </div>
-
-              {/* ビルド */}
-              <div className="flex items-center gap-1.5 rounded-md border px-2 py-1">
-                <span className="text-[11px] font-medium text-muted-foreground">
-                  ビルド
-                </span>
-                {/* 本実装: プレビューを実データ保存できる動くMVPに変換する */}
-                {html && (
-                  <Button
-                    size="sm"
-                    onClick={realizePrototype}
-                    disabled={loading !== null || chatBusy}
-                  >
-                    {loading === "realize"
-                      ? "本実装生成中…"
-                      : "本実装（データ保存を有効化）"}
-                  </Button>
-                )}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setEngine("v0");
-                    generatePrototype({ engine: "v0" });
-                  }}
-                  disabled={loading !== null || chatBusy}
-                >
-                  {loading === "prototype" && engine === "v0"
-                    ? "v0生成中…"
-                    : "v0で本格化"}
-                </Button>
-                <span className="inline-flex items-center gap-1">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={publishHandoff}
-                    disabled={loading !== null || chatBusy}
-                  >
-                    {loading === "publish" ? "引き継ぎ中…" : "公開・引き継ぎ"}
-                  </Button>
-                  {publish?.status === "not-configured" && (
-                    <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-600 dark:text-amber-400">
-                      未連携
-                    </span>
+          {/* コントロール帯: 「生成 / 公開 / ビルド / 依頼」のメニューに分け、開くのは
+              1つだけ。既定は閉じておき（ヘッダメニューは閉）、必要時だけ開く。 */}
+          {(() => {
+            const showGenerate =
+              !generating &&
+              (nav.length > 0 || (!!html && screens.length > 0));
+            const showActions = !!html || !!demoUrl;
+            if (!showGenerate && !showActions) return null;
+            const toggle = (key: typeof activePanel) => () =>
+              setActivePanel((p) => (p === key ? null : key));
+            return (
+              <div className="flex items-center gap-2 border-b bg-base-200 px-3 py-1.5">
+                <div role="tablist" className="tabs tabs-box tabs-xs">
+                  {showGenerate && (
+                    <button
+                      type="button"
+                      role="tab"
+                      className={cn(
+                        "tab",
+                        activePanel === "generate" && "tab-active",
+                      )}
+                      onClick={toggle("generate")}
+                    >
+                      生成
+                      {nav.length > 0
+                        ? `（${selectedScreens.length}/${nav.length}）`
+                        : ""}
+                    </button>
                   )}
-                </span>
-                <Link
-                  href={`/studio/${id}/engineer-request`}
-                  className={buttonVariants({ variant: "outline", size: "sm" })}
-                >
-                  エンジニアに依頼 →
-                </Link>
+                  {showActions && (
+                    <>
+                      <button
+                        type="button"
+                        role="tab"
+                        className={cn(
+                          "tab",
+                          activePanel === "publish" && "tab-active",
+                        )}
+                        onClick={toggle("publish")}
+                      >
+                        公開
+                      </button>
+                      <button
+                        type="button"
+                        role="tab"
+                        className={cn(
+                          "tab",
+                          activePanel === "build" && "tab-active",
+                        )}
+                        onClick={toggle("build")}
+                      >
+                        ビルド
+                      </button>
+                      <button
+                        type="button"
+                        role="tab"
+                        className={cn(
+                          "tab",
+                          activePanel === "request" && "tab-active",
+                        )}
+                        onClick={toggle("request")}
+                      >
+                        依頼
+                      </button>
+                    </>
+                  )}
+                </div>
+                {activePanel && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-xs ml-auto"
+                    onClick={() => setActivePanel(null)}
+                    title="閉じてプレビューを広げる"
+                  >
+                    閉じる ✕
+                  </button>
+                )}
               </div>
+            );
+          })()}
 
-              {/* デザイン依頼 */}
-              <div className="flex items-center gap-1.5 rounded-md border px-2 py-1">
-                <span className="text-[11px] font-medium text-muted-foreground">
-                  デザイン依頼
-                </span>
-                <Link
-                  href={`/studio/${id}/design-request`}
+          {/* 公開: ホスティング・公開URL・ユーザーの声 */}
+          {activePanel === "publish" && (html || demoUrl) && (
+            <div className="flex flex-wrap items-center gap-2 border-b bg-base-200 px-3 py-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={hostPrototype}
+                disabled={loading !== null || chatBusy}
+              >
+                {loading === "host" ? "ホスティング中…" : "ホスティング"}
+              </Button>
+              {html && (
+                <a
+                  href={`/run/${id}`}
+                  target="_blank"
+                  rel="noreferrer"
                   className={buttonVariants({ variant: "outline", size: "sm" })}
                 >
-                  デザイナーに依頼 →
-                </Link>
-              </div>
+                  公開URLを開く ↗
+                </a>
+              )}
+              <Link
+                href={`/studio/${id}/voices`}
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+                title="公開プロトで集まった実ユーザーの声（JTBDインタビュー）を見る・統合する"
+              >
+                🗣 ユーザーの声 →
+              </Link>
+            </div>
+          )}
+
+          {/* ビルド: 本実装・公開引き継ぎ */}
+          {activePanel === "build" && (html || demoUrl) && (
+            <div className="flex flex-wrap items-center gap-2 border-b bg-base-200 px-3 py-2">
+              {/* 本実装: プレビューを実データ保存できる動くMVPに変換する */}
+              {html && (
+                <Button
+                  size="sm"
+                  onClick={realizePrototype}
+                  disabled={loading !== null || chatBusy}
+                >
+                  {loading === "realize"
+                    ? "本実装生成中…"
+                    : "本実装（データ保存を有効化）"}
+                </Button>
+              )}
+              <span className="inline-flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={publishHandoff}
+                  disabled={loading !== null || chatBusy}
+                >
+                  {loading === "publish" ? "引き継ぎ中…" : "公開・引き継ぎ"}
+                </Button>
+                {publish?.status === "not-configured" && (
+                  <span className="badge badge-warning badge-soft badge-sm whitespace-nowrap">
+                    未連携
+                  </span>
+                )}
+              </span>
+            </div>
+          )}
+
+          {/* 依頼: エンジニア / デザイナー */}
+          {activePanel === "request" && (html || demoUrl) && (
+            <div className="flex flex-wrap items-center gap-2 border-b bg-base-200 px-3 py-2">
+              <Link
+                href={`/studio/${id}/engineer-request`}
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                エンジニアに依頼 →
+              </Link>
+              <Link
+                href={`/studio/${id}/design-request`}
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                デザイナーに依頼 →
+              </Link>
             </div>
           )}
 
           {/* 生成する画面の選択。出力量を抑えて途中切れを防ぎ、作りたい画面に集中する。
               全選択なら従来どおり全画面、絞ると「選んだ画面だけを過不足なく実装」する。 */}
-          {!generating && nav.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5 border-b bg-muted/40 px-3 py-2 text-xs">
-              <span className="font-medium text-muted-foreground">
+          {activePanel === "generate" && !generating && nav.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 border-b bg-base-200 px-3 py-2 text-xs">
+              <span className="font-medium text-base-content/70">
                 生成する画面（{selectedScreens.length}/{nav.length}）:
               </span>
               {nav.map((n, i) => {
@@ -965,18 +1053,17 @@ export default function PrototypePage() {
                     title={done ? "生成済み" : "未生成"}
                     className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] transition ${
                       on
-                        ? "border-primary bg-primary/10 text-foreground"
-                        : "bg-background text-muted-foreground opacity-60"
+                        ? "border-primary bg-primary/10 text-base-content"
+                        : "bg-base-200 text-base-content/70 opacity-60"
                     }`}
                   >
                     {n.parent ? `${n.parent} › ${n.label}` : n.label}
                     {/* 生成状況: 済（生成済み）/ 未（未生成） */}
                     <span
-                      className={`rounded px-1 text-[9px] ${
-                        done
-                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                          : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
-                      }`}
+                      className={cn(
+                        "badge badge-xs",
+                        done ? "badge-success" : "badge-warning",
+                      )}
                     >
                       {done ? "済" : "未"}
                     </span>
@@ -986,14 +1073,14 @@ export default function PrototypePage() {
               <button
                 type="button"
                 onClick={() => setSelectedScreens(nav.map((n) => n.label))}
-                className="ml-1 text-muted-foreground underline"
+                className="ml-1 text-base-content/70 underline"
               >
                 全選択
               </button>
               <button
                 type="button"
                 onClick={() => setSelectedScreens([])}
-                className="text-muted-foreground underline"
+                className="text-base-content/70 underline"
               >
                 全解除
               </button>
@@ -1002,15 +1089,13 @@ export default function PrototypePage() {
                 <button
                   type="button"
                   onClick={() => setSelectedScreens(missingScreens)}
-                  className="text-muted-foreground underline"
+                  className="text-base-content/70 underline"
                 >
                   未生成だけ選択（{missingScreens.length}）
                 </button>
               )}
               {selectedScreens.length === 0 && (
-                <span className="text-amber-600 dark:text-amber-400">
-                  ※ 1つ以上選択してください
-                </span>
+                <span className="text-warning">※ 1つ以上選択してください</span>
               )}
               {/* 追記生成: 既存プレビューを保持したまま、選択画面を追加する（UC-更新2・追記型）。 */}
               {html && selectedScreens.length > 0 && (
@@ -1030,7 +1115,7 @@ export default function PrototypePage() {
 
           {/* 結果ストリップ（共有URL / 引き継ぎ） */}
           {(shareUrl || shareError || publish) && (
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b bg-muted/40 px-3 py-2 text-xs">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b bg-base-200 px-3 py-2 text-xs">
               {shareUrl ? (
                 <span>
                   共有URL:{" "}
@@ -1044,7 +1129,7 @@ export default function PrototypePage() {
                   </a>
                 </span>
               ) : shareError ? (
-                <span className="text-muted-foreground">
+                <span className="text-base-content/70">
                   共有URL未発行（{shareError}）
                 </span>
               ) : null}
@@ -1052,10 +1137,10 @@ export default function PrototypePage() {
                 <span
                   className={
                     publish.status === "published"
-                      ? "text-muted-foreground"
+                      ? "text-base-content/70"
                       : publish.status === "not-configured"
-                        ? "text-amber-500"
-                        : "text-destructive"
+                        ? "text-warning"
+                        : "text-error"
                   }
                 >
                   {publish.status === "published"
@@ -1096,7 +1181,7 @@ export default function PrototypePage() {
 
           {/* 出力上限による途中切れの警告。無言の部分生成を防ぐ。 */}
           {!generating && truncated && html && (
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
               <span>
                 生成が途中で切れています（HTML が未完で、ナビの <code>navigate()</code>{" "}
                 等が欠落し遷移できないことがあります）。
@@ -1119,9 +1204,9 @@ export default function PrototypePage() {
 
           {/* 生成された画面の一覧（@screen マーカーから抽出）。生成後にどんな画面が
               できたかを把握する。生成中はオーバーレイ側でライブ表示するため出さない。 */}
-          {!generating && html && screens.length > 0 && (
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b bg-muted/40 px-3 py-2 text-xs">
-              <span className="font-medium text-muted-foreground">
+          {activePanel === "generate" && !generating && html && screens.length > 0 && (
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b bg-base-200 px-3 py-2 text-xs">
+              <span className="font-medium text-base-content/70">
                 生成された画面 {screens.length}
                 {canJump ? "（クリックで該当画面へ）" : ""}:
               </span>
@@ -1132,14 +1217,14 @@ export default function PrototypePage() {
                     type="button"
                     onClick={() => gotoScreen(s)}
                     title="プレビューを この画面へ移動"
-                    className="rounded-full border bg-background px-2.5 py-0.5 text-[11px] text-foreground transition hover:border-primary hover:bg-primary/10"
+                    className="rounded-full border bg-base-200 px-2.5 py-0.5 text-[11px] text-base-content transition hover:border-primary hover:bg-primary/10"
                   >
                     {s}
                   </button>
                 ) : (
                   <span
                     key={s}
-                    className="rounded-full border bg-background px-2.5 py-0.5 text-[11px] text-foreground"
+                    className="rounded-full border bg-base-200 px-2.5 py-0.5 text-[11px] text-base-content"
                   >
                     {s}
                   </span>
@@ -1149,50 +1234,35 @@ export default function PrototypePage() {
           )}
 
           {/* プレビュー */}
-          <div className="relative flex-1 overflow-hidden bg-muted/40 p-3">
+          <div className="relative flex-1 overflow-hidden bg-base-200 p-3">
             {(loading === "prototype" || loading === "realize") && (
-              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-background/70 backdrop-blur-sm">
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-base-200/70 backdrop-blur-sm">
                 <AiGenerating
-                  label={
-                    loading === "realize"
-                      ? "本実装"
-                      : engine === "v0"
-                        ? "本格プロトタイプ"
-                        : "プレビュー"
-                  }
-                  messages={
-                    engine === "v0"
-                      ? [
-                          "コンポーネントを設計しています",
-                          "画面を組み立てています",
-                          "スタイルを調整しています",
-                          "仕上げています",
-                        ]
-                      : [
-                          "ブランドを反映しています",
-                          "画面を描いています",
-                          "レイアウトを整えています",
-                          "もうすぐ表示します",
-                        ]
-                  }
+                  label={loading === "realize" ? "本実装" : "プレビュー"}
+                  messages={[
+                    "ブランドを反映しています",
+                    "画面を描いています",
+                    "レイアウトを整えています",
+                    "もうすぐ表示します",
+                  ]}
                 />
                 {(engine === "aws" || loading === "realize") &&
                   genChars > 0 && (
-                  <p className="text-xs tabular-nums text-muted-foreground">
+                  <p className="text-xs tabular-nums text-base-content/70">
                     生成中… {genChars.toLocaleString()} 文字
                   </p>
                 )}
                 {(engine === "aws" || loading === "realize") &&
                   genScreens.length > 0 && (
                   <div className="max-w-sm text-center">
-                    <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+                    <p className="mb-1.5 text-xs font-medium text-base-content/70">
                       生成できた画面 {genScreens.length}
                     </p>
                     <div className="flex flex-wrap justify-center gap-1.5">
                       {genScreens.map((s) => (
                         <span
                           key={s}
-                          className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] text-foreground"
+                          className="badge badge-soft badge-primary badge-sm whitespace-nowrap"
                         >
                           ✓ {s}
                         </span>
@@ -1203,38 +1273,51 @@ export default function PrototypePage() {
               </div>
             )}
             {livePreview && html && !demoUrl && loading !== "realize" && (
-              <div className="pointer-events-none absolute right-5 top-5 z-10 rounded-full bg-background/80 px-2.5 py-1 text-[11px] text-muted-foreground shadow-sm backdrop-blur">
+              <div className="pointer-events-none absolute right-5 top-5 z-10 rounded-full bg-base-200/80 px-2.5 py-1 text-[11px] text-base-content/70 shadow-sm backdrop-blur">
                 本実装プレビュー（データ保存が有効）
               </div>
             )}
-            {demoUrl ? (
-              <iframe
-                src={demoUrl}
-                className="h-full w-full rounded-md border bg-white"
-                title="prototype preview"
-              />
-            ) : livePreview && html ? (
-              // 本実装版は /run で表示（SDK注入・実オリジンで LQ.db 等の保存が動く）。
-              // runNonce を key にして realize 完了ごとに最新HTMLを再取得する。
-              <iframe
-                key={runNonce}
-                src={`/run/${id}`}
-                className="h-full w-full rounded-md border bg-white"
-                title="prototype preview (live)"
-              />
-            ) : html ? (
-              <iframe
-                ref={iframeRef}
-                srcDoc={srcDocWithBridge ?? undefined}
-                className="h-full w-full rounded-md border bg-white"
-                title="prototype preview (aws)"
-                sandbox="allow-scripts"
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                上の「プレビューを生成」を押すと、ここにプレビューが表示されます
+            <div className="mockup-browser flex h-full flex-col border border-base-300 bg-base-100">
+              <div className="mockup-browser-toolbar">
+                <div className="input pointer-events-none border border-base-300 text-xs text-base-content/70">
+                  {demoUrl
+                    ? demoUrl
+                    : livePreview && html
+                      ? `/run/${id}`
+                      : "preview"}
+                </div>
               </div>
-            )}
+              <div className="relative flex-1 overflow-hidden bg-white">
+                {demoUrl ? (
+                  <iframe
+                    src={demoUrl}
+                    className="h-full w-full bg-white"
+                    title="prototype preview"
+                  />
+                ) : livePreview && html ? (
+                  // 本実装版は /run で表示（SDK注入・実オリジンで LQ.db 等の保存が動く）。
+                  // runNonce を key にして realize 完了ごとに最新HTMLを再取得する。
+                  <iframe
+                    key={runNonce}
+                    src={`/run/${id}`}
+                    className="h-full w-full bg-white"
+                    title="prototype preview (live)"
+                  />
+                ) : html ? (
+                  <iframe
+                    ref={iframeRef}
+                    srcDoc={srcDocWithBridge ?? undefined}
+                    className="h-full w-full bg-white"
+                    title="prototype preview (aws)"
+                    sandbox="allow-scripts"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm text-base-content/70">
+                    上の「プレビューを生成」を押すと、ここにプレビューが表示されます
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>
@@ -1249,6 +1332,6 @@ export default function PrototypePage() {
           onSaveBase={setModel}
         />
       )}
-    </div>
+    </AppShell>
   );
 }

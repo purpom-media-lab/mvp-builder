@@ -5,6 +5,7 @@ export type StepKey =
   | "usecases"
   | "ooui"
   | "journey"
+  | "market"
   | "navigation"
   | "wireframe"
   | "datamodel"
@@ -21,7 +22,11 @@ export type WireframeSection = {
 };
 export type WireframeView = {
   screenName: string;
+  // この画面が扱う OOUI オブジェクト名（ナビの targetObject と一致）。
+  targetObject?: string | null;
   screenType?: string | null;
+  // OOUI レイアウト配置パターン（stack/master-detail/grid/single）
+  layoutPattern?: string | null;
   sections: WireframeSection[];
 };
 
@@ -42,12 +47,15 @@ export type OouiView = {
   actions?: OouiTerm[] | null;
   // 編集時に失わないよう保持（UIでは直接編集しないが保存時に引き回す）
   collectionOf?: string | null;
-  relations?: { to: string; type: string }[] | null;
+  relations?: { to: string; type: string; cardinality?: string | null }[] | null;
 };
 export type JourneyStep = {
-  step: string;
+  phase?: string | null;
+  action: string;
   touchpoint?: string | null;
   emotion?: string | null;
+  painpoint?: string | null;
+  opportunity?: string | null;
 };
 export type JourneyView = { name: string; steps: JourneyStep[] };
 export type DataModelField = { name: string; type: string };
@@ -100,6 +108,23 @@ export type GrowthPlanView = {
     effort?: string | null;
   }[];
   milestones?: { period: string; target: string }[] | null;
+};
+export type MarketCompetitorView = {
+  name: string;
+  type: "direct" | "indirect" | "alternative";
+  description?: string | null;
+  strengths: string;
+  weaknesses: string;
+  x: number;
+  y: number;
+};
+export type MarketView = {
+  marketSize: { tam: string; sam: string; som: string; assumptions: string };
+  trends: string[];
+  positioning: { xAxis: string; yAxis: string };
+  competitors: MarketCompetitorView[];
+  whitespace: string;
+  differentiation: string;
 };
 export type BrandView = {
   brandName?: string | null;

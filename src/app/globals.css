@@ -105,8 +105,11 @@
   --color-accent-content: #8a4a72;
   --color-neutral: #3c3666;
   --color-neutral-content: #ffffff;
-  --color-base-100: #faf9fe;
-  --color-base-200: #f2f1fb;
+  /* base スケールを daisyUI 流の elevation（明度差）に統一。
+     base-100=最も明るい面（カード/入力）, base-200=ページ背景(=--background),
+     base-300=境界線。値は従来の card/background/border と同値で見た目不変。 */
+  --color-base-100: #ffffff;
+  --color-base-200: #faf9fe;
   --color-base-300: #e6e4f4;
   --color-base-content: #2a2540;
   --color-info: #4f8ff0;
@@ -172,8 +175,10 @@
   --color-accent-content: #f3d9ec;
   --color-neutral: #2c2552;
   --color-neutral-content: #eceaf8;
-  --color-base-100: #181231;
-  --color-base-200: #221b45;
+  /* base スケール（dark）。base-100=カード/入力面(明), base-200=ページ背景(=--background),
+     base-300=境界線。値は従来の card/background/muted と同値で見た目不変。 */
+  --color-base-100: #221b45;
+  --color-base-200: #181231;
   --color-base-300: #271f4a;
   --color-base-content: #eceaf8;
   --color-info: #6fa8f2;

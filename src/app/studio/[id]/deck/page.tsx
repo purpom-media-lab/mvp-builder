@@ -9,7 +9,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { DEFAULT_PROVIDER, MODEL_CATALOG } from "@/lib/ai/catalog";
 import { fetchActiveJobs, pollJob, startJob } from "@/lib/use-job";
-import { GlobalHeader } from "@/components/global-header";
+import { AppShell } from "@/components/app-shell";
 import type { ModelSelection } from "@/components/model-selector";
 import { ModelPrefsDialog } from "@/components/model-prefs-dialog";
 import {
@@ -168,30 +168,29 @@ export default function DeckPage() {
   }
 
   return (
-    <div className="flex h-screen flex-col">
-      <GlobalHeader
-        back={{ href: `/studio/${id}`, label: "分析に戻る" }}
-        center={
-          <span className="text-sm font-medium text-foreground">
-            {name || "…"} / 資料
-          </span>
-        }
-        right={
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setPrefsOpen(true)}
-            title="基準モデルと工程ごとのモデル（速い/賢い）を設定します"
-          >
-            ⚙️ モデル設定
-          </Button>
-        }
-      />
-
+    <AppShell
+      fullHeight
+      back={{ href: `/studio/${id}`, label: "分析に戻る" }}
+      center={
+        <span className="text-sm font-medium text-base-content">
+          {name || "…"} / 資料
+        </span>
+      }
+      right={
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setPrefsOpen(true)}
+          title="基準モデルと工程ごとのモデル（速い/賢い）を設定します"
+        >
+          ⚙️ モデル設定
+        </Button>
+      }
+    >
       <div className="flex-1 overflow-auto p-6">
         <div className="mx-auto max-w-4xl space-y-4">
           {error && (
-            <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="rounded-md bg-error/10 px-3 py-2 text-sm text-error">
               {error}
             </div>
           )}
@@ -204,6 +203,15 @@ export default function DeckPage() {
                   ? "資料を再生成"
                   : "提案資料を生成"}
             </Button>
+            <span
+              className={
+                deck
+                  ? "badge badge-soft badge-success whitespace-nowrap"
+                  : "badge badge-soft badge-ghost whitespace-nowrap"
+              }
+            >
+              {deck ? "生成済み" : "未生成"}
+            </span>
             {deck && (
               <>
                 <Button variant="outline" onClick={copyJson}>
@@ -212,7 +220,7 @@ export default function DeckPage() {
                 <Button variant="outline" onClick={downloadJson}>
                   JSONをダウンロード
                 </Button>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs text-base-content/70">
                   figma-slide-gen / gslide-data-gen に貼り付けて実スライド化できます
                 </span>
               </>
@@ -236,7 +244,7 @@ export default function DeckPage() {
           ) : deck ? (
             <SlideDeck slides={deck} theme={theme} />
           ) : (
-            <div className="flex h-64 items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
+            <div className="flex h-64 items-center justify-center rounded-xl border border-dashed text-sm text-base-content/70">
               「提案資料を生成」を押すと、分析結果からスライドを作成します
             </div>
           )}
@@ -253,6 +261,6 @@ export default function DeckPage() {
           onSaveBase={setModel}
         />
       )}
-    </div>
+    </AppShell>
   );
 }

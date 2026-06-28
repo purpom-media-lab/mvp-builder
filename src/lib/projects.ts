@@ -36,6 +36,7 @@ import type {
   GrowthOutput,
   JourneyOutput,
   KpiOutput,
+  MarketOutput,
   NavigationOutput,
   OouiOutput,
   ScopeOutput,
@@ -48,6 +49,7 @@ export type StepKey =
   | "usecases"
   | "ooui"
   | "journey"
+  | "market"
   | "navigation"
   | "wireframe"
   | "datamodel"
@@ -130,30 +132,39 @@ export async function createProject(
   data: {
     name: string;
     summary?: string;
-    /** プレーンテキスト入力（後方互換: type "text" として保存） */
+    /** ユーザー入力の「詳細（入力資料/intake）」。projects.detail に保存。 */
+    detail?: string;
+    /** プレーンテキスト入力（後方互換）。projects.detail に保存。 */
     sourceText?: string;
-    /** 抽出済みソース（URL/PDF など）を直接渡す場合に使用 */
+    /** 抽出済みソース（URL/PDF など）。source_documents に保存（PDF/URL 専用）。 */
     source?: { type: SourceType; title?: string; rawText: string };
   },
 ) {
+  // 手入力テキスト（type=text）は projects.detail へ。url/pdf 抽出のみ source_documents へ。
+  const textIntake =
+    data.detail ??
+    (data.source?.type === "text" ? data.source.rawText : undefined) ??
+    data.sourceText;
+
   const [project] = await db
     .insert(projects)
-    .values({ ownerId, name: data.name, summary: data.summary ?? null })
+    .values({
+      ownerId,
+      name: data.name,
+      summary: data.summary ?? null,
+      detail: textIntake?.trim() ? textIntake : null,
+    })
     .returning();
 
-  // 抽出済みソース優先。無ければ従来の sourceText を text として保存。
-  const source =
-    data.source ??
-    (data.sourceText?.trim()
-      ? { type: "text" as const, rawText: data.sourceText }
-      : null);
-
-  if (source && source.rawText.trim()) {
+  // URL/PDF の抽出ソースのみ source_documents（参考資料）へ保存。
+  const refSource =
+    data.source && data.source.type !== "text" ? data.source : null;
+  if (refSource && refSource.rawText.trim()) {
     await db.insert(sourceDocuments).values({
       projectId: project.id,
-      type: source.type,
-      title: source.title ?? null,
-      rawText: source.rawText,
+      type: refSource.type,
+      title: refSource.title ?? null,
+      rawText: refSource.rawText,
     });
   }
   return project;
@@ -216,11 +227,16 @@ export async function getProjectWithArtifacts(
 
   return {
     project,
+    // ユーザー入力の詳細（intake）と、JTBD等の分析結果は projects 直下で別管理。
+    detail: project.detail ?? "",
+    analysisResult: project.analysisResult ?? null,
+    // 参考資料（URL/PDF 抽出テキスト）は source_documents から。
     sourceText: sourceRows[0]?.rawText ?? "",
     actors: actorRows,
     useCases: useCaseRows,
     ooui: oouiRows,
     journey: journeyRows,
+    market: project.marketAnalysis ?? null,
     navigation: navRows,
     wireframes: wireframeRows,
     dataModel: dataModelRows,
@@ -249,21 +265,31 @@ export async function saveRequirement(
 ) {
   const owned = await getOwnedProject(ownerId, projectId);
   if (!owned) return false;
-  if (data.summary) {
-    await db
-      .update(projects)
-      .set({ summary: data.summary, updatedAt: new Date() })
-      .where(eq(projects.id, projectId));
-  }
-  // 入力資料（text）を洗い替え
+  // 分析結果（構造化要望）は projects.analysisResult へ。ユーザー入力の detail は上書きしない。
+  // summary（一言要約）は任意で更新。
   await db
-    .delete(sourceDocuments)
-    .where(eq(sourceDocuments.projectId, projectId));
-  await db.insert(sourceDocuments).values({
-    projectId,
-    type: "text",
-    rawText: data.requirement,
-  });
+    .update(projects)
+    .set({
+      ...(data.summary ? { summary: data.summary } : {}),
+      analysisResult: data.requirement,
+      updatedAt: new Date(),
+    })
+    .where(eq(projects.id, projectId));
+  return true;
+}
+
+/** プロジェクトの基本情報（概要・詳細/intake）を更新する。所有権が無ければ false。 */
+export async function updateProjectInfo(
+  ownerId: string,
+  projectId: string,
+  data: { summary?: string | null; detail?: string | null },
+) {
+  const owned = await getOwnedProject(ownerId, projectId);
+  if (!owned) return false;
+  const patch: Partial<typeof projects.$inferInsert> = { updatedAt: new Date() };
+  if (data.summary !== undefined) patch.summary = data.summary;
+  if (data.detail !== undefined) patch.detail = data.detail;
+  await db.update(projects).set(patch).where(eq(projects.id, projectId));
   return true;
 }
 
@@ -336,7 +362,8 @@ export async function saveStepResult(
     | ScopeOutput
     | KpiOutput
     | GrowthOutput
-    | BrandOutput,
+    | BrandOutput
+    | MarketOutput,
 ): Promise<boolean> {
   const owned = await getOwnedProject(ownerId, projectId);
   if (!owned) return false;
@@ -390,9 +417,12 @@ export async function saveStepResult(
           projectId,
           name: j.name,
           steps: j.steps.map((s) => ({
-            step: s.step,
+            phase: s.phase ?? undefined,
+            action: s.action,
             touchpoint: s.touchpoint ?? undefined,
             emotion: s.emotion ?? undefined,
+            painpoint: s.painpoint ?? undefined,
+            opportunity: s.opportunity ?? undefined,
           })),
         })),
       );
@@ -417,13 +447,31 @@ export async function saveStepResult(
     }
   } else if (step === "wireframe") {
     const r = result as WireframeOutput;
+    // screenType は navigation を正とする: 同名画面(label===screenName)が
+    // ナビにあれば、その screenType で上書きして二重管理のズレを防ぐ。
+    const navRows = await db
+      .select({
+        label: navigationItems.label,
+        screenType: navigationItems.screenType,
+      })
+      .from(navigationItems)
+      .where(eq(navigationItems.projectId, projectId));
+    const navScreenType = new Map(
+      navRows.map((n) => [n.label.trim(), n.screenType]),
+    );
     await db.delete(wireframes).where(eq(wireframes.projectId, projectId));
     if (r.screens.length) {
       await db.insert(wireframes).values(
         r.screens.map((s) => ({
           projectId,
           screenName: s.screenName,
-          layout: { screenType: s.screenType, sections: s.sections },
+          layout: {
+            screenType:
+              navScreenType.get(s.screenName.trim()) ?? s.screenType,
+            targetObject: s.targetObject ?? null,
+            layoutPattern: s.layoutPattern ?? null,
+            sections: s.sections,
+          },
         })),
       );
     }
@@ -510,6 +558,12 @@ export async function saveStepResult(
     await db
       .update(projects)
       .set({ growthPlan: r })
+      .where(eq(projects.id, projectId));
+  } else if (step === "market") {
+    const r = result as MarketOutput;
+    await db
+      .update(projects)
+      .set({ marketAnalysis: r })
       .where(eq(projects.id, projectId));
   } else if (step === "brand") {
     const r = result as BrandOutput;
