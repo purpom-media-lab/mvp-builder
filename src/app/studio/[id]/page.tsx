@@ -175,6 +175,9 @@ export default function ProjectDetailPage() {
   const [detail, setDetail] = useState("");
   // JTBD等の背景処理が生成した「分析結果」。読み取り専用で表示する（detail とは別管理）。
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
+  // 初期要件（概要・入力資料）の開閉。常時大きく表示されると分析が下に押されるため、
+  // 既定は閉じる。中身が空の新規プロジェクトのときだけ自動で開く。
+  const [intakeOpen, setIntakeOpen] = useState(false);
   // 参考資料（URL/PDF 抽出テキスト）。コンテキストにのみ使用。
   const [sourceText, setSourceText] = useState("");
 
@@ -232,6 +235,8 @@ export default function ProjectDetailPage() {
         setName(d.project.name);
         setSummary(d.project.summary ?? "");
         setDetail(d.detail ?? "");
+        // 概要も入力資料も空（新規）なら開いて入力を促す。既に内容があれば閉じておく。
+        setIntakeOpen(!(d.project.summary || d.detail));
         setAnalysisResult(d.analysisResult ?? null);
         setSourceText(d.sourceText ?? "");
         const a = d.actors.length ? d.actors : null;
@@ -730,29 +735,51 @@ export default function ProjectDetailPage() {
 
         {/* プロジェクト情報 */}
         <section className="mb-8 space-y-3">
-          <Input
-            placeholder="概要（一言で）"
-            value={summary}
-            onChange={(e) => setSummary(e.target.value)}
-            onBlur={() => saveProjectInfo({ summary })}
-          />
-          <Textarea
-            className="h-48 resize-y"
-            placeholder="入力資料（アイデア・要件・参考テキストを貼り付け）"
-            value={detail}
-            onChange={(e) => setDetail(e.target.value)}
-            onBlur={() => saveProjectInfo({ detail })}
-          />
-          {analysisResult && (
-            <div className="rounded-lg border border-base-300 bg-base-200/50 p-3">
-              <p className="mb-1 text-xs font-medium text-base-content/70">
-                ジョブ分析結果（自動生成・読み取り専用）
-              </p>
-              <p className="whitespace-pre-wrap text-sm text-base-content/90">
-                {analysisResult}
-              </p>
-            </div>
-          )}
+          {/* 初期要件（概要・入力資料）— 折りたたみ式。常時表示で分析を圧迫しないよう既定は閉じる。 */}
+          <div className="rounded-lg border border-base-300">
+            <button
+              type="button"
+              onClick={() => setIntakeOpen((o) => !o)}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium"
+            >
+              <span className="text-base-content/80">📝 初期要件（概要・入力資料）</span>
+              {!intakeOpen && summary && (
+                <span className="min-w-0 flex-1 truncate text-xs font-normal text-base-content/50">
+                  {summary}
+                </span>
+              )}
+              <span className="ml-auto shrink-0 text-xs text-base-content/60">
+                {intakeOpen ? "▲ 閉じる" : "▼ 開く"}
+              </span>
+            </button>
+            {intakeOpen && (
+              <div className="space-y-3 border-t border-base-300 p-3">
+                <Input
+                  placeholder="概要（一言で）"
+                  value={summary}
+                  onChange={(e) => setSummary(e.target.value)}
+                  onBlur={() => saveProjectInfo({ summary })}
+                />
+                <Textarea
+                  className="h-48 resize-y"
+                  placeholder="入力資料（アイデア・要件・参考テキストを貼り付け）"
+                  value={detail}
+                  onChange={(e) => setDetail(e.target.value)}
+                  onBlur={() => saveProjectInfo({ detail })}
+                />
+                {analysisResult && (
+                  <div className="rounded-lg border border-base-300 bg-base-200/50 p-3">
+                    <p className="mb-1 text-xs font-medium text-base-content/70">
+                      ジョブ分析結果（自動生成・読み取り専用）
+                    </p>
+                    <p className="whitespace-pre-wrap text-sm text-base-content/90">
+                      {analysisResult}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-xs text-base-content/70">
               各ステップの結果は自動で保存されます
