@@ -18,6 +18,8 @@ export interface DsScreen {
   source: string;
   /** 親メニューの label（2階層ナビ用）。トップ階層なら null/未指定。 */
   parent?: string | null;
+  /** 生成に失敗（プレースホルダ）か。済/失敗バッジの判定に使う。 */
+  failed?: boolean;
 }
 
 /** ナビ1項目（メニュー構造の組み立て用。group=子を束ねる見出し）。 */
@@ -335,8 +337,14 @@ export function buildDsHtml(opts: DsBuildOptions): string {
   const themeStyle = buildThemeStyle(theme);
   // 生成済み画面の検知（済/未バッジ・「生成された画面」一覧）に使う @screen マーカー。
   // DS は React ルーターだが、保存HTMLにマーカーを残してモノリシックと同じ検知に揃える。
+  // 生成に失敗した画面（プレースホルダ）は @screen に加えて @screen-failed も出し、
+  // クライアント側で「済」ではなく「失敗」として扱えるようにする。
   const screenMarkers = opts.screens
-    .map((s) => `<!-- @screen:${s.label} -->`)
+    .map((s) =>
+      s.failed
+        ? `<!-- @screen:${s.label} -->\n    <!-- @screen-failed:${s.label} -->`
+        : `<!-- @screen:${s.label} -->`,
+    )
     .join("\n    ");
   return `<!DOCTYPE html>
 <html lang="ja" data-theme="light">

@@ -10,7 +10,10 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_PROVIDER, MODEL_CATALOG } from "@/lib/ai/catalog";
 import { postJson } from "@/lib/api-client";
-import { parseScreenNames } from "@/lib/prototype-screens";
+import {
+  parseFailedScreenNames,
+  parseScreenNames,
+} from "@/lib/prototype-screens";
 import { fetchActiveJobs, type JobView, pollJob, startJob } from "@/lib/use-job";
 import {
   AiConsultPanel,
@@ -679,14 +682,32 @@ export default function PrototypePage() {
   // 生成中はライブの画面リスト、それ以外は保存済み HTML から抽出した画面リストを表示。
   const generating = loading === "prototype" || loading === "realize";
   const savedScreens = useMemo(() => parseScreenNames(html), [html]);
+  const savedFailed = useMemo(() => parseFailedScreenNames(html), [html]);
   const screens = generating ? genScreens : savedScreens;
+
+  // 生成に失敗した（プレースホルダになった）画面のラベル集合。
+  const failedSet = useMemo(() => {
+    const set = new Set<string>();
+    for (const n of nav) {
+      if (
+        savedFailed.some(
+          (s) => s === n.label || s.includes(n.label) || n.label.includes(s),
+        )
+      ) {
+        set.add(n.label);
+      }
+    }
+    return set;
+  }, [nav, savedFailed]);
 
   // ナビ画面のうち「すでに生成済み」のラベル集合（保存HTMLの @screen と突き合わせ）。
   // ラベルが完全一致 or 部分一致するものを生成済みとみなす（モデルの命名揺れに対応）。
+  // 失敗画面（@screen-failed）は「済」に含めない＝未生成扱いにして再生成を促す。
   const generatedSet = useMemo(() => {
     const set = new Set<string>();
     for (const n of nav) {
       if (
+        !failedSet.has(n.label) &&
         savedScreens.some(
           (s) => s === n.label || s.includes(n.label) || n.label.includes(s),
         )
@@ -695,7 +716,7 @@ export default function PrototypePage() {
       }
     }
     return set;
-  }, [nav, savedScreens]);
+  }, [nav, savedScreens, failedSet]);
   // 未生成の画面ラベル（UC-更新2 の追記対象候補）
   const missingScreens = nav
     .map((n) => n.label)
@@ -1069,13 +1090,14 @@ export default function PrototypePage() {
               </span>
               {nav.map((n, i) => {
                 const on = selectedScreens.includes(n.label);
+                const failed = failedSet.has(n.label);
                 const done = generatedSet.has(n.label);
                 return (
                   <button
                     key={`${n.label}-${i}`}
                     type="button"
                     onClick={() => toggleScreen(n.label)}
-                    title={done ? "生成済み" : "未生成"}
+                    title={failed ? "生成失敗（再生成してください）" : done ? "生成済み" : "未生成"}
                     className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] transition ${
                       on
                         ? "border-primary bg-primary/10 text-base-content"
@@ -1083,14 +1105,18 @@ export default function PrototypePage() {
                     }`}
                   >
                     {n.parent ? `${n.parent} › ${n.label}` : n.label}
-                    {/* 生成状況: 済（生成済み）/ 未（未生成） */}
+                    {/* 生成状況: 済（生成済み）/ 失敗（プレースホルダ）/ 未（未生成） */}
                     <span
                       className={cn(
                         "badge badge-xs",
-                        done ? "badge-success" : "badge-warning",
+                        failed
+                          ? "badge-error"
+                          : done
+                            ? "badge-success"
+                            : "badge-warning",
                       )}
                     >
-                      {done ? "済" : "未"}
+                      {failed ? "失敗" : done ? "済" : "未"}
                     </span>
                   </button>
                 );
