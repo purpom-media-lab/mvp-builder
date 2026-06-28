@@ -32,7 +32,31 @@ export const projects = pgTable("projects", {
   ownerId: text("owner_id").notNull(), // Better Auth user id
   name: text("name").notNull(),
   summary: text("summary"),
+  // ユーザーが入力する「詳細（入力資料/intake）」。手入力のアイデア・要件テキスト。
+  // 旧: source_documents(type=text) に保存していたが projects 直下へ移設。
+  detail: text("detail"),
+  // ジョブ理論(JTBD)など背景処理が生成する「分析結果」（構造化要望テキスト）。
+  // detail（ユーザー入力）とは別管理にし、分析が手入力を上書きしないようにする。
+  analysisResult: text("analysis_result"),
   mvpStatement: text("mvp_statement"), // スコープ確定で生成するMVPの仮説と提供価値
+  // market 工程で生成する市場・競合分析（marketSchema 互換）。
+  // 1プロジェクト1件のため、独立テーブルにせず projects 直下に jsonb で持つ（growthPlan と同方針）。
+  marketAnalysis: jsonb("market_analysis").$type<{
+    marketSize: { tam: string; sam: string; som: string; assumptions: string };
+    trends: string[];
+    positioning: { xAxis: string; yAxis: string };
+    competitors: {
+      name: string;
+      type: "direct" | "indirect" | "alternative";
+      description?: string | null;
+      strengths: string;
+      weaknesses: string;
+      x: number;
+      y: number;
+    }[];
+    whitespace: string;
+    differentiation: string;
+  }>(),
   // KPI工程で生成するグロース計画（model/levers/experiments/milestones）
   growthPlan: jsonb("growth_plan").$type<{
     model: string;
@@ -134,7 +158,14 @@ export const journeys = pgTable("journeys", {
   name: text("name").notNull(),
   steps:
     jsonb("steps").$type<
-      { step: string; touchpoint?: string; emotion?: string }[]
+      {
+        phase?: string;
+        action: string;
+        touchpoint?: string;
+        emotion?: string;
+        painpoint?: string;
+        opportunity?: string;
+      }[]
     >(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -260,6 +291,27 @@ export const chatMessages = pgTable("chat_messages", {
     .references(() => projects.id, { onDelete: "cascade" }),
   scope: text("scope").notNull(), // 'analysis' | 'jtbd'
   messages: jsonb("messages").$type<unknown[]>(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+/**
+ * 実ユーザー（回答者）の声。公開プロト(/run)に埋め込んだウィジェットから、
+ * 匿名の回答者ごとに JTBD インタビューの全文と構造化サマリを蓄積する。
+ * ビルダー側の chat_messages（builder本人用）とは別物。
+ */
+export const userVoices = pgTable("user_voices", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  projectId: uuid("project_id")
+    .notNull()
+    .references(() => projects.id, { onDelete: "cascade" }),
+  // 匿名の回答者識別子（localStorage 生成）。同一回答者の追記に使う。
+  respondentId: text("respondent_id").notNull(),
+  // インタビュー全文 [{ role: 'user' | 'assistant', content: string }]
+  messages: jsonb("messages").$type<{ role: string; content: string }[]>(),
+  // 会話末に抽出する構造化サマリ（状況/ジョブ/代替/障壁/成功基準 等）
+  jobSummary: jsonb("job_summary").$type<Record<string, unknown> | null>(),
+  status: text("status").notNull().default("in_progress"), // in_progress | completed
+  createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

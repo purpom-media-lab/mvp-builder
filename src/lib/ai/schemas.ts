@@ -45,6 +45,12 @@ export const oouiSchema = z.object({
           z.object({
             to: z.string().describe("関係先のオブジェクト名（日本語）"),
             type: z.string().describe("関係の種別（日本語。例: 保有する）"),
+            cardinality: z
+              .string()
+              .nullable()
+              .describe(
+                "多重度（日本語。例: 1対多 / 多対多 / 1対1）。ナビ階層と画面の親子関係の判断に使う",
+              ),
           }),
         )
         .describe("他オブジェクトとの関係"),
@@ -56,11 +62,19 @@ export const oouiSchema = z.object({
 export const journeySchema = z.object({
   journeys: z.array(
     z.object({
-      name: z.string().describe("ジャーニー名（日本語）"),
+      name: z
+        .string()
+        .describe(
+          "ジャーニー名（ペルソナ×目標の単位。例: 新規リードを初回商談につなげる）",
+        ),
       steps: z
         .array(
           z.object({
-            step: z.string().describe("行動（ユーザーの行動・日本語）"),
+            phase: z
+              .string()
+              .nullable()
+              .describe("ステージ/フェーズ（例: 認知/検討/利用/定着・日本語）"),
+            action: z.string().describe("ユーザーの行動（日本語）"),
             touchpoint: z
               .string()
               .nullable()
@@ -69,6 +83,14 @@ export const journeySchema = z.object({
               .string()
               .nullable()
               .describe("感情（その時の気持ち・日本語）"),
+            painpoint: z
+              .string()
+              .nullable()
+              .describe("課題・ペインポイント（改善余地。scope の優先度判断に使う・日本語）"),
+            opportunity: z
+              .string()
+              .nullable()
+              .describe("改善の機会・インサイト（日本語）"),
           }),
         )
         .describe("ジャーニーを構成するステップ（時系列順）"),
@@ -128,10 +150,22 @@ export const wireframeSchema = z.object({
       screenName: z
         .string()
         .describe("画面名（日本語。ナビのメニュー名に対応）"),
+      targetObject: z
+        .string()
+        .nullable()
+        .describe(
+          "この画面が扱う OOUI オブジェクト名（日本語。ナビの targetObject と一致させる。横断ダッシュボード等は空可）",
+        ),
       screenType: z
         .string()
         .nullable()
         .describe("画面種別（dashboard/list/detail/form など）"),
+      layoutPattern: z
+        .enum(["stack", "master-detail", "grid", "single"])
+        .nullable()
+        .describe(
+          "レイアウト配置パターン。stack=画面遷移(コレクション→シングルを画面切替), master-detail=2ペイン(左コレクション→右シングル同時表示), grid=ダッシュボード等の集約グリッド, single=フォーム等の単一ビュー",
+        ),
       sections: z
         .array(
           z.object({
@@ -144,13 +178,18 @@ export const wireframeSchema = z.object({
                 "table",
                 "list",
                 "cards",
+                "calendar",
+                "map",
+                "timeline",
                 "form",
                 "detail",
                 "sidebar",
                 "footer",
                 "other",
               ])
-              .describe("セクション種別"),
+              .describe(
+                "セクション種別。コレクションの表示形式はオブジェクトの性質で選ぶ（table/cards/calendar/map/timeline 等）",
+              ),
             label: z.string().describe("セクションの見出し/説明（日本語）"),
             items: z
               .array(z.string())
@@ -277,6 +316,85 @@ export const brandSchema = z.object({
   voice: z.string().optional().describe("ボイス"),
 });
 
+/** 市場・競合分析（market）。事業の市場規模・競合状況・参入余地を構造化する。 */
+export const marketSchema = z.object({
+  marketSize: z
+    .object({
+      tam: z
+        .string()
+        .describe("TAM（獲得可能な最大市場規模）。金額・規模感と概算の前提"),
+      sam: z
+        .string()
+        .describe("SAM（獲得可能なサービス市場規模）。金額・規模感と前提"),
+      som: z
+        .string()
+        .describe(
+          "SOM（初期に現実的に獲得しうる市場規模）。金額・規模感と前提",
+        ),
+      assumptions: z
+        .string()
+        .describe(
+          "TAM/SAM/SOM 概算の前提・算出根拠（数値の出どころ・仮定。日本語）",
+        ),
+    })
+    .describe("市場規模（TAM/SAM/SOM）"),
+  trends: z
+    .array(z.string())
+    .describe("市場トレンド・追い風/向かい風（3〜5個・日本語）"),
+  positioning: z
+    .object({
+      xAxis: z
+        .string()
+        .describe(
+          "ポジショニングマップの横軸ラベル（両端を示す。例: アイデア生成↔検証・実装）",
+        ),
+      yAxis: z
+        .string()
+        .describe(
+          "縦軸ラベル（両端を示す。例: セルフサーブ(自走)↔伴走・制度運営）",
+        ),
+    })
+    .describe("ポジショニングマップの2軸"),
+  competitors: z
+    .array(
+      z.object({
+        name: z.string().describe("競合サービス/企業名"),
+        type: z
+          .enum(["direct", "indirect", "alternative"])
+          .describe(
+            "種別: direct=直接競合 / indirect=間接競合 / alternative=代替手段",
+          ),
+        description: z
+          .string()
+          .nullable()
+          .describe("どんなサービスか（1文・日本語）"),
+        strengths: z.string().describe("強み（日本語）"),
+        weaknesses: z.string().describe("弱み・隙（日本語）"),
+        x: z
+          .number()
+          .min(0)
+          .max(1)
+          .describe("ポジショニング横軸上の位置（0=左端, 1=右端）"),
+        y: z
+          .number()
+          .min(0)
+          .max(1)
+          .describe("ポジショニング縦軸上の位置（0=下端, 1=上端）"),
+      }),
+    )
+    .describe(
+      "主要競合（3〜6件）。直接競合だけでなく間接競合・代替手段も含める",
+    ),
+  whitespace: z
+    .string()
+    .describe("競合が手薄な空白地帯（参入余地）。日本語"),
+  differentiation: z
+    .string()
+    .describe(
+      "この事業がとるべき差別化仮説（空白地帯をどう取るか）。日本語",
+    ),
+});
+
 /** チャット要望から「どの工程を再実行し、プロトタイプを作り直すか」を決める計画 */
 export const orchestratePlanSchema = z.object({
   steps: z
@@ -286,6 +404,7 @@ export const orchestratePlanSchema = z.object({
         "usecases",
         "ooui",
         "journey",
+        "market",
         "navigation",
         "wireframe",
         "datamodel",
@@ -380,6 +499,43 @@ export const engineerBriefSchema = z.object({
   deadline: z.string().describe("納期（例: 1ヶ月後 / 未定）"),
 });
 
+/** 実ユーザー（回答者）の声の統合分析。N件の JTBD インタビューから共通項を抽出する。 */
+export const voiceSynthesisSchema = z.object({
+  topJobs: z
+    .array(
+      z.object({
+        job: z.string().describe("片付けたいジョブ（共通して現れたもの）"),
+        frequency: z
+          .string()
+          .describe("どの程度の回答者が言及したか（例: 5人中3人 / 多数 / 少数）"),
+      }),
+    )
+    .describe("共通して現れた主要なジョブ（多い順）"),
+  topPains: z
+    .array(
+      z.object({
+        pain: z.string().describe("ペイン/課題"),
+        severity: z.string().describe("深刻度や頻度の目安（日本語）"),
+      }),
+    )
+    .describe("共通のペイン（重い/多い順）"),
+  topOpportunities: z
+    .array(z.string())
+    .describe("改善の機会・インサイト（日本語）"),
+  overallSentiment: z
+    .string()
+    .describe("全体の受け止め（前向きな点・懸念点）の要約（日本語）"),
+  journeySuggestions: z
+    .array(z.string())
+    .describe("ユーザージャーニーに反映すべき painpoint/opportunity の提案"),
+  scopeSuggestions: z
+    .array(z.string())
+    .describe("MVPスコープの優先度に関する提案（声に基づく優先/追加/見送り）"),
+  summary: z.string().describe("経営者向けの一言サマリ（2-3文・日本語）"),
+});
+
+export type VoiceSynthesisOutput = z.infer<typeof voiceSynthesisSchema>;
+
 export type ActorsOutput = z.infer<typeof actorsSchema>;
 export type UseCasesOutput = z.infer<typeof useCasesSchema>;
 export type OouiOutput = z.infer<typeof oouiSchema>;
@@ -392,6 +548,7 @@ export type ScopeOutput = z.infer<typeof scopeSchema>;
 export type KpiOutput = z.infer<typeof kpiSchema>;
 export type GrowthOutput = z.infer<typeof growthSchema>;
 export type BrandOutput = z.infer<typeof brandSchema>;
+export type MarketOutput = z.infer<typeof marketSchema>;
 export type OrchestratePlan = z.infer<typeof orchestratePlanSchema>;
 export type DesignBriefOutput = z.infer<typeof designBriefSchema>;
 export type EngineerBriefOutput = z.infer<typeof engineerBriefSchema>;

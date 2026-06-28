@@ -54,7 +54,8 @@ export async function POST(req: Request) {
 ## 現在のプロジェクト
 - 名称: ${p.project.name}
 ${p.project.summary ? `- 概要: ${p.project.summary}` : ""}
-${p.sourceText ? `- 既存の入力資料:\n${p.sourceText.slice(0, 1500)}` : "- 入力資料: まだ未入力"}`,
+${p.detail ? `- 既存の入力資料(ユーザー記入):\n${p.detail.slice(0, 1500)}` : "- 入力資料: まだ未入力"}
+${p.analysisResult ? `- 既存の分析結果:\n${p.analysisResult.slice(0, 1500)}` : ""}`,
     messages: await convertToModelMessages(messages),
     stopWhen: stepCountIs(3),
     tools: {

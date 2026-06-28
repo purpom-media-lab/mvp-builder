@@ -10,7 +10,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { DEFAULT_PROVIDER, MODEL_CATALOG } from "@/lib/ai/catalog";
 import { fetchActiveJobs, pollJob, startJob } from "@/lib/use-job";
-import { GlobalHeader } from "@/components/global-header";
+import { AppShell } from "@/components/app-shell";
 import type { ModelSelection } from "@/components/model-selector";
 import { ModelPrefsDialog } from "@/components/model-prefs-dialog";
 import {
@@ -22,6 +22,7 @@ import {
 } from "@/lib/model-prefs";
 import { LoadingOverlay, Spinner } from "@/components/spinner";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -299,30 +300,29 @@ export default function EngineerRequestPage() {
   const statusLabel = status === "requested" ? "依頼作成済み" : "下書き";
 
   return (
-    <div className="relative flex min-h-screen flex-col">
+    <AppShell
+      fullHeight
+      back={{ href: `/studio/${id}/prototype`, label: "プロトタイプに戻る" }}
+      center={
+        <span className="text-sm font-medium text-base-content">
+          {name || "…"} / エンジニアに依頼
+        </span>
+      }
+      right={
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setPrefsOpen(true)}
+          title="基準モデルと工程ごとのモデル（速い/賢い）を設定します"
+        >
+          ⚙️ モデル設定
+        </Button>
+      }
+    >
       {loadingProject && <LoadingOverlay label="読み込み中…" />}
-      <GlobalHeader
-        back={{ href: `/studio/${id}/prototype`, label: "プロトタイプに戻る" }}
-        center={
-          <span className="text-sm font-medium text-foreground">
-            {name || "…"} / エンジニアに依頼
-          </span>
-        }
-        right={
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setPrefsOpen(true)}
-            title="基準モデルと工程ごとのモデル（速い/賢い）を設定します"
-          >
-            ⚙️ モデル設定
-          </Button>
-        }
-      />
-
-      <main className="mx-auto w-full max-w-3xl flex-1 space-y-8 px-4 py-6 sm:px-6">
+      <div className="mx-auto w-full max-w-3xl flex-1 space-y-8 px-4 py-6 sm:px-6">
         {error && (
-          <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <div className="rounded-md bg-error/10 px-3 py-2 text-sm text-error">
             {error}
           </div>
         )}
@@ -334,11 +334,16 @@ export default function EngineerRequestPage() {
               <h2 className="font-heading text-base font-bold">
                 1. 開発依頼の項目
               </h2>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-base-content/70">
                 プロトタイプと分析・設計結果から、エンジニアに渡す開発依頼（開発仕様書/チケット）をAIが下書きします。編集できます。
               </p>
             </div>
-            <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
+            <span
+              className={cn(
+                "badge badge-soft whitespace-nowrap",
+                status === "requested" ? "badge-info" : "badge-ghost",
+              )}
+            >
               {statusLabel}
             </span>
           </div>
@@ -354,7 +359,7 @@ export default function EngineerRequestPage() {
             )}
           </Button>
 
-          <div className="space-y-4 rounded-lg border border-border bg-card/40 p-4">
+          <div className="fieldset space-y-4 rounded-box border border-base-300 bg-base-100 p-4">
             <Field label="プロダクト名">
               <Input
                 value={brief.productName}
@@ -449,7 +454,7 @@ export default function EngineerRequestPage() {
         <section className="space-y-3">
           <div>
             <h2 className="font-heading text-base font-bold">2. 依頼を作成</h2>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-base-content/70">
               依頼項目を保存し、エンジニアに渡す開発依頼（Markdown）をコピー / ダウンロードできます。
             </p>
           </div>
@@ -464,16 +469,16 @@ export default function EngineerRequestPage() {
               Markdownをダウンロード
             </Button>
           </div>
-          <details className="rounded-lg border border-border bg-muted/30 p-3">
-            <summary className="cursor-pointer text-xs text-muted-foreground">
+          <details className="rounded-box border border-base-300 bg-base-200 p-3">
+            <summary className="cursor-pointer text-xs text-base-content/70">
               開発依頼のプレビュー（Markdown）
             </summary>
-            <pre className="mt-2 overflow-auto whitespace-pre-wrap text-xs text-foreground">
+            <pre className="mt-2 overflow-auto whitespace-pre-wrap text-xs text-base-content">
               {briefToMarkdown(brief)}
             </pre>
           </details>
         </section>
-      </main>
+      </div>
       {id && (
         <ModelPrefsDialog
           open={prefsOpen}
@@ -485,7 +490,7 @@ export default function EngineerRequestPage() {
           onSaveBase={setModel}
         />
       )}
-    </div>
+    </AppShell>
   );
 }
 
@@ -498,7 +503,7 @@ function Field({
 }) {
   return (
     <label className="block space-y-1.5">
-      <span className="text-xs font-medium text-foreground">{label}</span>
+      <span className="text-xs font-medium text-base-content">{label}</span>
       {children}
     </label>
   );

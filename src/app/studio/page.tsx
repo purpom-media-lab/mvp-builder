@@ -7,9 +7,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { GlobalHeader } from "@/components/global-header";
+import { AppShell } from "@/components/app-shell";
 import { PageLoading } from "@/components/spinner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -24,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 type SourceType = "text" | "url" | "pdf";
 
@@ -62,6 +62,15 @@ const STATUS_LABEL: Record<string, string> = {
   designing: "設計中",
   generating: "生成中",
   published: "公開済",
+};
+
+/** status → daisyUI badge の色（soft スタイルで淡色に）。 */
+export const STATUS_BADGE: Record<string, string> = {
+  draft: "badge-ghost",
+  analyzing: "badge-info",
+  designing: "badge-secondary",
+  generating: "badge-warning",
+  published: "badge-success",
 };
 
 export default function ProjectListPage() {
@@ -154,17 +163,28 @@ export default function ProjectListPage() {
     }
   }
 
+  const stats = {
+    total: projects.length,
+    published: projects.filter((p) => p.hasPrototype).length,
+    inProgress: projects.filter(
+      (p) =>
+        !!p.status &&
+        ["analyzing", "designing", "generating"].includes(p.status),
+    ).length,
+    endUsers: projects.reduce((s, p) => s + (p.endUserCount ?? 0), 0),
+  };
+
   return (
-    <div className="pm-sky relative isolate min-h-screen">
-      <GlobalHeader />
-      <main className="mx-auto max-w-5xl px-6 py-10">
+    <AppShell>
+      <div className="pm-sky isolate min-h-full px-6 py-10">
+        <div className="mx-auto max-w-5xl">
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
             <p className="pm-eyebrow">projects</p>
             <h1 className="mt-2 font-heading text-3xl font-bold tracking-tight">
               プロジェクト
             </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-sm text-base-content/70">
               要件 → 可視化 → スコープ確定 → 動くMVP
             </p>
           </div>
@@ -184,11 +204,35 @@ export default function ProjectListPage() {
           </Button>
         </div>
 
+        {!loadingList && projects.length > 0 && (
+          <div className="stats stats-vertical mb-6 w-full border border-base-300 bg-base-100 sm:stats-horizontal">
+            <div className="stat">
+              <div className="stat-title">総プロジェクト</div>
+              <div className="stat-value text-2xl">{stats.total}</div>
+            </div>
+            <div className="stat">
+              <div className="stat-title">公開MVP</div>
+              <div className="stat-value text-2xl text-primary">
+                {stats.published}
+              </div>
+            </div>
+            <div className="stat">
+              <div className="stat-title">進行中</div>
+              <div className="stat-value text-2xl">{stats.inProgress}</div>
+              <div className="stat-desc">分析・設計・生成</div>
+            </div>
+            <div className="stat">
+              <div className="stat-title">累計エンドユーザー</div>
+              <div className="stat-value text-2xl">{stats.endUsers}</div>
+            </div>
+          </div>
+        )}
+
         {loadingList ? (
           <PageLoading label="プロジェクトを読み込み中…" />
         ) : projects.length === 0 ? (
           <Card className="border-dashed">
-            <CardContent className="py-12 text-center text-sm text-muted-foreground">
+            <CardContent className="py-12 text-center text-sm text-base-content/70">
               まだプロジェクトがありません。「＋
               新規プロジェクト」から作成してください。
             </CardContent>
@@ -198,20 +242,25 @@ export default function ProjectListPage() {
             {projects.map((p) => (
               <Card
                 key={p.id}
-                className="flex h-full flex-col gap-3 ring-border transition-colors hover:ring-primary/50"
+                className="flex h-full flex-col gap-3 ring-base-300 transition-colors hover:ring-primary/50"
               >
                 <Link href={`/studio/${p.id}`} className="flex-1">
                   <CardHeader>
                     <CardTitle className="truncate">{p.name}</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="line-clamp-2 h-10 text-sm text-muted-foreground">
+                    <p className="line-clamp-2 h-10 text-sm text-base-content/70">
                       {p.summary || "（概要なし）"}
                     </p>
-                    <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-                      <Badge variant="secondary">
+                    <div className="mt-3 flex items-center justify-between text-xs text-base-content/70">
+                      <span
+                        className={cn(
+                          "badge badge-sm badge-soft whitespace-nowrap",
+                          STATUS_BADGE[p.status ?? "draft"] ?? "badge-ghost",
+                        )}
+                      >
                         {STATUS_LABEL[p.status ?? "draft"] ?? p.status}
-                      </Badge>
+                      </span>
                       <span>
                         {p.updatedAt
                           ? new Date(p.updatedAt).toLocaleDateString("ja-JP")
@@ -222,7 +271,7 @@ export default function ProjectListPage() {
                 </Link>
                 {/* 管理フッター: 公開MVP / 利用状況 / 削除 */}
                 <CardContent className="flex items-center justify-between gap-2 border-t pt-3 text-xs">
-                  <div className="flex items-center gap-3 text-muted-foreground">
+                  <div className="flex items-center gap-3 text-base-content/70">
                     {p.hasPrototype ? (
                       <a
                         href={`/run/${p.id}`}
@@ -234,7 +283,7 @@ export default function ProjectListPage() {
                         🔌 公開MVP ↗
                       </a>
                     ) : (
-                      <span className="text-muted-foreground/60">未公開</span>
+                      <span className="text-base-content/70/60">未公開</span>
                     )}
                     <span title="エンドユーザー数">👤 {p.endUserCount ?? 0}</span>
                     <span title="保存データ数">🗃 {p.recordCount ?? 0}</span>
@@ -242,7 +291,7 @@ export default function ProjectListPage() {
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-7 px-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    className="h-7 px-2 text-error hover:bg-error/10 hover:text-error"
                     disabled={deletingId === p.id}
                     onClick={() => remove(p)}
                   >
@@ -264,7 +313,7 @@ export default function ProjectListPage() {
             </DialogHeader>
             <div className="space-y-3">
               {error && (
-                <div className="rounded-md bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                <div className="rounded-md bg-error/10 px-4 py-3 text-sm text-error">
                   {error}
                 </div>
               )}
@@ -336,7 +385,8 @@ export default function ProjectListPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </main>
-    </div>
+        </div>
+      </div>
+    </AppShell>
   );
 }

@@ -119,7 +119,7 @@ function AppShell(props){
     <div className="drawer lg:drawer-open">
       <input id="ds-drawer" type="checkbox" className="drawer-toggle" />
       <div className="drawer-content flex min-h-screen flex-col bg-base-200">
-        <div className="navbar border-b bg-base-100">
+        <div className="navbar border-b border-base-300 bg-base-100">
           <label htmlFor="ds-drawer" className="btn btn-ghost btn-sm lg:hidden">☰</label>
           <span className="px-2 text-sm font-bold">{ props.title }</span>
         </div>

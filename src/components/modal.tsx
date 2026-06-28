@@ -37,7 +37,7 @@ export function Modal({
       onClick={onClose}
     >
       <div
-        className={`flex flex-col rounded-lg border bg-background shadow-xl ${
+        className={`flex flex-col rounded-lg border bg-base-200 shadow-xl ${
           size === "lg"
             ? "h-[92vh] w-[96vw] max-w-[1600px]"
             : "max-h-[85vh] w-full max-w-xl"
@@ -49,7 +49,7 @@ export function Modal({
           <button
             onClick={onClose}
             aria-label="閉じる"
-            className="rounded-md px-2 py-1 text-muted-foreground hover:bg-muted"
+            className="rounded-md px-2 py-1 text-base-content/70 hover:bg-muted"
           >
             ✕
           </button>
