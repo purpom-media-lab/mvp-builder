@@ -25,3 +25,24 @@ export function parseScreenNames(text: string | null | undefined): string[] {
   }
   return names;
 }
+
+/** `<!-- @screen-failed:マイ学習 -->` を拾う。生成に失敗（プレースホルダ）した画面名。 */
+export const SCREEN_FAILED_MARKER_RE =
+  /<!--\s*@screen-failed:\s*([^>]*?)\s*-->/g;
+
+/** 生成に失敗した画面名を取り出す（重複排除）。「済」ではなく「失敗」として扱うのに使う。 */
+export function parseFailedScreenNames(
+  text: string | null | undefined,
+): string[] {
+  if (!text) return [];
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const m of text.matchAll(SCREEN_FAILED_MARKER_RE)) {
+    const name = m[1]?.trim();
+    if (name && !seen.has(name)) {
+      seen.add(name);
+      names.push(name);
+    }
+  }
+  return names;
+}

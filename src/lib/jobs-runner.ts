@@ -366,6 +366,7 @@ async function runDsPrototypeJob(
       label: r.label,
       componentName: r.componentName,
       source: r.source,
+      failed: !r.ok,
     })),
   });
   const failedScreens = results.filter((r) => !r.ok).map((r) => r.label);
