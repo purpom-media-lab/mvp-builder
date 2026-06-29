@@ -119,6 +119,9 @@ export default function PrototypePage() {
 
   const [engine, setEngine] = useState<"aws" | "ds">("ds");
   const [engineMenuOpen, setEngineMenuOpen] = useState(false);
+  // DS画面生成のモデル: 既定は高速モデル（速い）。ON で基準モデル（高品質・低速）を使う。
+  // プロジェクト単位で localStorage に保存する。
+  const [dsUseBaseModel, setDsUseBaseModel] = useState(false);
   // 右ペインのコントロール帯を「生成 / 公開 / ビルド / 依頼」のメニューに分け、
   // 一度に1つだけ開く。null=全て畳んでプレビューを最大化（既定は閉じる）。
   const [activePanel, setActivePanel] = useState<
@@ -234,7 +237,25 @@ export default function PrototypePage() {
     if (!id) return;
     setModel(loadBaseModel(id));
     setModelPrefs(loadModelPrefs(id));
+    try {
+      setDsUseBaseModel(localStorage.getItem(`lq_ds_base_model_${id}`) === "1");
+    } catch {
+      // localStorage 不可なら既定（高速モデル）のまま
+    }
   }, [id]);
+
+  // DS画面生成モデルの切替（高速 ⇄ 基準）。選択を localStorage に保存する。
+  function toggleDsUseBaseModel() {
+    setDsUseBaseModel((v) => {
+      const next = !v;
+      try {
+        localStorage.setItem(`lq_ds_base_model_${id}`, next ? "1" : "0");
+      } catch {
+        // 保存失敗は無視（UX を止めない）
+      }
+      return next;
+    });
+  }
 
   // srcDoc プレビューの iframe（画面ジャンプの postMessage 送信先）。
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -307,57 +328,6 @@ export default function PrototypePage() {
     );
   }
 
-  // UC-更新2: 未生成だった画面を「追記型」で追加する。
-  // 既存HTMLを保持したまま、選択中の画面を追加する更新（mode="update"）を実行する。
-  async function appendScreens(labels: string[]) {
-    if (!html || labels.length === 0) return;
-    setLoading("prototype");
-    setError(null);
-    setGenChars(0);
-    setGenScreens([]);
-    const m = getModelForStep(modelPrefs, "prototype", model);
-    const t0 = performance.now();
-    let ok = false;
-    try {
-      const job = await startJob({
-        projectId: id,
-        kind: "prototype",
-        engine: "aws",
-        mode: "update",
-        currentHtml: html,
-        instruction: `既存の画面・構成・モックデータ・デザイン・画面遷移をすべて保持したまま、次の画面を新規に追加してください。ナビゲーションにも項目を加え、クリックで行き来できるようにすること（既存画面は変更・削除しない）: ${labels.join(", ")}`,
-        provider: m.provider,
-        modelId: m.modelId,
-        projectName: name,
-      });
-      const final = await pollJob(job.id, {
-        signal: pollCtl.current?.signal,
-        onProgress: applyGenProgress,
-      });
-      if (final.status === "error")
-        throw new Error(final.error ?? "生成に失敗しました");
-      const r = final.result as { html?: string; truncated?: boolean };
-      setHtml(r?.html ?? "");
-      setTruncated(Boolean(r?.truncated));
-      setShareUrl(null);
-      setShareError(null);
-      ok = true;
-    } catch (e) {
-      if (e instanceof DOMException && e.name === "AbortError") return;
-      setError(e instanceof Error ? e.message : "エラー");
-    } finally {
-      recordUsage(id, {
-        step: "prototype",
-        provider: m.provider,
-        modelId: m.modelId,
-        ms: performance.now() - t0,
-        ok,
-      });
-      setLoading(null);
-      setGenChars(0);
-    }
-  }
-
   async function generatePrototype(override?: {
     actors?: ActorView[];
     useCases?: UseCaseView[];
@@ -368,19 +338,14 @@ export default function PrototypePage() {
     const aData = override?.actors ?? actors;
     const ucData = override?.useCases ?? useCases;
     const oData = override?.ooui ?? ooui;
-    // 画面選択による絞り込み（チャット再生成の override 時や全画面選択時は絞らない）。
+    // 非破壊マージ: ナビは常に全画面を送る（メニュー/骨格が全画面ぶん完全に組まれる）。
+    // 一部だけ選択中なら selectedScreens を送り、サーバは「その画面だけ作り直し・他は保持」する。
+    // チャット再生成（override.nav）や全画面選択時は selectedScreens を送らず全再生成。
+    const navData = override?.nav ?? nav;
     const useSelection =
       !override?.nav &&
       selectedScreens.length > 0 &&
       selectedScreens.length < nav.length;
-    const baseNav = override?.nav ?? nav;
-    const navData = useSelection
-      ? baseNav.filter(
-          (n) =>
-            selectedScreens.includes(n.label) ||
-            (n.parent != null && selectedScreens.includes(n.parent)),
-        )
-      : baseNav;
     const engineUsed = override?.engine ?? engine;
     setLoading("prototype");
     setError(null);
@@ -410,8 +375,10 @@ export default function PrototypePage() {
         screenType: n.screenType,
         parent: n.parent,
       })),
-      // 部分生成のときだけ「この画面だけを過不足なく実装」と明示する。
+      // 一部選択時のみ送る。サーバ(DS)はこの画面だけ作り直し、他は保存ソースを再利用する。
       selectedScreens: useSelection ? selectedScreens : undefined,
+      // ON のとき DS画面/テーマ生成に基準モデル（高品質・低速）を使う。既定は高速モデル。
+      dsUseBaseModel,
       mvpStatement,
       // プロトタイプは探索用（broad）: includedInMvp で絞らず、全機能を網羅して渡す。
       scope: scope.map((f) => ({ name: f.name, description: f.description })),
@@ -835,7 +802,11 @@ export default function PrototypePage() {
               title={
                 nav.length > 0 && selectedScreens.length === 0
                   ? "生成する画面を1つ以上選択してください"
-                  : "骨格をコードで固定し、画面ごとに生成して組み立てます（崩れにくい）"
+                  : html &&
+                      selectedScreens.length > 0 &&
+                      selectedScreens.length < nav.length
+                    ? "選択した画面だけを作り直し、他の生成済み画面はそのまま保持します"
+                    : "骨格をコードで固定し、画面ごとに生成して組み立てます（崩れにくい）"
               }
             >
               {loading === "prototype" && engine === "ds"
@@ -1081,8 +1052,8 @@ export default function PrototypePage() {
             </div>
           )}
 
-          {/* 生成する画面の選択。出力量を抑えて途中切れを防ぎ、作りたい画面に集中する。
-              全選択なら従来どおり全画面、絞ると「選んだ画面だけを過不足なく実装」する。 */}
+          {/* 生成する画面の選択。全選択なら全画面を作り直す。既存プレビューがあり一部だけ
+              選択した場合は「選択画面だけ作り直し・他の生成済み画面は保持」する非破壊マージ。 */}
           {activePanel === "generate" && !generating && nav.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 border-b bg-base-200 px-3 py-2 text-xs">
               <span className="font-medium text-base-content/70">
@@ -1135,7 +1106,21 @@ export default function PrototypePage() {
               >
                 全解除
               </button>
-              {/* 未生成だけ選択（UC-更新2 の起点）。生成済みがある時だけ意味を持つ。 */}
+              {/* 画面生成モデルの切替。既定は高速モデル（速い）。ONで基準モデル（高品質・低速）。 */}
+              <label
+                className="ml-2 inline-flex cursor-pointer items-center gap-1 text-base-content/70"
+                title="既定は高速モデルで素早く生成します。ONにすると⚙️モデル設定の基準モデルで画面を生成し、品質は上がりますが遅くなります。"
+              >
+                <input
+                  type="checkbox"
+                  className="checkbox checkbox-xs"
+                  checked={dsUseBaseModel}
+                  onChange={toggleDsUseBaseModel}
+                />
+                高品質（基準モデル・低速）
+              </label>
+              {/* 未生成だけ選択: 欠損/失敗の画面を選択にセット → 上の「プレビュー再生成」で
+                  その画面だけ作り直す（他の生成済み画面は保持される＝非破壊マージ）。 */}
               {html && missingScreens.length > 0 && (
                 <button
                   type="button"
@@ -1148,18 +1133,13 @@ export default function PrototypePage() {
               {selectedScreens.length === 0 && (
                 <span className="text-warning">※ 1つ以上選択してください</span>
               )}
-              {/* 追記生成: 既存プレビューを保持したまま、選択画面を追加する（UC-更新2・追記型）。 */}
+              {/* 一部選択時のガイド: 主ボタンが非破壊マージになることを明示する。 */}
               {html && selectedScreens.length > 0 && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="ml-auto"
-                  onClick={() => appendScreens(selectedScreens)}
-                  disabled={loading !== null || chatBusy}
-                  title="既存プレビューを保持したまま、選択した画面を追加します（既存画面は作り直しません）"
-                >
-                  選択を既存に追記（{selectedScreens.length}）
-                </Button>
+                <span className="ml-auto text-base-content/60">
+                  {selectedScreens.length < nav.length
+                    ? "↑「プレビュー再生成」で選択画面だけ作り直し（他は保持）"
+                    : "↑「プレビュー再生成」で全画面を作り直し"}
+                </span>
               )}
             </div>
           )}

@@ -166,7 +166,7 @@ function placeholder(componentName: string, label: string): string {
   return `function ${componentName}() {
   return (
     <Page title="${label.replace(/"/g, "")}">
-      <div className="alert alert-warning">この画面はうまく生成できませんでした。「選択を既存に追記」で再生成できます。</div>
+      <div className="alert alert-warning">この画面はうまく生成できませんでした。「未生成だけ選択」→「プレビュー再生成」で作り直せます（他の画面は保持されます）。</div>
     </Page>
   );
 }`;

@@ -325,6 +325,26 @@ export const prototypes = pgTable("prototypes", {
   demoUrl: text("demo_url"),
   /** AWS エンジンで生成した自己完結 HTML プレビュー（保存・再読込用） */
   html: text("html"),
+  /**
+   * DSエンジンの画面別ソース（部分再生成の非破壊マージ用）。
+   * 選択画面だけを作り直し、残りはこの保存ソースを再利用して全画面のHTMLを再構築する。
+   */
+  dsScreens: jsonb("ds_screens").$type<
+    {
+      label: string;
+      componentName: string;
+      source: string;
+      failed: boolean;
+      parent?: string | null;
+    }[]
+  >(),
+  /**
+   * DSエンジンの daisyUI テーマ（AI生成）。部分再生成では作り直さず再利用して
+   * 配色の一貫性を保ち、テーマ生成のLLM呼び出し（数十秒）を省く。
+   */
+  dsTheme: jsonb("ds_theme").$type<
+    import("@/lib/prototype-ds/shell").DaisyTheme
+  >(),
   deploymentUrl: text("deployment_url"),
   githubRepoUrl: text("github_repo_url"),
   status: text("status").notNull().default("pending"),

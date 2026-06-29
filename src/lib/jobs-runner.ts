@@ -7,7 +7,11 @@
  * そのまま再利用する。
  */
 import { extractHtmlFromText } from "@/lib/api-client";
-import type { LlmProvider } from "@/lib/ai/catalog";
+import {
+  DEFAULT_PROVIDER,
+  FAST_MODEL,
+  type LlmProvider,
+} from "@/lib/ai/catalog";
 import { generateDeck } from "@/lib/ai/deck";
 import { runPipelineParallel, STEP_ROLES } from "@/lib/ai/pipeline";
 import {
@@ -30,7 +34,9 @@ import { generateScreenComponent } from "@/lib/prototype-ds/generate-screen";
 import { generateDaisyTheme } from "@/lib/prototype-ds/generate-theme";
 import { buildDsHtml } from "@/lib/prototype-ds/shell";
 import {
+  type DsScreenRecord,
   getProjectWithArtifacts,
+  getPrototypeDsState,
   saveDeck,
   saveDesignRequest,
   saveStepResult,
@@ -152,6 +158,8 @@ interface PrototypePayload extends PrototypeContext {
   mode?: "create" | "update" | "realize" | "continue";
   instruction?: string;
   currentHtml?: string;
+  /** DS画面/テーマ生成に基準モデル（高品質・低速）を使う。未指定/false なら高速モデル。 */
+  dsUseBaseModel?: boolean;
 }
 
 async function runPrototypeJob(job: JobRow): Promise<void> {
@@ -293,10 +301,50 @@ async function runDsPrototypeJob(
     .join("\n");
 
   const total = navItems.length;
-  const done: string[] = [];
-  await updateJobProgress(job.id, { screens: [], totalScreens: total });
 
-  // ブランドから完全 daisyUI テーマを並列生成（あれば全体の配色に反映）。
+  // DSは「骨格=コード固定／各画面=小さな自己完結コンポーネント」設計なので、
+  // 既定では画面・テーマ生成に高速モデル（FAST_MODEL）を使ってレイテンシを大きく下げる。
+  // 構造崩れは骨格側が防ぎ、稀な生成失敗はプレースホルダ＋部分再生成で回復できる。
+  // dsUseBaseModel=true のときは品質優先で基準モデル（client が選んだ p.modelId）を使う。
+  const dsProvider: LlmProvider = p.provider ?? DEFAULT_PROVIDER;
+  const dsModelId =
+    p.dsUseBaseModel && p.modelId ? p.modelId : FAST_MODEL[dsProvider];
+
+  // 非破壊マージ: 既存の画面別ソース＋テーマを読み、再生成しない画面はこれを再利用する。
+  // 初回や AWS 由来でソース未保存なら null（その場合は全画面を生成＝破壊は起きない）。
+  const prevState = await getPrototypeDsState(job.ownerId, job.projectId);
+  const prev = prevState?.screens ?? null;
+  const prevTheme = prevState?.theme ?? null;
+  const prevByLabel = new Map<string, DsScreenRecord>();
+  for (const s of prev ?? []) prevByLabel.set(s.label, s);
+
+  // 再生成対象の集合。selectedScreens 未指定なら全再生成（null）。
+  // 親が選ばれていれば配下のリーフも対象に含める（page 側の展開と同じ）。
+  const selected = p.selectedScreens?.length
+    ? new Set(p.selectedScreens)
+    : null;
+  const shouldRegen = (leaf: {
+    label: string;
+    parent?: string | null;
+  }): boolean => {
+    if (!prevByLabel.has(leaf.label)) return true; // 未保存は必ず作る（破壊しない）
+    if (selected === null) return true; // 全再生成
+    return (
+      selected.has(leaf.label) ||
+      (leaf.parent != null && selected.has(leaf.parent))
+    );
+  };
+
+  // ライブ進捗には「揃っている画面」を出す。再利用ぶんは即時に表示する。
+  const done: string[] = navItems
+    .filter((n) => !shouldRegen(n))
+    .map((n) => n.label);
+  await updateJobProgress(job.id, { screens: [...done], totalScreens: total });
+
+  // 部分再生成（一部画面のみ選択）で既存テーマがあれば、それを再利用する。
+  // → 配色の一貫性を保ち、テーマ生成のLLM呼び出し（数十秒）を省いて高速化する。
+  // 全再生成（selected===null）や初回・テーマ未保存なら従来どおりブランドから生成。
+  const reuseTheme = selected !== null && prevTheme != null;
   const brandCtx = [
     `# アプリ: ${p.projectName ?? ""}`,
     p.brand?.brandName ? `# ブランド名: ${p.brand.brandName}` : "",
@@ -311,43 +359,70 @@ async function runDsPrototypeJob(
   ]
     .filter(Boolean)
     .join("\n");
-  const themePromise = p.brand?.palette?.primary
-    ? generateDaisyTheme({
-        context: brandCtx,
-        provider: p.provider,
-        modelId: p.modelId,
-      })
-    : Promise.resolve(null);
+  const themePromise = reuseTheme
+    ? Promise.resolve(prevTheme)
+    : p.brand?.palette?.primary
+      ? generateDaisyTheme({
+          context: brandCtx,
+          provider: dsProvider,
+          modelId: dsModelId,
+        })
+      : Promise.resolve(null);
 
-  const [results, theme] = await Promise.all([
+  // 各リーフを「再生成 or 既存ソース再利用」で解決し、全画面の union を作る。
+  // componentName は union のインデックスで採番し直す（並び替えに強い）。再利用ソースは
+  // 保存時の関数名を新しい componentName に置換してから流用する。
+  const [screensOut, theme] = await Promise.all([
     Promise.all(
-    navItems.map((item, i) => {
-      const nav = item as {
-        label: string;
-        screenType?: string | null;
-        targetObject?: string | null;
-      };
-      const screenCtx =
-        baseContext +
-        `\n# 対象画面: ${nav.label}` +
-        (nav.screenType ? `（${nav.screenType}）` : "") +
-        (nav.targetObject ? ` / 主対象オブジェクト: ${nav.targetObject}` : "");
-      return generateScreenComponent({
-        label: nav.label,
-        componentName: `Screen${i}`,
-        context: screenCtx,
-        provider: p.provider,
-        modelId: p.modelId,
-      }).then((r) => {
+      navItems.map(async (item, i): Promise<DsScreenRecord> => {
+        const nav = item as {
+          label: string;
+          parent?: string | null;
+          screenType?: string | null;
+          targetObject?: string | null;
+        };
+        const componentName = `Screen${i}`;
+        // 再利用: 生成済みの保存ソースを流用（関数名だけ採番に合わせる）。
+        if (!shouldRegen(nav)) {
+          const stored = prevByLabel.get(nav.label)!;
+          return {
+            label: nav.label,
+            componentName,
+            source: renameComponent(
+              stored.source,
+              stored.componentName,
+              componentName,
+            ),
+            failed: stored.failed,
+            parent: nav.parent ?? null,
+          };
+        }
+        const screenCtx =
+          baseContext +
+          `\n# 対象画面: ${nav.label}` +
+          (nav.screenType ? `（${nav.screenType}）` : "") +
+          (nav.targetObject ? ` / 主対象オブジェクト: ${nav.targetObject}` : "");
+        const r = await generateScreenComponent({
+          label: nav.label,
+          componentName,
+          context: screenCtx,
+          provider: dsProvider,
+          modelId: dsModelId,
+        });
         done.push(r.label);
         // 進捗のライブ表示（並列のため競合し得るが、最終は completeJob で確定）
         void updateJobProgress(job.id, {
           screens: [...done],
           totalScreens: total,
         });
-        return r;
-      });
-    }),
+        return {
+          label: r.label,
+          componentName: r.componentName,
+          source: r.source,
+          failed: !r.ok,
+          parent: nav.parent ?? null,
+        };
+      }),
     ),
     themePromise,
   ]);
@@ -362,20 +437,36 @@ async function runDsPrototypeJob(
       parent: n.parent ?? null,
       icon: n.icon ?? null,
     })),
-    screens: results.map((r) => ({
-      label: r.label,
-      componentName: r.componentName,
-      source: r.source,
-      failed: !r.ok,
+    screens: screensOut.map((s) => ({
+      label: s.label,
+      componentName: s.componentName,
+      source: s.source,
+      failed: s.failed,
     })),
   });
-  const failedScreens = results.filter((r) => !r.ok).map((r) => r.label);
-  await savePrototype(job.ownerId, job.projectId, { html });
+  const failedScreens = screensOut.filter((s) => s.failed).map((s) => s.label);
+  // html・画面別ソース・テーマを一緒に保存（次回の部分再生成でマージ元に使う）。
+  await savePrototype(job.ownerId, job.projectId, {
+    html,
+    dsScreens: screensOut,
+    dsTheme: theme,
+  });
   await completeJob(
     job.id,
     { html, engine: "ds", failedScreens },
-    { chars: html.length, screens: results.map((r) => r.label), totalScreens: total },
+    {
+      chars: html.length,
+      screens: screensOut.map((s) => s.label),
+      totalScreens: total,
+    },
   );
+}
+
+/** 保存ソースの関数名（旧 componentName）を新しい componentName に置換する。
+ *  componentName は英数字のみ（Screen+index）なので識別子境界で安全に置換できる。 */
+function renameComponent(source: string, from: string, to: string): string {
+  if (from === to) return source;
+  return source.replace(new RegExp(`\\b${from}\\b`, "g"), to);
 }
 
 interface BriefPayload {
