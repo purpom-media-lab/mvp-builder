@@ -39,11 +39,14 @@ Approach B / Phase 1（生ノード生成・選択テーマの塗り）。設計
 各画面はサイドバー（`navigation` から）＋ navbar ＋ コンテンツ（sections を順に描画）のアプリシェルで構成。
 ブランドトークン（`ExportBundle.brand.light/dark/paletteOptions`）を塗りに適用する。
 
-## 制限（Phase 1）/ 次の予定（Phase 2）
+## フェーズ状況
 
-- Phase 1 は **生ノード＋ダミーデータ**（テーブル行などはサンプル値）。実データ埋め込みは対象外。
-- Phase 2: **Figma Variables**（light/dark/3案のモード切替）＋ **コンポーネントライブラリ化**（Button/Badge/Card 等を Variant 化してインスタンス配置）。
-- Phase 2: app 側の短命トークン認可＋ CORS で **URL 直接取得**を有効化。
+- **Phase 1**: 生ノード＋ダミーデータで画面生成（ペースト方式）。
+- **Phase 2（実装済み）**:
+  - **Figma Variables**（`LeanQuest/Theme` コレクション）= Light / Dark / 各パレット案を**モード切替**で一括テーマ変更（生成後に塗り/線/文字色をトークンへバインド）。
+  - **コンポーネント化** = Button / Badge をマスター化し、各所でインスタンス配置（色・ラベル上書き）。
+  - **URL 直接取得** = 短命トークン付き URL を「URL」欄に貼ると取得→生成→生成後に Figma URL を Studio へ自動保存（callback）。
+- **今後**: Input/Select/Card 等のコンポーネント化＆ Variant 行列、実データ埋め込み、既存ファイルへの差分同期。
 
 ## 検証メモ
 

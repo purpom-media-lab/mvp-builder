@@ -466,6 +466,32 @@ export default function DesignRequestPage() {
     }
   }
 
+  // Figma用URLをコピー（Phase 2）: 短命トークン付き URL を発行。プラグインの
+  // 「URL」欄に貼って取得→生成すると、生成後に figmaUrl が自動でここへ保存される。
+  async function copyExportUrl() {
+    if (!id) return;
+    setExporting(true);
+    setExportMsg(null);
+    try {
+      const res = await fetch(`/api/export/figma/${id}/token`);
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(j.error ?? `HTTP ${res.status}`);
+      }
+      const { url } = (await res.json()) as { url: string };
+      await navigator.clipboard.writeText(url);
+      setExportMsg(
+        "Figma用URLをコピーしました（1時間有効）。プラグインの「URL」欄に貼り付けて「取得」→生成すると、生成後に Figma URL が自動で保存されます。",
+      );
+    } catch (e) {
+      setExportMsg(
+        "URL発行に失敗: " + (e instanceof Error ? e.message : String(e)),
+      );
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const statusLabel =
     status === "received"
       ? "成果物受領済み"
@@ -727,20 +753,30 @@ export default function DesignRequestPage() {
           </div>
 
           <div className="fieldset space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
-            <Button
-              variant="outline"
-              onClick={copyExportBundle}
-              disabled={exporting || !id}
-            >
-              {exporting ? (
-                <>
-                  <Spinner className="h-3.5 w-3.5" />
-                  取得中…
-                </>
-              ) : (
-                "🎨 ExportBundle をコピー"
-              )}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                onClick={copyExportBundle}
+                disabled={exporting || !id}
+              >
+                {exporting ? (
+                  <>
+                    <Spinner className="h-3.5 w-3.5" />
+                    取得中…
+                  </>
+                ) : (
+                  "🎨 ExportBundle をコピー"
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={copyExportUrl}
+                disabled={exporting || !id}
+                title="短命トークン付きURLを発行。プラグインのURL欄に貼ると、生成後にFigma URLが自動保存されます。"
+              >
+                🔗 Figma用URLをコピー
+              </Button>
+            </div>
             {exportMsg && (
               <p className="text-xs text-base-content/70">{exportMsg}</p>
             )}

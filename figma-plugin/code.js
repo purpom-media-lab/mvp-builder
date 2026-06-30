@@ -9,13 +9,17 @@
 figma.showUI(__html__, { width: 380, height: 470 });
 
 let C = null; // 現在のテーマトークン（buildAll で設定）
+let vars = null; // トークン名→Variable（テーマ切替用。Phase 2）
+let byHex = null; // 選択テーマの HEX→トークン名（生成後のバインド用）
+let comps = null; // 再利用コンポーネント（Button/Badge）。buildComponentLibrary で設定
 
 figma.ui.onmessage = async (msg) => {
   if (msg.type !== "generate") return;
   try {
     const n = await buildAll(msg.bundle, msg.theme);
     figma.notify(`${n} 画面を生成しました`);
-    figma.ui.postMessage({ type: "done", count: n });
+    // fileKey を返すと、UI 側がトークン URL 由来のとき callback で figmaUrl を保存できる。
+    figma.ui.postMessage({ type: "done", count: n, fileKey: figma.fileKey });
   } catch (e) {
     figma.ui.postMessage({ type: "error", message: (e && e.message) || String(e) });
   }
@@ -36,10 +40,14 @@ const T = (chars, o) => { o = o || {}; const t = figma.createText(); t.fontName 
 const fieldBox = (ph, w) => { const f = rowf("field", 8); f.fills = solid(C.base100); f.strokes = solid(C.base300); f.strokeWeight = 1; f.cornerRadius = 8; f.counterAxisAlignItems = "CENTER"; f.paddingLeft = 12; f.paddingRight = 12; f.resize(w, 38); f.appendChild(T(ph, { size: 13, opacity: 0.45 })); return f; };
 const selBox = (ph, w) => { const f = rowf("select", 0); f.fills = solid(C.base100); f.strokes = solid(C.base300); f.strokeWeight = 1; f.cornerRadius = 8; f.counterAxisAlignItems = "CENTER"; f.primaryAxisAlignItems = "SPACE_BETWEEN"; f.paddingLeft = 12; f.paddingRight = 10; f.resize(w, 38); f.appendChild(T(ph, { size: 13, opacity: 0.78 })); f.appendChild(T("▾", { size: 11, opacity: 0.5 })); return f; };
 const inpBox = (v, w) => { const f = rowf("inp", 8); f.fills = solid(C.base100); f.strokes = solid(C.base300); f.strokeWeight = 1; f.cornerRadius = 8; f.counterAxisAlignItems = "CENTER"; f.paddingLeft = 12; f.paddingRight = 12; f.resize(w, 40); f.appendChild(T(v, { size: 14 })); return f; };
-const btn = (label) => { const b = rowf("btn", 8); b.fills = solid(C.primary); b.cornerRadius = 8; b.counterAxisAlignItems = "CENTER"; b.primaryAxisAlignItems = "CENTER"; b.paddingLeft = 18; b.paddingRight = 18; b.resize(10, 40); b.primaryAxisSizingMode = "AUTO"; b.appendChild(T(label, { size: 14, style: "Medium", color: "#FFFFFF" })); return b; };
+const btnRaw = (label) => { const b = rowf("btn", 8); b.fills = solid(C.primary); b.cornerRadius = 8; b.counterAxisAlignItems = "CENTER"; b.primaryAxisAlignItems = "CENTER"; b.paddingLeft = 18; b.paddingRight = 18; b.resize(10, 40); b.primaryAxisSizingMode = "AUTO"; b.appendChild(T(label, { size: 14, style: "Medium", color: "#FFFFFF" })); return b; };
+// コンポーネントがあればインスタンス化（ラベル上書き）、無ければ素のフレーム。
+const btn = (label) => { if (comps && comps.btnC) { try { const i = comps.btnC.createInstance(); const t = i.findOne((n) => n.type === "TEXT"); if (t) t.characters = label; return i; } catch (e) {} } return btnRaw(label); };
 const obtn = (label) => { const b = rowf("obtn", 8); b.fills = []; b.strokes = solid(C.base300); b.strokeWeight = 1; b.cornerRadius = 8; b.counterAxisAlignItems = "CENTER"; b.primaryAxisAlignItems = "CENTER"; b.paddingLeft = 16; b.paddingRight = 16; b.resize(10, 40); b.primaryAxisSizingMode = "AUTO"; b.appendChild(T(label, { size: 14, style: "Medium", opacity: 0.85 })); return b; };
 const toggle = (on) => { const t = rowf("toggle", 0); t.fills = solid(on ? C.primary : C.base300); t.cornerRadius = 999; t.paddingLeft = 2; t.paddingRight = 2; t.counterAxisAlignItems = "CENTER"; t.primaryAxisAlignItems = on ? "MAX" : "MIN"; t.resize(44, 24); const k = figma.createEllipse(); k.resize(20, 20); k.fills = solid("#FFFFFF"); t.appendChild(k); return t; };
-const badge = (text, c) => { const b = rowf("badge", 0); b.fills = solid(c, 0.16); b.cornerRadius = 999; b.counterAxisAlignItems = "CENTER"; b.primaryAxisAlignItems = "CENTER"; b.paddingLeft = 10; b.paddingRight = 10; b.paddingTop = 3; b.paddingBottom = 3; b.resize(10, 10); b.primaryAxisSizingMode = "AUTO"; b.counterAxisSizingMode = "AUTO"; b.appendChild(T(text, { size: 12, style: "Medium", color: c })); return b; };
+const badgeRaw = (text, c) => { const b = rowf("badge", 0); b.fills = solid(c, 0.16); b.cornerRadius = 999; b.counterAxisAlignItems = "CENTER"; b.primaryAxisAlignItems = "CENTER"; b.paddingLeft = 10; b.paddingRight = 10; b.paddingTop = 3; b.paddingBottom = 3; b.resize(10, 10); b.primaryAxisSizingMode = "AUTO"; b.counterAxisSizingMode = "AUTO"; b.appendChild(T(text, { size: 12, style: "Medium", color: c })); return b; };
+// コンポーネントがあればインスタンス化（色・ラベルを上書き）、無ければ素のフレーム。
+const badge = (text, c) => { if (comps && comps.bdgC) { try { const i = comps.bdgC.createInstance(); i.fills = solid(c, 0.16); const t = i.findOne((n) => n.type === "TEXT"); if (t) { t.characters = text; t.fills = solid(c); } return i; } catch (e) {} } return badgeRaw(text, c); };
 const sectionCard = (title) => { const c = col("card", 12); c.fills = solid(C.base100); c.strokes = solid(C.base300); c.strokeWeight = 1; c.cornerRadius = 16; c.paddingTop = 20; c.paddingBottom = 20; c.paddingLeft = 20; c.paddingRight = 20; c.resize(100, 1); c.primaryAxisSizingMode = "AUTO"; c.counterAxisSizingMode = "FIXED"; if (title) c.appendChild(T(title, { size: 15, style: "Bold" })); return c; };
 const cellBox = (w, node, head) => { const c = rowf("cell", 0); c.counterAxisAlignItems = "CENTER"; c.paddingLeft = 14; c.paddingRight = 10; c.paddingTop = head ? 10 : 12; c.paddingBottom = head ? 10 : 12; c.resize(w, head ? 40 : 48); c.appendChild(node); return c; };
 
@@ -257,12 +265,101 @@ function pickTokens(bundle, key) {
   return bundle.brand.light;
 }
 
+// ---- テーマ Variables（Phase 2: Light/Dark/各パレット案のモード切替） ----
+const TOKENS = ["primary", "secondary", "accent", "neutral", "base100", "base200", "base300", "content"];
+const scopeFor = (k) => (k.indexOf("base") === 0 ? ["FRAME_FILL", "SHAPE_FILL", "STROKE_COLOR"] : k === "content" ? ["TEXT_FILL"] : ["FRAME_FILL", "SHAPE_FILL", "TEXT_FILL", "STROKE_COLOR"]);
+
+// LeanQuest/Theme コレクションを作り、Light/Dark/各パレット案をモードとして登録。
+// 返り値: { coll, modeIds:{light,dark,opts:[...]}, selectedModeId }
+function setupTheme(bundle, themeKey) {
+  const coll = figma.variables.createVariableCollection("LeanQuest/Theme");
+  const lightMode = coll.modes[0].modeId;
+  coll.renameMode(lightMode, "Light");
+  const darkMode = coll.addMode("Dark");
+  const opts = bundle.brand.paletteOptions || [];
+  const optModes = opts.map((o, i) => coll.addMode((o.name || ("案" + (i + 1))).slice(0, 40)));
+  vars = {};
+  for (const k of TOKENS) {
+    const v = figma.variables.createVariable(k, coll, "COLOR");
+    v.scopes = scopeFor(k);
+    v.setValueForMode(lightMode, hexToRgb(bundle.brand.light[k]));
+    v.setValueForMode(darkMode, hexToRgb(bundle.brand.dark[k]));
+    opts.forEach((o, i) => v.setValueForMode(optModes[i], hexToRgb((o.tokens || bundle.brand.light)[k])));
+    vars[k] = v;
+  }
+  let selectedModeId = lightMode;
+  if (themeKey === "dark") selectedModeId = darkMode;
+  else if (themeKey && themeKey.indexOf("opt:") === 0) selectedModeId = optModes[+themeKey.slice(4)] || lightMode;
+  return { coll, selectedModeId };
+}
+
+// 生成済みノードの塗り/線/文字色のうち、選択テーマのトークンに一致するものを
+// Variable バインドに置き換える（モード切替で一括テーマ変更できるようにする）。
+function colorHex(c) {
+  const f = (x) => Math.round(x * 255).toString(16).padStart(2, "0");
+  return ("#" + f(c.r) + f(c.g) + f(c.b)).toUpperCase();
+}
+const TEXT_BINDABLE = { content: 1, primary: 1, accent: 1, secondary: 1 };
+function rebindPaints(paints, isText) {
+  let changed = false;
+  const out = paints.map((p) => {
+    if (p.type !== "SOLID") return p;
+    const name = byHex[colorHex(p.color)];
+    if (!name) return p;
+    if (isText && !TEXT_BINDABLE[name]) return p; // 文字は文字色トークンのみ（白文字=base100 を誤バインドしない）
+    changed = true;
+    const base = { type: "SOLID", color: { r: 0, g: 0, b: 0 }, opacity: p.opacity == null ? 1 : p.opacity };
+    return figma.variables.setBoundVariableForPaint(base, "color", vars[name]);
+  });
+  return changed ? out : null;
+}
+function bindThemeVariables(node) {
+  if (!vars || !byHex) return;
+  if ("fills" in node && Array.isArray(node.fills) && node.fills.length) {
+    const nf = rebindPaints(node.fills, node.type === "TEXT");
+    if (nf) node.fills = nf;
+  }
+  if ("strokes" in node && Array.isArray(node.strokes) && node.strokes.length) {
+    const ns = rebindPaints(node.strokes, false);
+    if (ns) node.strokes = ns;
+  }
+  if ("children" in node) for (const ch of node.children) bindThemeVariables(ch);
+}
+
+// ---- コンポーネントライブラリ（Phase 2 ②: Button/Badge をマスター化して再利用） ----
+// マスターは画面の左外（負の x）に置き、各 section レンダラはインスタンスを配置する。
+function buildComponentLibrary() {
+  const btnC = figma.createComponent();
+  btnC.name = "LQ/Button"; btnC.layoutMode = "HORIZONTAL"; btnC.primaryAxisSizingMode = "AUTO"; btnC.counterAxisSizingMode = "AUTO"; btnC.counterAxisAlignItems = "CENTER"; btnC.cornerRadius = 8; btnC.paddingTop = 10; btnC.paddingBottom = 10; btnC.paddingLeft = 18; btnC.paddingRight = 18; btnC.fills = solid(C.primary); btnC.x = -760; btnC.y = 0;
+  const bl = T("Button", { size: 14, style: "Medium", color: "#FFFFFF" }); bl.name = "label"; btnC.appendChild(bl);
+
+  const bdgC = figma.createComponent();
+  bdgC.name = "LQ/Badge"; bdgC.layoutMode = "HORIZONTAL"; bdgC.primaryAxisSizingMode = "AUTO"; bdgC.counterAxisSizingMode = "AUTO"; bdgC.counterAxisAlignItems = "CENTER"; bdgC.cornerRadius = 999; bdgC.paddingTop = 3; bdgC.paddingBottom = 3; bdgC.paddingLeft = 10; bdgC.paddingRight = 10; bdgC.fills = solid(C.primary, 0.16); bdgC.x = -760; bdgC.y = 80;
+  const bl2 = T("Badge", { size: 12, style: "Medium", color: C.primary }); bl2.name = "label"; bdgC.appendChild(bl2);
+
+  return { btnC, bdgC };
+}
+
 async function buildAll(bundle, themeKey) {
   for (const s of ["Regular", "Medium", "Bold"]) await figma.loadFontAsync({ family: "Noto Sans JP", style: s });
   C = pickTokens(bundle, themeKey);
+  // 再利用コンポーネントを用意（失敗しても素のフレームにフォールバック）。
+  try { comps = buildComponentLibrary(); } catch (e) { comps = null; }
+  // 選択テーマの HEX→トークン名（生成後バインド用）。
+  byHex = {};
+  for (const k of TOKENS) byHex[String(C[k]).toUpperCase()] = k;
+  // テーマ Variables を用意（失敗してもフォールバックで素の塗りのまま続行）。
+  let theme = null;
+  try { theme = setupTheme(bundle, themeKey); } catch (e) { vars = null; }
   const made = [];
   let x = 0;
   for (const screen of bundle.screens) { made.push(buildScreen(bundle, screen, x)); x += 1520; }
+  // 生成後にテーマトークンを Variable へバインドし、各画面を選択モードにする。
+  if (theme && vars) {
+    for (const sc of made) {
+      try { bindThemeVariables(sc); sc.setExplicitVariableModeForCollection(theme.coll, theme.selectedModeId); } catch (e) {}
+    }
+  }
   if (made.length) { figma.currentPage.selection = made; figma.viewport.scrollAndZoomIntoView(made); }
   return made.length;
 }
