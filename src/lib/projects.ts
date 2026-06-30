@@ -5,6 +5,7 @@
  */
 import { and, count, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { db } from "@/lib/db";
+import type { DaisyTheme } from "@/lib/prototype-ds/shell";
 import {
   actors,
   backendSpecs,
@@ -58,6 +59,15 @@ export type StepKey =
   | "kpi"
   | "growth"
   | "brand";
+
+/** DSエンジンの画面別ソース1件（部分再生成の非破壊マージ用）。 */
+export type DsScreenRecord = {
+  label: string;
+  componentName: string;
+  source: string;
+  failed: boolean;
+  parent?: string | null;
+};
 
 /** 所有権チェック（無ければ null） */
 async function getOwnedProject(ownerId: string, projectId: string) {
@@ -597,6 +607,8 @@ export async function savePrototype(
     v0ChatId?: string | null;
     demoUrl?: string | null;
     html?: string | null;
+    dsScreens?: DsScreenRecord[] | null;
+    dsTheme?: DaisyTheme | null;
   },
 ) {
   const owned = await getOwnedProject(ownerId, projectId);
@@ -612,6 +624,12 @@ export async function savePrototype(
   const demoUrl =
     data.demoUrl !== undefined ? data.demoUrl : (existing?.demoUrl ?? null);
   const html = data.html !== undefined ? data.html : (existing?.html ?? null);
+  const dsScreens =
+    data.dsScreens !== undefined
+      ? data.dsScreens
+      : (existing?.dsScreens ?? null);
+  const dsTheme =
+    data.dsTheme !== undefined ? data.dsTheme : (existing?.dsTheme ?? null);
 
   await db.delete(prototypes).where(eq(prototypes.projectId, projectId));
   const [row] = await db
@@ -621,6 +639,8 @@ export async function savePrototype(
       v0ChatId,
       demoUrl,
       html,
+      dsScreens,
+      dsTheme,
       status: demoUrl ? "hosted" : html ? "preview-ready" : "failed",
     })
     .returning();
@@ -752,6 +772,24 @@ export async function projectExists(projectId: string): Promise<boolean> {
     .from(projects)
     .where(eq(projects.id, projectId));
   return Boolean(row);
+}
+
+/**
+ * DSエンジンの保存済み状態（画面別ソース＋テーマ）を読む（部分再生成のマージ元）。
+ * 選択画面だけ作り直し・残りのソースとテーマを再利用するために使う。
+ * 所有権が無いなら null。
+ */
+export async function getPrototypeDsState(
+  ownerId: string,
+  projectId: string,
+): Promise<{ screens: DsScreenRecord[] | null; theme: DaisyTheme | null } | null> {
+  const owned = await getOwnedProject(ownerId, projectId);
+  if (!owned) return null;
+  const [row] = await db
+    .select({ dsScreens: prototypes.dsScreens, dsTheme: prototypes.dsTheme })
+    .from(prototypes)
+    .where(eq(prototypes.projectId, projectId));
+  return { screens: row?.dsScreens ?? null, theme: row?.dsTheme ?? null };
 }
 
 /**
