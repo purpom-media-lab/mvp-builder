@@ -538,3 +538,25 @@ export const jobs = pgTable(
   },
   (t) => [index("jobs_project_status_idx").on(t.projectId, t.status)],
 );
+
+/**
+ * Vercel OAuth 連携（ビルダー利用者ごとに1行）。
+ *
+ * 各ビルダー利用者が自分の Vercel アカウント/チームを連携し、生成した MVP を
+ * 「自分の Vercel」に公開できるようにするための per-user トークン保管。
+ * access_token は平文で保存せず AES-256-GCM で暗号化して持つ（src/lib/crypto.ts）。
+ */
+export const vercelConnections = pgTable("vercel_connections", {
+  // Better Auth user.id（1ユーザー1連携なので PK 兼）
+  ownerId: text("owner_id").primaryKey(),
+  // AES-256-GCM 暗号化済みアクセストークン（iv:tag:cipher の base64）
+  accessTokenEnc: text("access_token_enc").notNull(),
+  // 連携先チーム（null=personal アカウント）
+  teamId: text("team_id"),
+  // インストール識別子（configurationId）。連携解除や再連携の突合に使う。
+  installationId: text("installation_id"),
+  // 表示用の Vercel ユーザー識別（ハンドル/ID など。任意）
+  vercelUser: text("vercel_user"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});

@@ -9,6 +9,7 @@ import { getSessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { projects, prototypes } from "@/lib/db/schema";
 import { publishProject } from "@/lib/handoff";
+import { getDecryptedToken } from "@/lib/vercel-oauth";
 
 export const runtime = "nodejs";
 
@@ -36,10 +37,14 @@ export async function POST(
     .from(prototypes)
     .where(eq(prototypes.projectId, id));
 
+  // 連携済みなら、その利用者の Vercel に公開する（未連携は共有 VERCEL_TOKEN にフォールバック）。
+  const vercel = await getDecryptedToken(user.id);
+
   const result = await publishProject({
     projectName: project.name,
     html: existing?.html ?? null,
     demoUrl: existing?.demoUrl ?? null,
+    vercel,
   });
 
   const now = new Date();
