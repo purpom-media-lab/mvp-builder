@@ -38,6 +38,7 @@ export async function POST(
 
   const result = await publishProject({
     projectName: project.name,
+    html: existing?.html ?? null,
     demoUrl: existing?.demoUrl ?? null,
   });
 
