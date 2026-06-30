@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      :root { --p:#6B8FA3; --bd:#e5e6e6; --ink:#1f2937; }
+      * { box-sizing: border-box; }
+      body { font: 12px -apple-system, "Noto Sans JP", sans-serif; color: var(--ink); margin: 0; padding: 14px; }
+      h1 { font-size: 13px; margin: 0 0 2px; }
+      p.sub { margin: 0 0 12px; color: #6b7280; font-size: 11px; }
+      label { display: block; font-weight: 600; margin: 10px 0 4px; }
+      textarea { width: 100%; height: 130px; resize: vertical; border: 1px solid var(--bd); border-radius: 8px; padding: 8px; font: 11px ui-monospace, monospace; }
+      input[type=text] { width: 100%; border: 1px solid var(--bd); border-radius: 8px; padding: 8px; font-size: 12px; }
+      .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+      select { border: 1px solid var(--bd); border-radius: 8px; padding: 7px 8px; font-size: 12px; }
+      button { background: var(--p); color: #fff; border: 0; border-radius: 8px; padding: 10px 14px; font-weight: 600; cursor: pointer; }
+      button.secondary { background: #fff; color: var(--ink); border: 1px solid var(--bd); }
+      button:disabled { opacity: .5; cursor: default; }
+      .actions { display: flex; gap: 8px; margin-top: 14px; }
+      .status { margin-top: 10px; font-size: 11px; min-height: 14px; }
+      .status.err { color: #ef4444; }
+      .status.ok { color: #16a34a; }
+      .hint { color: #9ca3af; font-size: 10px; margin-top: 4px; }
+    </style>
+  </head>
+  <body>
+    <h1>Lean Quest → Figma Export</h1>
+    <p class="sub">ExportBundle をこの Figma ファイルに画面として生成します。</p>
+
+    <label>① ExportBundle JSON を貼り付け</label>
+    <textarea id="json" placeholder='Studio の「Figmaに書き出す」で取得した JSON、または GET /api/export/figma/:projectId の応答を貼り付け'></textarea>
+    <div class="hint">または ↓ の URL から取得（公開/トークン化されたエンドポイントのみ・Phase2）</div>
+    <div class="row" style="margin-top:6px">
+      <input type="text" id="url" placeholder="http://localhost:3000/api/export/figma/<projectId>?token=..." />
+      <button class="secondary" id="fetch">取得</button>
+    </div>
+
+    <label>② テーマ</label>
+    <div class="row">
+      <select id="theme">
+        <option value="light">ライト（採用パレット）</option>
+        <option value="dark">ダーク</option>
+        <option value="opt:0">パレット案 1</option>
+        <option value="opt:1">パレット案 2</option>
+        <option value="opt:2">パレット案 3</option>
+      </select>
+    </div>
+
+    <div class="actions">
+      <button id="generate" disabled>Figmaに生成</button>
+    </div>
+    <div class="status" id="status"></div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      let bundle = null;
+
+      function setBundle(text) {
+        try {
+          bundle = JSON.parse(text);
+          if (!bundle || !Array.isArray(bundle.screens)) throw new Error("screens がありません");
+          $("generate").disabled = false;
+          $("status").className = "status ok";
+          $("status").textContent = `読み込みOK：${bundle.screens.length} 画面 / ${(bundle.meta && bundle.meta.productName) || ""}`;
+        } catch (e) {
+          bundle = null;
+          $("generate").disabled = true;
+          $("status").className = "status err";
+          $("status").textContent = "JSON の解析に失敗：" + e.message;
+        }
+      }
+
+      $("json").addEventListener("input", (e) => { if (e.target.value.trim()) setBundle(e.target.value.trim()); });
+
+      $("fetch").addEventListener("click", async () => {
+        const url = $("url").value.trim();
+        if (!url) return;
+        $("status").className = "status";
+        $("status").textContent = "取得中…";
+        try {
+          const res = await fetch(url, { headers: { Accept: "application/json" } });
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          const text = await res.text();
+          $("json").value = text;
+          setBundle(text);
+        } catch (e) {
+          $("status").className = "status err";
+          $("status").textContent = "取得失敗：" + e.message + "（セッション認証のエンドポイントはペースト方式を使ってください）";
+        }
+      });
+
+      $("generate").addEventListener("click", () => {
+        if (!bundle) return;
+        $("generate").disabled = true;
+        $("status").className = "status";
+        $("status").textContent = "生成中…";
+        parent.postMessage({ pluginMessage: { type: "generate", bundle, theme: $("theme").value } }, "*");
+      });
+
+      onmessage = (e) => {
+        const m = e.data.pluginMessage;
+        if (!m) return;
+        if (m.type === "done") {
+          $("status").className = "status ok";
+          $("status").textContent = `${m.count} 画面を生成しました 🎉`;
+          $("generate").disabled = false;
+        } else if (m.type === "error") {
+          $("status").className = "status err";
+          $("status").textContent = "エラー：" + m.message;
+          $("generate").disabled = false;
+        }
+      };
+    </script>
+  </body>
+</html>
