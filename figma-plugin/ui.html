@@ -54,6 +54,7 @@
     <script>
       const $ = (id) => document.getElementById(id);
       let bundle = null;
+      let lastUrl = null; // URL 取得で使った URL（token を含む。callback 用）
 
       function setBundle(text) {
         try {
@@ -82,6 +83,7 @@
           if (!res.ok) throw new Error("HTTP " + res.status);
           const text = await res.text();
           $("json").value = text;
+          lastUrl = url;
           setBundle(text);
         } catch (e) {
           $("status").className = "status err";
@@ -97,6 +99,29 @@
         parent.postMessage({ pluginMessage: { type: "generate", bundle, theme: $("theme").value } }, "*");
       });
 
+      // 生成元が token 付き URL のときは、生成した Figma ファイルの URL を Studio に保存する。
+      function maybePostback(fileKey) {
+        try {
+          if (!lastUrl || !fileKey) return;
+          const u = new URL(lastUrl);
+          const token = u.searchParams.get("token");
+          if (!token) return;
+          const callbackUrl =
+            u.origin + u.pathname.replace(/\/+$/, "") + "/callback";
+          const figmaUrl = "https://www.figma.com/design/" + fileKey;
+          fetch(callbackUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token, figmaUrl }),
+          })
+            .then((r) => {
+              if (r.ok)
+                $("status").textContent += " / Studio に Figma URL を保存しました";
+            })
+            .catch(() => {});
+        } catch (e) {}
+      }
+
       onmessage = (e) => {
         const m = e.data.pluginMessage;
         if (!m) return;
@@ -104,6 +129,7 @@
           $("status").className = "status ok";
           $("status").textContent = `${m.count} 画面を生成しました 🎉`;
           $("generate").disabled = false;
+          maybePostback(m.fileKey);
         } else if (m.type === "error") {
           $("status").className = "status err";
           $("status").textContent = "エラー：" + m.message;

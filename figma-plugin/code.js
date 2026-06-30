@@ -15,7 +15,8 @@ figma.ui.onmessage = async (msg) => {
   try {
     const n = await buildAll(msg.bundle, msg.theme);
     figma.notify(`${n} 画面を生成しました`);
-    figma.ui.postMessage({ type: "done", count: n });
+    // fileKey を返すと、UI 側がトークン URL 由来のとき callback で figmaUrl を保存できる。
+    figma.ui.postMessage({ type: "done", count: n, fileKey: figma.fileKey });
   } catch (e) {
     figma.ui.postMessage({ type: "error", message: (e && e.message) || String(e) });
   }
