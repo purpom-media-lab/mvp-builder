@@ -133,6 +133,10 @@ export default function DesignRequestPage() {
   const [pdfData, setPdfData] = useState<string | null>(null);
   const [note, setNote] = useState("");
 
+  // Figmaに書き出す（ExportBundle をコピー → プラグインに貼り付け）
+  const [exporting, setExporting] = useState(false);
+  const [exportMsg, setExportMsg] = useState<string | null>(null);
+
   // リファイン結果
   const [refinedHtml, setRefinedHtml] = useState<string | null>(null);
   const [refinedDemoUrl, setRefinedDemoUrl] = useState<string | null>(null);
@@ -436,6 +440,32 @@ export default function DesignRequestPage() {
     }
   }
 
+  // Figmaに書き出す: ExportBundle を取得してクリップボードにコピー（プラグインに貼り付ける）。
+  async function copyExportBundle() {
+    if (!id) return;
+    setExporting(true);
+    setExportMsg(null);
+    try {
+      const res = await fetch(`/api/export/figma/${id}`);
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(j.error ?? `HTTP ${res.status}`);
+      }
+      const json = await res.text();
+      await navigator.clipboard.writeText(json);
+      const data = JSON.parse(json) as { screens?: unknown[] };
+      setExportMsg(
+        `コピーしました（${data.screens?.length ?? 0} 画面）。Figma の「Lean Quest → Figma Export」プラグインに貼り付けて生成してください。`,
+      );
+    } catch (e) {
+      setExportMsg(
+        "取得に失敗: " + (e instanceof Error ? e.message : String(e)),
+      );
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const statusLabel =
     status === "received"
       ? "成果物受領済み"
@@ -680,6 +710,45 @@ export default function DesignRequestPage() {
                 )}
               </div>
             )}
+          </div>
+        </section>
+
+        {/* Figmaに書き出す（プラグインで自分で生成） */}
+        <section className="space-y-4">
+          <div>
+            <h2 className="font-heading text-base font-bold">Figmaに書き出す</h2>
+            <p className="text-xs text-base-content/70">
+              ブランド配色のワイヤー（一覧・詳細・ダッシュボード・フォーム等）を
+              Figma に生成します。下のボタンで ExportBundle をコピーし、Figma の
+              「Lean Quest → Figma Export」プラグインに貼り付けて生成してください。
+              生成した Figma の URL を下の「Figma URL」に貼ると、そのまま
+              ブラッシュアップにも使えます。
+            </p>
+          </div>
+
+          <div className="fieldset space-y-3 rounded-box border border-base-300 bg-base-100 p-4">
+            <Button
+              variant="outline"
+              onClick={copyExportBundle}
+              disabled={exporting || !id}
+            >
+              {exporting ? (
+                <>
+                  <Spinner className="h-3.5 w-3.5" />
+                  取得中…
+                </>
+              ) : (
+                "🎨 ExportBundle をコピー"
+              )}
+            </Button>
+            {exportMsg && (
+              <p className="text-xs text-base-content/70">{exportMsg}</p>
+            )}
+            <p className="text-xs text-base-content/50">
+              プラグイン未導入の場合は <code>figma-plugin/README.md</code>{" "}
+              の手順で読み込めます（Plugins → Development → Import plugin from
+              manifest）。
+            </p>
           </div>
         </section>
 
