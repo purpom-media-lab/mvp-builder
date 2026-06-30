@@ -979,7 +979,7 @@ export default function PrototypePage() {
                 onClick={hostPrototype}
                 disabled={loading !== null || chatBusy}
               >
-                {loading === "host" ? "ホスティング中…" : "ホスティング"}
+                {loading === "host" ? "ホスティング中…" : "モックをホスティング"}
               </Button>
               {html && (
                 <a
@@ -988,7 +988,7 @@ export default function PrototypePage() {
                   rel="noreferrer"
                   className={buttonVariants({ variant: "outline", size: "sm" })}
                 >
-                  公開URLを開く ↗
+                  MVPを構築して開く ↗
                 </a>
               )}
               <Link
