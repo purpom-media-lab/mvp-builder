@@ -1,0 +1,12 @@
+{
+  "name": "Lean Quest → Figma Export",
+  "id": "lean-quest-figma-export",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": ["http://localhost:3000", "https://*.vercel.app"],
+    "reasoning": "Lean Quest アプリの /api/export/figma エンドポイントから ExportBundle を取得するため（Phase2のトークン認可で有効化）。Phase1 は JSON ペースト方式のため通常はネットワーク不要。"
+  }
+}
