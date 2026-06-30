@@ -9,6 +9,8 @@
 figma.showUI(__html__, { width: 380, height: 470 });
 
 let C = null; // 現在のテーマトークン（buildAll で設定）
+let vars = null; // トークン名→Variable（テーマ切替用。Phase 2）
+let byHex = null; // 選択テーマの HEX→トークン名（生成後のバインド用）
 
 figma.ui.onmessage = async (msg) => {
   if (msg.type !== "generate") return;
@@ -258,12 +260,85 @@ function pickTokens(bundle, key) {
   return bundle.brand.light;
 }
 
+// ---- テーマ Variables（Phase 2: Light/Dark/各パレット案のモード切替） ----
+const TOKENS = ["primary", "secondary", "accent", "neutral", "base100", "base200", "base300", "content"];
+const scopeFor = (k) => (k.indexOf("base") === 0 ? ["FRAME_FILL", "SHAPE_FILL", "STROKE_COLOR"] : k === "content" ? ["TEXT_FILL"] : ["FRAME_FILL", "SHAPE_FILL", "TEXT_FILL", "STROKE_COLOR"]);
+
+// LeanQuest/Theme コレクションを作り、Light/Dark/各パレット案をモードとして登録。
+// 返り値: { coll, modeIds:{light,dark,opts:[...]}, selectedModeId }
+function setupTheme(bundle, themeKey) {
+  const coll = figma.variables.createVariableCollection("LeanQuest/Theme");
+  const lightMode = coll.modes[0].modeId;
+  coll.renameMode(lightMode, "Light");
+  const darkMode = coll.addMode("Dark");
+  const opts = bundle.brand.paletteOptions || [];
+  const optModes = opts.map((o, i) => coll.addMode((o.name || ("案" + (i + 1))).slice(0, 40)));
+  vars = {};
+  for (const k of TOKENS) {
+    const v = figma.variables.createVariable(k, coll, "COLOR");
+    v.scopes = scopeFor(k);
+    v.setValueForMode(lightMode, hexToRgb(bundle.brand.light[k]));
+    v.setValueForMode(darkMode, hexToRgb(bundle.brand.dark[k]));
+    opts.forEach((o, i) => v.setValueForMode(optModes[i], hexToRgb((o.tokens || bundle.brand.light)[k])));
+    vars[k] = v;
+  }
+  let selectedModeId = lightMode;
+  if (themeKey === "dark") selectedModeId = darkMode;
+  else if (themeKey && themeKey.indexOf("opt:") === 0) selectedModeId = optModes[+themeKey.slice(4)] || lightMode;
+  return { coll, selectedModeId };
+}
+
+// 生成済みノードの塗り/線/文字色のうち、選択テーマのトークンに一致するものを
+// Variable バインドに置き換える（モード切替で一括テーマ変更できるようにする）。
+function colorHex(c) {
+  const f = (x) => Math.round(x * 255).toString(16).padStart(2, "0");
+  return ("#" + f(c.r) + f(c.g) + f(c.b)).toUpperCase();
+}
+const TEXT_BINDABLE = { content: 1, primary: 1, accent: 1, secondary: 1 };
+function rebindPaints(paints, isText) {
+  let changed = false;
+  const out = paints.map((p) => {
+    if (p.type !== "SOLID") return p;
+    const name = byHex[colorHex(p.color)];
+    if (!name) return p;
+    if (isText && !TEXT_BINDABLE[name]) return p; // 文字は文字色トークンのみ（白文字=base100 を誤バインドしない）
+    changed = true;
+    const base = { type: "SOLID", color: { r: 0, g: 0, b: 0 }, opacity: p.opacity == null ? 1 : p.opacity };
+    return figma.variables.setBoundVariableForPaint(base, "color", vars[name]);
+  });
+  return changed ? out : null;
+}
+function bindThemeVariables(node) {
+  if (!vars || !byHex) return;
+  if ("fills" in node && Array.isArray(node.fills) && node.fills.length) {
+    const nf = rebindPaints(node.fills, node.type === "TEXT");
+    if (nf) node.fills = nf;
+  }
+  if ("strokes" in node && Array.isArray(node.strokes) && node.strokes.length) {
+    const ns = rebindPaints(node.strokes, false);
+    if (ns) node.strokes = ns;
+  }
+  if ("children" in node) for (const ch of node.children) bindThemeVariables(ch);
+}
+
 async function buildAll(bundle, themeKey) {
   for (const s of ["Regular", "Medium", "Bold"]) await figma.loadFontAsync({ family: "Noto Sans JP", style: s });
   C = pickTokens(bundle, themeKey);
+  // 選択テーマの HEX→トークン名（生成後バインド用）。
+  byHex = {};
+  for (const k of TOKENS) byHex[String(C[k]).toUpperCase()] = k;
+  // テーマ Variables を用意（失敗してもフォールバックで素の塗りのまま続行）。
+  let theme = null;
+  try { theme = setupTheme(bundle, themeKey); } catch (e) { vars = null; }
   const made = [];
   let x = 0;
   for (const screen of bundle.screens) { made.push(buildScreen(bundle, screen, x)); x += 1520; }
+  // 生成後にテーマトークンを Variable へバインドし、各画面を選択モードにする。
+  if (theme && vars) {
+    for (const sc of made) {
+      try { bindThemeVariables(sc); sc.setExplicitVariableModeForCollection(theme.coll, theme.selectedModeId); } catch (e) {}
+    }
+  }
   if (made.length) { figma.currentPage.selection = made; figma.viewport.scrollAndZoomIntoView(made); }
   return made.length;
 }
