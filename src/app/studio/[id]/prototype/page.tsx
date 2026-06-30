@@ -1023,7 +1023,7 @@ export default function PrototypePage() {
                   onClick={publishHandoff}
                   disabled={loading !== null || chatBusy}
                 >
-                  {loading === "publish" ? "引き継ぎ中…" : "公開・引き継ぎ"}
+                  {loading === "publish" ? "Vercelに公開中…" : "Vercelに公開"}
                 </Button>
                 {publish?.status === "not-configured" && (
                   <span className="badge badge-warning badge-soft badge-sm whitespace-nowrap">
