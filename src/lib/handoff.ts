@@ -43,20 +43,24 @@ function toVercelProjectName(name: string): string {
   return slug || "lean-quest-mvp";
 }
 
+const VERCEL_API = "https://api.vercel.com";
+function teamQs(): string {
+  const teamId = process.env.VERCEL_TEAM_ID;
+  return teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
+}
+
 /**
- * 単一の HTML を Vercel に **preview** デプロイし、公開URL（`https://xxxx.vercel.app`）を返す。
+ * 単一の HTML を Vercel に **preview** デプロイし、公開URLと projectId を返す。
  * production ではなく preview（一意URL）にして、誤って本番を上書きしないようにする。
  */
 async function deployStaticHtmlToVercel(
   projectName: string,
   html: string,
-): Promise<string> {
+): Promise<{ url: string; projectId: string | null }> {
   const token = process.env.VERCEL_TOKEN;
-  const teamId = process.env.VERCEL_TEAM_ID;
   if (!token) throw new Error("VERCEL_TOKEN が未設定です");
 
-  const qs = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
-  const res = await fetch(`https://api.vercel.com/v13/deployments${qs}`, {
+  const res = await fetch(`${VERCEL_API}/v13/deployments${teamQs()}`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -72,6 +76,7 @@ async function deployStaticHtmlToVercel(
 
   const data = (await res.json().catch(() => ({}))) as {
     url?: string;
+    projectId?: string;
     error?: { message?: string };
   };
   if (!res.ok) {
@@ -81,7 +86,43 @@ async function deployStaticHtmlToVercel(
   }
   const url = data?.url;
   if (!url) throw new Error("Vercel からデプロイ URL が返りませんでした");
-  return url.startsWith("http") ? url : `https://${url}`;
+  return {
+    url: url.startsWith("http") ? url : `https://${url}`,
+    projectId: data?.projectId ?? null,
+  };
+}
+
+/**
+ * 公開MVPを誰でも閲覧できるよう、当該プロジェクトの Deployment Protection
+ * （Vercel Authentication）をオフにする。チーム既定で保護されているため、
+ * 書き出した MVP プロジェクト単位で解除する（他プロジェクトには影響しない）。
+ * 組織ポリシーで解除不可の場合はエラーになる（呼び出し側で best-effort 扱い）。
+ */
+async function disableDeploymentProtection(
+  projectIdOrName: string,
+): Promise<void> {
+  const token = process.env.VERCEL_TOKEN;
+  if (!token) throw new Error("VERCEL_TOKEN が未設定です");
+  const res = await fetch(
+    `${VERCEL_API}/v9/projects/${encodeURIComponent(projectIdOrName)}${teamQs()}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      // ssoProtection=null で Vercel Authentication を無効化（＝公開）
+      body: JSON.stringify({ ssoProtection: null }),
+    },
+  );
+  if (!res.ok) {
+    const d = (await res.json().catch(() => ({}))) as {
+      error?: { message?: string };
+    };
+    throw new Error(
+      d?.error?.message ?? `保護解除に失敗しました (HTTP ${res.status})`,
+    );
+  }
 }
 
 /**
@@ -115,12 +156,25 @@ export async function publishProject(
   }
 
   try {
-    const deploymentUrl = await deployStaticHtmlToVercel(args.projectName, html);
+    const { url, projectId } = await deployStaticHtmlToVercel(
+      args.projectName,
+      html,
+    );
+    // チーム既定の Deployment Protection を、この MVP プロジェクトだけ解除して公開化。
+    // 解除できない場合（組織ポリシー等）はデプロイ自体は成功なので警告付きで返す。
+    let note = "";
+    try {
+      await disableDeploymentProtection(projectId ?? toVercelProjectName(args.projectName));
+    } catch (e) {
+      note =
+        "（注意: アクセス保護を自動解除できませんでした。URL は Vercel ログインが必要なままです。Team Settings → Deployment Protection をご確認ください）" +
+        (e instanceof Error ? ` [${e.message}]` : "");
+    }
     return {
       githubRepoUrl: null,
-      deploymentUrl,
+      deploymentUrl: url,
       status: "published",
-      message: "Vercel に公開しました。",
+      message: "Vercel に公開しました。" + note,
     };
   } catch (e) {
     return {
