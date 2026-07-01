@@ -167,6 +167,16 @@ export default function PrototypePage() {
     message: string;
   } | null>(null);
 
+  // Vercel 連携（ユーザー所有アカウントへの公開）の状態。
+  const [vercelConn, setVercelConn] = useState<{
+    configured: boolean;
+    connected: boolean;
+    teamId: string | null;
+    vercelUser: string | null;
+  } | null>(null);
+  // 連携往復（connect→callback→戻り）の結果メッセージ。
+  const [vercelNotice, setVercelNotice] = useState<string | null>(null);
+
   const [loading, setLoading] = useState<string | null>(null);
   // チャット busy は loading とは別管理（共用すると生成 loading を上書きしてしまう）
   const [chatBusy, setChatBusy] = useState(false);
@@ -231,6 +241,46 @@ export default function PrototypePage() {
       cancelled = true;
     };
   }, [id]);
+
+  // Vercel 連携状態の取得＋連携往復の戻り（?vercel=connected|error）の処理。
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      // callback からの戻りを通知し、URL から ?vercel= を取り除く
+      try {
+        const sp = new URLSearchParams(window.location.search);
+        const v = sp.get("vercel");
+        if (v) {
+          if (!cancelled)
+            setVercelNotice(
+              v === "connected"
+                ? "Vercel を連携しました。"
+                : "Vercel 連携に失敗しました。もう一度お試しください。",
+            );
+          sp.delete("vercel");
+          const qs = sp.toString();
+          window.history.replaceState(
+            {},
+            "",
+            window.location.pathname + (qs ? `?${qs}` : ""),
+          );
+        }
+      } catch {
+        // no-op
+      }
+      try {
+        const res = await fetch(`/api/integrations/vercel/status`);
+        if (!res.ok) return;
+        const d = await res.json();
+        if (!cancelled) setVercelConn(d);
+      } catch {
+        // 取得失敗時は連携 UI を出さない（null のまま）
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // 基準モデルと工程ごとのモデル設定を localStorage から復元
   useEffect(() => {
@@ -616,6 +666,32 @@ export default function PrototypePage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "公開・引き継ぎに失敗しました");
       setPublish(data);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "エラー");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  // Vercel を連携する（自分の Vercel に公開できるようにする）。
+  // connect → Vercel 承認 → callback → このページに ?vercel=connected で戻る。
+  function connectVercel() {
+    const returnTo = window.location.pathname;
+    window.location.href = `/api/integrations/vercel/connect?returnTo=${encodeURIComponent(
+      returnTo,
+    )}`;
+  }
+
+  // Vercel 連携を解除する。
+  async function disconnectVercel() {
+    setLoading("vercel-disconnect");
+    try {
+      const res = await fetch(`/api/integrations/vercel`, { method: "DELETE" });
+      if (!res.ok) throw new Error("解除に失敗しました");
+      setVercelConn((p) =>
+        p ? { ...p, connected: false, teamId: null, vercelUser: null } : p,
+      );
+      setVercelNotice("Vercel 連携を解除しました。");
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラー");
     } finally {
@@ -1031,6 +1107,44 @@ export default function PrototypePage() {
                   </span>
                 )}
               </span>
+
+              {/* Vercel 連携: 自分の Vercel アカウントに公開できるようにする。
+                  env 未設定（configured=false）のときは導線を出さない。 */}
+              {vercelConn?.configured && (
+                <span className="inline-flex items-center gap-1.5 border-l pl-2">
+                  {vercelConn.connected ? (
+                    <>
+                      <span className="badge badge-success badge-soft badge-sm whitespace-nowrap">
+                        Vercel 連携済み
+                        {vercelConn.teamId ? `（${vercelConn.teamId}）` : ""}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={disconnectVercel}
+                        disabled={loading !== null || chatBusy}
+                      >
+                        {loading === "vercel-disconnect" ? "解除中…" : "解除"}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={connectVercel}
+                      disabled={loading !== null || chatBusy}
+                    >
+                      Vercel を連携
+                    </Button>
+                  )}
+                </span>
+              )}
+
+              {vercelNotice && (
+                <span className="w-full text-xs text-base-content/70">
+                  {vercelNotice}
+                </span>
+              )}
             </div>
           )}
 

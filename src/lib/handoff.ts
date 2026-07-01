@@ -17,10 +17,18 @@ export type HandoffResult = {
   message: string;
 };
 
+/** 公開に使う Vercel 認証情報（per-user OAuth トークン or 共有トークン）。 */
+export type VercelCreds = { token: string; teamId: string | null };
+
 export type PublishProjectArgs = {
   projectName: string;
   html?: string | null;
   demoUrl?: string | null;
+  /**
+   * 公開先の Vercel 認証情報。指定があればそのユーザーの Vercel に公開する。
+   * 未指定なら共有の VERCEL_TOKEN（env）にフォールバックする。
+   */
+  vercel?: VercelCreds | null;
 };
 
 /** GitHub 連携が設定済みか（トークンの有無で判定。現状は未使用＝Vercel 単体公開） */
@@ -44,9 +52,21 @@ function toVercelProjectName(name: string): string {
 }
 
 const VERCEL_API = "https://api.vercel.com";
-function teamQs(): string {
-  const teamId = process.env.VERCEL_TEAM_ID;
+function teamQs(teamId: string | null): string {
   return teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
+}
+
+/**
+ * 公開に使う認証情報を解決する。
+ * 1. 引数で per-user トークンが渡されていればそれを使う（＝ユーザー所有アカウント）。
+ * 2. 無ければ共有の VERCEL_TOKEN（env）にフォールバック。
+ * 3. どちらも無ければ null（未設定）。
+ */
+function resolveCreds(injected?: VercelCreds | null): VercelCreds | null {
+  if (injected?.token) return injected;
+  const token = process.env.VERCEL_TOKEN;
+  if (token) return { token, teamId: process.env.VERCEL_TEAM_ID ?? null };
+  return null;
 }
 
 /**
@@ -56,14 +76,12 @@ function teamQs(): string {
 async function deployStaticHtmlToVercel(
   projectName: string,
   html: string,
+  creds: VercelCreds,
 ): Promise<{ url: string; projectId: string | null }> {
-  const token = process.env.VERCEL_TOKEN;
-  if (!token) throw new Error("VERCEL_TOKEN が未設定です");
-
-  const res = await fetch(`${VERCEL_API}/v13/deployments${teamQs()}`, {
+  const res = await fetch(`${VERCEL_API}/v13/deployments${teamQs(creds.teamId)}`, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${creds.token}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -100,15 +118,14 @@ async function deployStaticHtmlToVercel(
  */
 async function disableDeploymentProtection(
   projectIdOrName: string,
+  creds: VercelCreds,
 ): Promise<void> {
-  const token = process.env.VERCEL_TOKEN;
-  if (!token) throw new Error("VERCEL_TOKEN が未設定です");
   const res = await fetch(
-    `${VERCEL_API}/v9/projects/${encodeURIComponent(projectIdOrName)}${teamQs()}`,
+    `${VERCEL_API}/v9/projects/${encodeURIComponent(projectIdOrName)}${teamQs(creds.teamId)}`,
     {
       method: "PATCH",
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${creds.token}`,
         "Content-Type": "application/json",
       },
       // ssoProtection=null で Vercel Authentication を無効化（＝公開）
@@ -134,13 +151,14 @@ async function disableDeploymentProtection(
 export async function publishProject(
   args: PublishProjectArgs,
 ): Promise<HandoffResult> {
-  if (!isVercelConfigured()) {
+  const creds = resolveCreds(args.vercel);
+  if (!creds) {
     return {
       githubRepoUrl: null,
       deploymentUrl: null,
       status: "not-configured",
       message:
-        "VERCEL_TOKEN が未設定のため、Vercel 公開はスキップされました（.env.local に設定してください）。",
+        "Vercel が未連携です。先に「Vercel を連携」してから公開してください（または共有 VERCEL_TOKEN を .env.local に設定）。",
     };
   }
 
@@ -159,12 +177,16 @@ export async function publishProject(
     const { url, projectId } = await deployStaticHtmlToVercel(
       args.projectName,
       html,
+      creds,
     );
     // チーム既定の Deployment Protection を、この MVP プロジェクトだけ解除して公開化。
     // 解除できない場合（組織ポリシー等）はデプロイ自体は成功なので警告付きで返す。
     let note = "";
     try {
-      await disableDeploymentProtection(projectId ?? toVercelProjectName(args.projectName));
+      await disableDeploymentProtection(
+        projectId ?? toVercelProjectName(args.projectName),
+        creds,
+      );
     } catch (e) {
       note =
         "（注意: アクセス保護を自動解除できませんでした。URL は Vercel ログインが必要なままです。Team Settings → Deployment Protection をご確認ください）" +
