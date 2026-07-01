@@ -35,13 +35,16 @@ export function isVercelOAuthConfigured(): boolean {
 }
 
 /**
- * Vercel のインテグレーション・インストールURL。ユーザーはここでチームを選んで承認する。
+ * Vercel のインテグレーション・インストール(ライブ)URL。ユーザーはここでチームを選んで承認する。
  * 承認後、設定済みの Redirect URL に code/configurationId/teamId 付きで戻ってくる。
+ *
+ * NOTE: 旧 `/integrations/<slug>/new`（OAuth2 エントリポイント）は 2022 年に廃止され 404 になる。
+ * 現行のライブURLは `/integrations/<slug>`（Integrations Console の「View Integration」と同じ）。
  */
 export function buildInstallUrl(state: string): string {
   const slug = getIntegrationSlug();
   if (!slug) throw new Error("VERCEL_INTEGRATION_SLUG is not set");
-  const u = new URL(`https://vercel.com/integrations/${slug}/new`);
+  const u = new URL(`https://vercel.com/integrations/${slug}`);
   u.searchParams.set("state", state);
   return u.toString();
 }
