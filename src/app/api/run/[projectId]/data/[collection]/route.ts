@@ -2,11 +2,11 @@
  * 「本実装」ランタイム・データAPI（公開・ビルダー認証なし）。
  *
  * projectId + collection スコープで共有テーブル `mvp_records` を読み書きする。
- * 同一オリジン配信なので CORS は不要だが、公開エンドポイントなので
- * projectId 実在チェック / collection サニタイズ / data バリデーション（型・サイズ）
- * を必ず行う。
+ * ユーザーの Vercel 等の別オリジンから呼ばれうるため CORS を許可している（src/proxy.ts）。
+ * 公開エンドポイントなので projectId 実在チェック / collection サニタイズ /
+ * data バリデーション（型・サイズ）を必ず行う。
  *
- * 注意: 現状エンドユーザー認証は無い（ownerKey は匿名ブラウザID）。Phase2 で追加予定。
+ * 認可は Authorization: Bearer（認証時）または匿名 ownerKey。Cookie は使わない。
  */
 import { NextResponse } from "next/server";
 import { authedUserId } from "@/lib/mvp-auth";

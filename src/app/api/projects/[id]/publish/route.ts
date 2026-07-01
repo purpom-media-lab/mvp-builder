@@ -9,9 +9,27 @@ import { getSessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { projects, prototypes } from "@/lib/db/schema";
 import { publishProject } from "@/lib/handoff";
+import { injectRuntimeSdk } from "@/lib/mvp-runtime";
 import { getDecryptedToken } from "@/lib/vercel-oauth";
 
 export const runtime = "nodejs";
+
+/**
+ * ビルダー（BaaS）の絶対オリジンを決める。別オリジン（ユーザーの Vercel）へ配信した
+ * MVP から `/api/run/*` を叩くために、SDK に埋め込む絶対URLの基点となる。
+ * NEXT_PUBLIC_APP_URL 優先、無ければリクエストのホストから導出。
+ */
+function resolveAppOrigin(req: Request): string {
+  const env = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (env) return env.replace(/\/+$/, "");
+  const h = req.headers;
+  const host = h.get("x-forwarded-host") ?? h.get("host");
+  if (!host) return "";
+  const proto =
+    h.get("x-forwarded-proto") ??
+    (host.startsWith("localhost") ? "http" : "https");
+  return `${proto}://${host}`;
+}
 
 export async function POST(
   req: Request,
@@ -40,9 +58,17 @@ export async function POST(
   // 連携済みなら、その利用者の Vercel に公開する（未連携は共有 VERCEL_TOKEN にフォールバック）。
   const vercel = await getDecryptedToken(user.id);
 
+  // 別オリジン（ユーザーの Vercel）で配信されるため、SDK/ウィジェットの API 呼び出しを
+  // ビルダーの絶対URLに向けて注入する（/api/run/* は CORS 許可済み）。
+  // これで公開先が別ドメインでもデータ保存・認証・アップロード・フィードバックが動く。
+  const appOrigin = resolveAppOrigin(req);
+  const html = existing?.html
+    ? injectRuntimeSdk(existing.html, id, appOrigin)
+    : null;
+
   const result = await publishProject({
     projectName: project.name,
-    html: existing?.html ?? null,
+    html,
     demoUrl: existing?.demoUrl ?? null,
     vercel,
   });
