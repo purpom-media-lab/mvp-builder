@@ -4,15 +4,19 @@
  * プロト画面の右下にフローティングボタンを出し、開くと JTBD インタビューの
  * チャットパネルが立ち上がる。匿名の回答者ごとに respondentId(localStorage) を割り、
  * 公開 API `/api/run/{projectId}/interview` と往復する。React に依存しないバニラ JS。
+ *
+ * apiOrigin: 別オリジン（ユーザーの Vercel 等）配信時に API をビルダーの絶対URLへ
+ * 向けるためのオリジン。省略時は相対パス＝同一オリジン配信（/run）。
  */
-export function buildFeedbackWidget(projectId: string): string {
+export function buildFeedbackWidget(projectId: string, apiOrigin = ""): string {
   const pid = JSON.stringify(projectId);
+  const origin = JSON.stringify(apiOrigin.replace(/\/+$/, ""));
   const GREETING =
     "試していただきありがとうございます！少しだけ感想を聞かせてください。まず、どんな場面でこれを使いたい / あったら便利だと思いましたか？";
   const greeting = JSON.stringify(GREETING);
   return `(function(){
   var PROJECT_ID = ${pid};
-  var URL = "/api/run/" + PROJECT_ID + "/interview";
+  var URL = ${origin} + "/api/run/" + PROJECT_ID + "/interview";
   var RID_KEY = "lq_respondent_id";
   var GREETING = ${greeting};
 

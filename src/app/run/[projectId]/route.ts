@@ -5,8 +5,7 @@
  * 注入して text/html で返す。ビルダー自身が各 MVP をホストする共有マルチテナント構成。
  * 所有者チェックは不要（公開ホスティング）。
  */
-import { buildFeedbackWidget } from "@/lib/feedback-widget";
-import { buildRuntimeSdk } from "@/lib/mvp-runtime";
+import { injectRuntimeSdk } from "@/lib/mvp-runtime";
 import { loadPrototypeHtmlPublic } from "@/lib/projects";
 
 export const runtime = "nodejs";
@@ -22,25 +21,6 @@ function htmlResponse(html: string, status = 200): Response {
       "cache-control": "no-store",
     },
   });
-}
-
-/** SDK の <script> を </head> 直前（無ければ </body>、それも無ければ末尾）に注入する。 */
-function injectSdk(html: string, projectId: string): string {
-  // ランタイム SDK（head 寄り）＋ フィードバックウィジェット（body 末尾で DOM 構築）。
-  const sdkTag = `<script>\n${buildRuntimeSdk(projectId)}\n</script>`;
-  const widgetTag = `<script>\n${buildFeedbackWidget(projectId)}\n</script>`;
-  let out = html;
-  const headClose = out.match(/<\/head>/i);
-  if (headClose) {
-    out = out.replace(/<\/head>/i, `${sdkTag}\n</head>`);
-  } else {
-    out = `${sdkTag}\n${out}`;
-  }
-  const bodyClose = out.match(/<\/body>/i);
-  if (bodyClose) {
-    return out.replace(/<\/body>/i, `${widgetTag}\n</body>`);
-  }
-  return `${out}\n${widgetTag}`;
 }
 
 const NOT_READY_PAGE = (message: string) => `<!DOCTYPE html>
@@ -77,5 +57,6 @@ export async function GET(_req: Request, { params }: Ctx) {
       200,
     );
   }
-  return htmlResponse(injectSdk(html, projectId), 200);
+  // 同一オリジン配信なので apiOrigin は空（相対パス）。
+  return htmlResponse(injectRuntimeSdk(html, projectId), 200);
 }

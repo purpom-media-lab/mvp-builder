@@ -14,6 +14,7 @@
 import { and, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { mvpRecords } from "@/lib/db/schema";
+import { buildFeedbackWidget } from "@/lib/feedback-widget";
 
 /** data(JSON) の最大サイズ（バイト相当・JSON文字列長で判定）。 */
 export const MAX_DATA_BYTES = 100 * 1024; // 100KB
@@ -177,14 +178,20 @@ export async function deleteRecord(
  *
  * projectId は UUID（route 側で実在チェック済み）のみが渡る前提だが、
  * 念のため JSON.stringify で安全に埋め込む（XSS/ブレイクアウト防止）。
+ *
+ * apiOrigin: 別オリジン（ユーザーの Vercel 等）に配信する場合に、API 呼び出しを
+ * ビルダーの絶対URLへ向けるためのオリジン（例 "https://builder.example.com"）。
+ * 省略（"" ）時は相対パス＝同一オリジン配信（/run のビルダーホスティング）。
  */
-export function buildRuntimeSdk(projectId: string): string {
+export function buildRuntimeSdk(projectId: string, apiOrigin = ""): string {
   const pid = JSON.stringify(projectId);
+  const origin = JSON.stringify(apiOrigin.replace(/\/+$/, ""));
   return `(function(){
   var PROJECT_ID = ${pid};
-  var BASE = "/api/run/" + PROJECT_ID + "/data/";
-  var AUTH_BASE = "/api/run/" + PROJECT_ID + "/auth/";
-  var UPLOAD_URL = "/api/run/" + PROJECT_ID + "/upload";
+  var API_ORIGIN = ${origin};
+  var BASE = API_ORIGIN + "/api/run/" + PROJECT_ID + "/data/";
+  var AUTH_BASE = API_ORIGIN + "/api/run/" + PROJECT_ID + "/auth/";
+  var UPLOAD_URL = API_ORIGIN + "/api/run/" + PROJECT_ID + "/upload";
   var TOKEN_KEY = "lq_token";
   var userCache; // /me のキャッシュ（undefined=未取得, null=未ログイン）
 
@@ -294,4 +301,31 @@ export function buildRuntimeSdk(projectId: string): string {
 
   window.LQ = { db: db, auth: auth, storage: storage, projectId: PROJECT_ID };
 })();`;
+}
+
+/**
+ * プロトタイプ HTML に LQ ランタイム SDK ＋ フィードバックウィジェットの <script> を注入する。
+ * SDK は `</head>` 直前（無ければ先頭）、ウィジェットは `</body>` 直前（無ければ末尾）に置く。
+ *
+ * apiOrigin を渡すと API 呼び出しを絶対URL（ビルダーオリジン）に向ける。これにより
+ * 別オリジン（ユーザーの Vercel 等）に配信した MVP からもビルダーの BaaS を利用できる。
+ * 省略時は相対パス＝同一オリジン配信（/run のビルダーホスティング）。
+ */
+export function injectRuntimeSdk(
+  html: string,
+  projectId: string,
+  apiOrigin = "",
+): string {
+  const sdkTag = `<script>\n${buildRuntimeSdk(projectId, apiOrigin)}\n</script>`;
+  const widgetTag = `<script>\n${buildFeedbackWidget(projectId, apiOrigin)}\n</script>`;
+  let out = html;
+  if (/<\/head>/i.test(out)) {
+    out = out.replace(/<\/head>/i, `${sdkTag}\n</head>`);
+  } else {
+    out = `${sdkTag}\n${out}`;
+  }
+  if (/<\/body>/i.test(out)) {
+    return out.replace(/<\/body>/i, `${widgetTag}\n</body>`);
+  }
+  return `${out}\n${widgetTag}`;
 }
