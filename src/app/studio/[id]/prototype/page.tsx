@@ -165,6 +165,7 @@ export default function PrototypePage() {
     githubRepoUrl: string | null;
     deploymentUrl: string | null;
     message: string;
+    protectionDisabled?: boolean;
   } | null>(null);
 
   // Vercel 連携（ユーザー所有アカウントへの公開）の状態。
@@ -687,11 +688,18 @@ export default function PrototypePage() {
     setLoading("vercel-disconnect");
     try {
       const res = await fetch(`/api/integrations/vercel`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error("解除に失敗しました");
       setVercelConn((p) =>
         p ? { ...p, connected: false, teamId: null, vercelUser: null } : p,
       );
-      setVercelNotice("Vercel 連携を解除しました。");
+      // uninstalled=false = ビルダー側の連携は解除したが、Vercel 側のアプリは残っている
+      // （Installation スコープが読み取りのみのため）。手動削除の案内を添える。
+      setVercelNotice(
+        data?.uninstalled
+          ? "Vercel 連携を解除しました。"
+          : "ビルダー側の Vercel 連携を解除しました。Vercel 側のアプリは、必要なら Vercel の Settings → Integrations から削除できます。",
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラー");
     } finally {
@@ -1321,6 +1329,36 @@ export default function PrototypePage() {
                   )}
                 </span>
               )}
+
+              {/* 公開できたが保護を自動解除できなかった場合の手動解除ガイド。
+                  OAuth 連携トークンは Vercel Authentication を変更できないため、
+                  保護 ON のチームでは公開URLがログイン必須のまま残る。 */}
+              {publish?.status === "published" &&
+                publish.protectionDisabled === false && (
+                  <div className="alert alert-warning alert-soft w-full text-xs">
+                    <div>
+                      <p className="font-medium">
+                        公開URLはまだ Vercel ログインが必要です（アクセス保護が有効）
+                      </p>
+                      <p className="mt-1 text-base-content/80">
+                        連携トークンでは保護を自動解除できませんでした。誰でも閲覧できるようにするには、Vercel
+                        で対象プロジェクトの{" "}
+                        <span className="font-medium">
+                          Settings → Deployment Protection → Vercel Authentication
+                        </span>{" "}
+                        を Off にしてください。
+                      </p>
+                      <a
+                        href="https://vercel.com/docs/security/deployment-protection"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-1 inline-block text-primary underline"
+                      >
+                        手順を見る（Deployment Protection）
+                      </a>
+                    </div>
+                  </div>
+                )}
             </div>
           )}
 

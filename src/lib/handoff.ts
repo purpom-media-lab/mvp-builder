@@ -15,6 +15,12 @@ export type HandoffResult = {
   deploymentUrl: string | null;
   status: HandoffStatus;
   message: string;
+  /**
+   * status==="published" のとき、アクセス保護（Deployment Protection）を解除できたか。
+   * false = 保護が残っており公開URLは Vercel ログインが必要（UI で手動解除を案内する）。
+   * OAuth 連携トークンは保護設定を変更できないため、保護 ON のチームでは false になる。
+   */
+  protectionDisabled?: boolean;
 };
 
 /** 公開に使う Vercel 認証情報（per-user OAuth トークン or 共有トークン）。 */
@@ -180,7 +186,9 @@ export async function publishProject(
       creds,
     );
     // チーム既定の Deployment Protection を、この MVP プロジェクトだけ解除して公開化。
-    // 解除できない場合（組織ポリシー等）はデプロイ自体は成功なので警告付きで返す。
+    // 解除できない場合（組織ポリシー / OAuth トークンの権限不足等）はデプロイ自体は成功
+    // なので、保護が残っている旨を構造化フラグ + メッセージで返す（UI で手動解除を案内）。
+    let protectionDisabled = true;
     let note = "";
     try {
       await disableDeploymentProtection(
@@ -188,6 +196,7 @@ export async function publishProject(
         creds,
       );
     } catch (e) {
+      protectionDisabled = false;
       note =
         "（注意: アクセス保護を自動解除できませんでした。URL は Vercel ログインが必要なままです。Team Settings → Deployment Protection をご確認ください）" +
         (e instanceof Error ? ` [${e.message}]` : "");
@@ -197,6 +206,7 @@ export async function publishProject(
       deploymentUrl: url,
       status: "published",
       message: "Vercel に公開しました。" + note,
+      protectionDisabled,
     };
   } catch (e) {
     return {

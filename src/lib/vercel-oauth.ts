@@ -235,3 +235,61 @@ export async function deleteConnection(ownerId: string): Promise<void> {
     .delete(vercelConnections)
     .where(eq(vercelConnections.ownerId, ownerId));
 }
+
+/**
+ * Vercel 側の installation（configuration）を削除する。
+ * DELETE /v1/integrations/configuration/{id}（id=installationId, ?teamId）。
+ * 204=成功 / 404=既に無い（成功扱い）。それ以外は例外。best-effort 呼び出し前提。
+ */
+async function uninstallConfiguration(
+  token: string,
+  installationId: string,
+  teamId: string | null,
+): Promise<void> {
+  const qs = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
+  const res = await fetch(
+    `${VERCEL_API}/v1/integrations/configuration/${encodeURIComponent(installationId)}${qs}`,
+    { method: "DELETE", headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!res.ok && res.status !== 404) {
+    throw new Error(`Vercel uninstall に失敗しました (HTTP ${res.status})`);
+  }
+}
+
+/**
+ * 連携解除: Vercel 側の configuration を **best-effort** で uninstall してから DB 行を削除する。
+ * Vercel 側の解除に失敗しても DB 行は必ず消す（ローカルの連携状態を残さない）。
+ * 返り値の uninstalled は Vercel 側の解除が成功したか（表示用）。
+ */
+export async function disconnect(
+  ownerId: string,
+): Promise<{ uninstalled: boolean }> {
+  const [row] = await db
+    .select({
+      accessTokenEnc: vercelConnections.accessTokenEnc,
+      teamId: vercelConnections.teamId,
+      installationId: vercelConnections.installationId,
+    })
+    .from(vercelConnections)
+    .where(eq(vercelConnections.ownerId, ownerId));
+
+  let uninstalled = false;
+  if (row?.installationId) {
+    try {
+      const token = decryptSecret(row.accessTokenEnc);
+      await uninstallConfiguration(
+        token,
+        row.installationId,
+        row.teamId ?? null,
+      );
+      uninstalled = true;
+    } catch {
+      // best-effort: Vercel 側解除に失敗しても DB からは必ず削除する
+    }
+  }
+
+  await db
+    .delete(vercelConnections)
+    .where(eq(vercelConnections.ownerId, ownerId));
+  return { uninstalled };
+}
