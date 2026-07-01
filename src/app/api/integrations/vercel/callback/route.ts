@@ -46,12 +46,16 @@ export async function GET(req: NextRequest) {
   const queryState = url.searchParams.get("state");
   const cookieState = req.cookies.get(OAUTH_STATE_COOKIE)?.value ?? null;
 
-  // CSRF: Cookie と URL の state が一致し、署名・失効・所有者が正しいこと
-  if (!code || !queryState || !cookieState || queryState !== cookieState) {
+  // CSRF 対策の要は「connect が発行した署名付き state Cookie」。
+  // これは HMAC 署名済み・短命・ownerId 埋め込みで、攻撃者は偽造できない。
+  //   - Cookie の署名/失効を検証し、ownerId が現在のセッションと一致すること
+  //   - Vercel が state を返した場合のみ、Cookie と一致するかも追加検証する
+  //     （Vercel のインストールフローは state を返さないことがあるため必須にしない）
+  const verified = verifyState(cookieState);
+  if (!code || !verified || verified.ownerId !== user.id) {
     return backTo(origin, returnTo, "error");
   }
-  const verified = verifyState(queryState);
-  if (!verified || verified.ownerId !== user.id) {
+  if (queryState && queryState !== cookieState) {
     return backTo(origin, returnTo, "error");
   }
 
