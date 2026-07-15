@@ -69,6 +69,14 @@ type Artifacts = NonNullable<
   Awaited<ReturnType<typeof getProjectWithArtifacts>>
 >;
 
+/** 要求された工程を依存順に正規化する。ooui（モデリング）を再実行するときは、
+ *  ナビゲーションを OOUI から自動導出し直すため navigation を必ず後続に含める。 */
+function normalizeSteps(requested: StepKey[]): StepKey[] {
+  const set = new Set(requested);
+  if (set.has("ooui")) set.add("navigation");
+  return STEP_ORDER.filter((s) => set.has(s));
+}
+
 function buildContext(a: Artifacts): string {
   return [
     `# プロジェクト: ${a.project.name}`,
@@ -135,7 +143,7 @@ export async function POST(req: Request) {
 
     // mode=execute: 承認済みの steps を実行（計画ステップを省略）
     if (body.mode === "execute") {
-      const steps = STEP_ORDER.filter((s) => (body.steps ?? []).includes(s));
+      const steps = normalizeSteps(body.steps ?? []);
       const requirement = `\n\n## ユーザーからの変更要望（必ず反映すること）\n${body.message}`;
       const results: Record<string, unknown> = {};
       for (const step of steps) {
@@ -158,8 +166,8 @@ export async function POST(req: Request) {
       modelId: body.modelId,
     });
 
-    // 依存順に正規化
-    const steps = STEP_ORDER.filter((s) => plan.steps.includes(s));
+    // 依存順に正規化（ooui を含むなら navigation を自動追随）
+    const steps = normalizeSteps(plan.steps);
 
     // mode=plan: 計画だけ返して実行しない（承認フロー用）
     if (body.mode === "plan") {

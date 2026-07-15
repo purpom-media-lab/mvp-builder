@@ -182,7 +182,11 @@ ${context}`,
             .describe("UI/画面構成の変更を伴うなら true"),
         }),
         execute: async ({ steps, requirement, regeneratePrototype }) => {
-          const ordered = STEP_ORDER.filter((s) => steps.includes(s));
+          // ooui（モデリング）を再実行するときは、ナビゲーションを OOUI から
+          // 自動導出し直すため navigation を必ず後続に含める。
+          const requested = new Set<StepKey>(steps);
+          if (requested.has("ooui")) requested.add("navigation");
+          const ordered = STEP_ORDER.filter((s) => requested.has(s));
           let ctx = `${context}\n\n## ユーザーからの変更要望（必ず反映すること）\n${requirement}`;
           const results: Record<string, unknown> = {};
           for (const step of ordered) {

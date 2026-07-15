@@ -64,7 +64,8 @@ export const PREF_GROUPS: { label: string; keys: { key: PrefKey; label: string }
     {
       label: "設計",
       keys: [
-        { key: "navigation", label: "ナビゲーション" },
+        // navigation はモデリング(OOUI)更新時に自動導出されるため設定 UI から除外
+        // （モデルは ooui 工程のものを引き継ぐ）。
         { key: "wireframe", label: "ワイヤー" },
         { key: "datamodel", label: "データ設計" },
         { key: "backend", label: "バックエンド" },

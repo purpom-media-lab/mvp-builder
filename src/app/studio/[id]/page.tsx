@@ -100,7 +100,6 @@ const STEPS: { key: StepKey; label: string }[] = [
   { key: "ooui", label: "モデリング" },
   { key: "journey", label: "ジャーニー" },
   { key: "market", label: "市場・競合" },
-  { key: "navigation", label: "ナビゲーション" },
   { key: "wireframe", label: "ワイヤー" },
   { key: "datamodel", label: "データ設計" },
   { key: "backend", label: "バックエンド" },
@@ -151,7 +150,7 @@ const CATEGORIES: { key: string; label: string; steps: StepKey[] }[] = [
   {
     key: "design",
     label: "設計",
-    steps: ["navigation", "wireframe", "datamodel", "backend", "brand"],
+    steps: ["wireframe", "datamodel", "backend", "brand"],
   },
   { key: "mvp", label: "MVP定義", steps: ["scope", "kpi", "growth"] },
 ];
@@ -323,7 +322,6 @@ export default function ProjectDetailPage() {
           d.backend && "backend",
           dm && "datamodel",
           w && "wireframe",
-          n && "navigation",
           j && "journey",
           (d.market ?? null) && "market",
           o && "ooui",
@@ -1565,118 +1563,8 @@ export default function ProjectDetailPage() {
                 )}
               </TabsContent>
 
-              <TabsContent value="navigation">
-                <GenerateButton />
-                {nav ? (
-                  <div className="space-y-2">
-                    {nav.map((n, i) => {
-                      const set = (patch: Partial<NavView>) =>
-                        setNav((cur) =>
-                          (cur ?? []).map((x, j) =>
-                            j === i ? { ...x, ...patch } : x,
-                          ),
-                        );
-                      return (
-                        <div
-                          key={i}
-                          className="flex items-center gap-2 rounded-md border p-2"
-                        >
-                          <Input
-                            className="h-8 w-12 text-center"
-                            placeholder="🔣"
-                            value={n.icon ?? ""}
-                            onChange={(e) => set({ icon: e.target.value })}
-                          />
-                          <Input
-                            className="h-8 flex-1 font-medium"
-                            placeholder="メニュー名"
-                            value={n.label}
-                            onChange={(e) => set({ label: e.target.value })}
-                          />
-                          <Input
-                            className="h-8 w-28"
-                            placeholder="種別"
-                            value={n.screenType ?? ""}
-                            onChange={(e) => set({ screenType: e.target.value })}
-                          />
-                          <Input
-                            className="h-8 w-40"
-                            placeholder="対応オブジェクト"
-                            value={n.targetObject ?? ""}
-                            onChange={(e) =>
-                              set({ targetObject: e.target.value })
-                            }
-                          />
-                          <Input
-                            className="h-8 w-28"
-                            placeholder="親メニュー"
-                            value={n.parent ?? ""}
-                            onChange={(e) =>
-                              set({ parent: e.target.value || null })
-                            }
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label="削除"
-                            onClick={() =>
-                              setNav((cur) =>
-                                (cur ?? []).filter((_, j) => j !== i),
-                              )
-                            }
-                          >
-                            ✕
-                          </Button>
-                        </div>
-                      );
-                    })}
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          setNav((cur) => [
-                            ...(cur ?? []),
-                            {
-                              label: "新しいメニュー",
-                              screenType: "list",
-                              targetObject: "",
-                              parent: null,
-                              icon: "",
-                            },
-                          ])
-                        }
-                      >
-                        ＋ メニュー追加
-                      </Button>
-                      <Button
-                        size="sm"
-                        disabled={busy}
-                        onClick={() =>
-                          saveStep("navigation", {
-                            items: (nav ?? []).map((n) => ({
-                              label: n.label,
-                              targetObject: n.targetObject ?? "",
-                              screenType: (n.screenType ?? "other") as
-                                | "dashboard"
-                                | "list"
-                                | "detail"
-                                | "form"
-                                | "other",
-                              parent: n.parent ?? null,
-                              icon: n.icon ?? null,
-                            })),
-                          })
-                        }
-                      >
-                        {loading === "save" ? "保存中…" : "変更を保存"}
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <Empty />
-                )}
-              </TabsContent>
+              {/* ナビゲーションは手動工程ではなく、モデリング（OOUI）の更新時に
+                  AI が自動導出する（画面遷移図・プロトタイプ生成が参照する）。 */}
 
               <TabsContent value="wireframe">
                 <GenerateButton />
