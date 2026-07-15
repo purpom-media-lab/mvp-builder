@@ -20,6 +20,7 @@ import {
   buildEngineerBriefContext,
   buildRefinePrototypeContext,
 } from "@/lib/ai/project-context";
+import { regenerateNavigationFromModeling } from "@/lib/ai/regenerate-navigation";
 import { isStepKey, runAnalyzeStep } from "@/lib/ai/run-step";
 import { generateDesignBrief, generateEngineerBrief } from "@/lib/ai/steps";
 import {
@@ -97,6 +98,21 @@ async function runStepJob(job: JobRow): Promise<void> {
   });
   await saveStepResult(job.ownerId, job.projectId, step, result);
   await completeJob(job.id, result);
+
+  // ナビゲーションはモデリング（OOUI）から AI が自動導出する（手動工程は廃止）。
+  // ジョブ完了後に走らせるため、失敗しても ooui ジョブ自体は成功のまま扱う。
+  if (step === "ooui") {
+    try {
+      await regenerateNavigationFromModeling({
+        ownerId: job.ownerId,
+        projectId: job.projectId,
+        provider: p.provider,
+        modelId: p.modelId,
+      });
+    } catch (e) {
+      console.error("navigation auto-regeneration failed:", e);
+    }
+  }
 }
 
 async function runOrchestrateJob(job: JobRow): Promise<void> {

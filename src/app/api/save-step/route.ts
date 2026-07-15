@@ -2,7 +2,8 @@
  * 分析成果物の手動編集を保存する（Generative UI / 編集可能カード用）。
  * クライアントで編集した工程の全リストを受け取り、洗い替えで保存する。
  */
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
+import { regenerateNavigationFromModeling } from "@/lib/ai/regenerate-navigation";
 import { getSessionUser } from "@/lib/auth/session";
 import { saveStepResult, type StepKey } from "@/lib/projects";
 import type {
@@ -16,6 +17,10 @@ import type {
   ScopeOutput,
   UseCasesOutput,
 } from "@/lib/ai/schemas";
+
+export const runtime = "nodejs";
+// ooui 保存後の after() でナビ自動再生成（LLM 呼び出し）が走るため余裕を持たせる。
+export const maxDuration = 300;
 
 interface Body {
   projectId?: string;
@@ -58,6 +63,20 @@ export async function POST(req: Request) {
   );
   if (!saved) {
     return NextResponse.json({ error: "Project not found" }, { status: 404 });
+  }
+
+  // モデリング（OOUI）の手動編集が保存されたら、ナビゲーションを AI で自動再導出する。
+  // レスポンスは待たせず after() でバックグラウンド実行する。
+  if (body.step === "ooui") {
+    const { projectId } = body;
+    after(() =>
+      regenerateNavigationFromModeling({
+        ownerId: user.id,
+        projectId: projectId!,
+      }).catch((e) =>
+        console.error("navigation auto-regeneration failed:", e),
+      ),
+    );
   }
   return NextResponse.json({ saved: true });
 }
