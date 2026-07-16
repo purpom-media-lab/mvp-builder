@@ -671,9 +671,11 @@ export default function ProjectDetailPage() {
   const activeCategory =
     CATEGORIES.find((c) => c.steps.includes(activeTab)) ?? CATEGORIES[0];
 
+  // 画面遷移図: ナビ項目に加えて OOUI（モデリング）の親子関係
+  // （1対多・保有/所属）を「親詳細 → 子一覧」の遷移として重ねる。
   const screenFlow = useMemo(
-    () => (nav?.length ? navigationToScreenFlow(nav) : null),
-    [nav],
+    () => (nav?.length ? navigationToScreenFlow(nav, ooui) : null),
+    [nav, ooui],
   );
 
   const classDiagram = useMemo(
