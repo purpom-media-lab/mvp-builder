@@ -10,7 +10,12 @@ export type OouiForDiagram = {
   name: string;
   attributes?: { name: string; label?: string | null }[] | null;
   actions?: { name: string; label?: string | null }[] | null;
-  relations?: { to: string; type?: string | null }[] | null;
+  relations?: {
+    to: string;
+    type?: string | null;
+    cardinality?: string | null;
+  }[] | null;
+  collectionOf?: string | null;
 };
 
 export type ActorForDiagram = { name: string; kind?: string | null };
@@ -20,6 +25,8 @@ export type NavForFlow = {
   screenType?: string | null;
   parent?: string | null;
   icon?: string | null;
+  /** 対応する OOUI オブジェクト名（画面遷移にモデリングの関係を反映する照合キー） */
+  targetObject?: string | null;
 };
 
 /**
@@ -82,11 +89,31 @@ export function oouiToClassDiagram(objects: OouiForDiagram[]): string {
   return lines.join("\n");
 }
 
+/** OOUI の関係が「親→子（包含）」を表すか。
+ *  多重度 1対多（自分が1、相手が多）を正とし、無い場合は関係種別の語で補う。 */
+function isContainment(rel: {
+  type?: string | null;
+  cardinality?: string | null;
+}): boolean {
+  if ((rel.cardinality ?? "").includes("1対多")) return true;
+  return /保有|所有|持つ/.test(rel.type ?? "");
+}
+
+/** 「子→親（所属）」を表すか（逆向きの関係から親子を補完する）。 */
+function isBelonging(rel: { type?: string | null }): boolean {
+  return /属する|所属/.test(rel.type ?? "");
+}
+
 /** ナビゲーション → 画面遷移図（flowchart）。
  * メインナビの各メニューを画面ノードとし、親子（階層）を遷移エッジに。
  * 一覧(list)系画面には詳細画面への遷移を補う。
+ * さらに OOUI（モデリング）の関係を渡すと、1対多・保有/所属の関係を
+ * 「親オブジェクトの詳細画面 → 子オブジェクトの一覧画面」の遷移として反映する。
  */
-export function navigationToScreenFlow(nav: NavForFlow[]): string {
+export function navigationToScreenFlow(
+  nav: NavForFlow[],
+  objects?: OouiForDiagram[] | null,
+): string {
   if (!nav.length) return 'flowchart TD\n  none["（ナビ未設計）"]';
   const lines: string[] = ["flowchart TD"];
   const id = new Map<string, string>();
@@ -98,12 +125,48 @@ export function navigationToScreenFlow(nav: NavForFlow[]): string {
     const p = n.parent ? id.get(n.parent) : undefined;
     if (p) lines.push(`  ${p} --> S${i}`);
   });
+  // 一覧画面 → 詳細画面。詳細ノードは OOUI 関係の遷移元にも使う。
+  const detailId = new Map<number, string>();
   nav.forEach((n, i) => {
     if ((n.screenType ?? "").toLowerCase().includes("list")) {
       lines.push(`  D${i}["${label(n.label)}詳細"]`);
       lines.push(`  S${i} --> D${i}`);
+      detailId.set(i, `D${i}`);
     }
   });
+
+  // モデリングの親子関係（1対多・保有/所属）を画面遷移に反映する。
+  // 例: 顧客 1対多 案件 → 「顧客詳細 -.-> 案件」。ナビ項目は targetObject
+  // （無ければ label）で OOUI オブジェクトと照合する。
+  if (objects?.length) {
+    const navIndexByObject = new Map<string, number>();
+    nav.forEach((n, i) => {
+      const key = (n.targetObject ?? "").trim() || n.label.trim();
+      if (key && !navIndexByObject.has(key)) navIndexByObject.set(key, i);
+    });
+    const seen = new Set<string>();
+    const pushEdge = (parentIdx: number, childIdx: number, relType?: string | null) => {
+      if (parentIdx === childIdx) return;
+      const src = detailId.get(parentIdx) ?? `S${parentIdx}`;
+      const key = `${src}->S${childIdx}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      const t = relType ? label(relType).replace(/[:|]/g, "") : "";
+      lines.push(`  ${src} -.->${t ? `|${t}|` : ""} S${childIdx}`);
+    };
+    for (const o of objects) {
+      // 一覧（コレクション）オブジェクト自体は list 画面と等価なので対象外
+      if (o.collectionOf) continue;
+      const self = navIndexByObject.get(o.name.trim());
+      if (self === undefined) continue;
+      for (const rel of o.relations ?? []) {
+        const other = navIndexByObject.get(rel.to.trim());
+        if (other === undefined) continue;
+        if (isContainment(rel)) pushEdge(self, other, rel.type);
+        else if (isBelonging(rel)) pushEdge(other, self, rel.type);
+      }
+    }
+  }
   return lines.join("\n");
 }
 
