@@ -7,6 +7,7 @@
  * （一括パイプライン / orchestrate / chat は工程列に navigation を含めて生成するため対象外）
  */
 import type { LlmProvider } from "./catalog";
+import { jtbdSection } from "./context-sections";
 import { STEP_ROLES } from "./pipeline";
 import { generateNavigation } from "./steps";
 import { getProjectWithArtifacts, saveStepResult } from "@/lib/projects";
@@ -25,7 +26,7 @@ export async function regenerateNavigationFromModeling(args: {
     `# プロジェクト: ${a.project.name}`,
     a.project.summary && `## 概要\n${a.project.summary}`,
     a.detail && `## 入力資料\n${a.detail}`,
-    a.analysisResult && `## ジョブ分析\n${a.analysisResult}`,
+    a.analysisResult && jtbdSection(a.analysisResult),
     a.actors.length && `## アクター\n${JSON.stringify(a.actors)}`,
     a.useCases.length && `## ユースケース\n${JSON.stringify(a.useCases)}`,
     a.ooui.length && `## OOUIオブジェクト\n${JSON.stringify(a.ooui)}`,

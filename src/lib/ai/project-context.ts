@@ -4,6 +4,7 @@
  * 提案資料(deck)・デザイナー依頼ブリーフ・エンジニア依頼ブリーフの文脈生成を一元化し、
  * API ルート（同期）とジョブランナー（非同期 after()）の双方から使う。
  */
+import { jtbdSection } from "./context-sections";
 import type { getProjectWithArtifacts } from "@/lib/projects";
 import type { PrototypeContext } from "@/lib/v0";
 
@@ -65,7 +66,7 @@ export function buildDeckContext(p: ProjectArtifacts): string {
     p.project.summary && `## 概要\n${p.project.summary}`,
     p.mvpStatement && `## MVPの仮説・提供価値\n${p.mvpStatement}`,
     p.detail && `## 入力資料\n${p.detail}`,
-    p.analysisResult && `## ジョブ分析\n${p.analysisResult}`,
+    p.analysisResult && jtbdSection(p.analysisResult),
     p.sourceText && `## 参考資料(抜粋)\n${p.sourceText.slice(0, 2000)}`,
     p.actors.length && `## アクター\n${JSON.stringify(p.actors)}`,
     p.useCases.length && `## ユースケース\n${JSON.stringify(p.useCases)}`,

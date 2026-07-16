@@ -5,6 +5,7 @@
  */
 import { NextResponse } from "next/server";
 import type { LlmProvider } from "@/lib/ai/catalog";
+import { jtbdSection } from "@/lib/ai/context-sections";
 import { runPipelineParallel, STEP_ROLES } from "@/lib/ai/pipeline";
 import { getSessionUser } from "@/lib/auth/session";
 import { getProjectWithArtifacts, saveStepResult } from "@/lib/projects";
@@ -46,7 +47,7 @@ export async function POST(req: Request) {
     `# プロジェクト: ${artifacts.project.name}`,
     artifacts.project.summary && `## 概要\n${artifacts.project.summary}`,
     artifacts.detail && `## 入力資料\n${artifacts.detail}`,
-    artifacts.analysisResult && `## ジョブ分析\n${artifacts.analysisResult}`,
+    artifacts.analysisResult && jtbdSection(artifacts.analysisResult),
     artifacts.sourceText && `## 参考資料\n${artifacts.sourceText}`,
   ]
     .filter(Boolean)

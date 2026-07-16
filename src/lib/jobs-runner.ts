@@ -12,6 +12,7 @@ import {
   FAST_MODEL,
   type LlmProvider,
 } from "@/lib/ai/catalog";
+import { jtbdSection } from "@/lib/ai/context-sections";
 import { generateDeck } from "@/lib/ai/deck";
 import { runPipelineParallel, STEP_ROLES } from "@/lib/ai/pipeline";
 import {
@@ -131,7 +132,7 @@ async function runOrchestrateJob(job: JobRow): Promise<void> {
     `# プロジェクト: ${artifacts.project.name}`,
     artifacts.project.summary && `## 概要\n${artifacts.project.summary}`,
     artifacts.detail && `## 入力資料\n${artifacts.detail}`,
-    artifacts.analysisResult && `## ジョブ分析\n${artifacts.analysisResult}`,
+    artifacts.analysisResult && jtbdSection(artifacts.analysisResult),
     artifacts.sourceText && `## 参考資料\n${artifacts.sourceText}`,
   ]
     .filter(Boolean)

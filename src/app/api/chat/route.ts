@@ -7,6 +7,7 @@ import { convertToModelMessages, stepCountIs, streamText, tool, type ToolSet, ty
 import { anthropic } from "@ai-sdk/anthropic";
 import { z } from "zod";
 import { DEFAULT_PROVIDER, type LlmProvider } from "@/lib/ai/catalog";
+import { jtbdSection } from "@/lib/ai/context-sections";
 import {
   generateActors,
   generateBackendSpec,
@@ -75,7 +76,7 @@ function buildContext(a: Artifacts): string {
     `# プロジェクト: ${a.project.name}`,
     a.project.summary && `## 概要\n${a.project.summary}`,
     a.detail && `## 入力資料\n${a.detail}`,
-    a.analysisResult && `## ジョブ分析\n${a.analysisResult}`,
+    a.analysisResult && jtbdSection(a.analysisResult),
     a.sourceText && `## 参考資料\n${a.sourceText}`,
     a.actors.length && `## アクター\n${JSON.stringify(a.actors)}`,
     a.useCases.length && `## ユースケース\n${JSON.stringify(a.useCases)}`,
