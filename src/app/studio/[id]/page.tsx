@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_PROVIDER, MODEL_CATALOG } from "@/lib/ai/catalog";
+import { jtbdSection } from "@/lib/ai/context-sections";
 import {
   fetchActiveJobs,
   type JobView,
@@ -401,7 +402,7 @@ export default function ProjectDetailPage() {
       `# プロジェクト: ${name || "(未設定)"}`,
       summary && `## 概要\n${summary}`,
       detail && `## 入力資料\n${detail}`,
-      analysisResult && `## ジョブ分析\n${analysisResult}`,
+      analysisResult && jtbdSection(analysisResult),
       sourceText && `## 参考資料\n${sourceText}`,
       actors && `## アクター\n${JSON.stringify(actors)}`,
       useCases && `## ユースケース\n${JSON.stringify(useCases)}`,
