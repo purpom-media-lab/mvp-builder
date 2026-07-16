@@ -379,6 +379,15 @@ export default function DesignRequestPage() {
   async function onPdfChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    // base64 で約 4/3 倍に膨らんで JSON ボディに載るため、Vercel の
+    // リクエストボディ上限 4.5MB を超えないよう 3MB までに制限する。
+    if (file.size > 3 * 1024 * 1024) {
+      setError(
+        `PDF が大きすぎます（${(file.size / 1024 / 1024).toFixed(1)}MB）。約3MB 以下のファイルにするか、必要なページだけを抜き出してください。`,
+      );
+      e.target.value = "";
+      return;
+    }
     try {
       const dataUrl = await fileToDataUrl(file);
       setPdfName(file.name);

@@ -51,6 +51,13 @@ export async function postJson<T = unknown>(
           "生成がタイムアウトしました（サーバ側の上限超過）。もう一度お試しください。",
       );
     }
+    // Vercel の関数ボディ上限（4.5MB）超過。本文はプレーンテキストで返る。
+    if (res.status === 413) {
+      throw new Error(
+        serverMsg ||
+          "送信データが大きすぎます（サーバの上限を超過）。PDF などの添付は約3MB以下にしてください。",
+      );
+    }
     throw new Error(
       serverMsg || `生成に失敗しました（HTTP ${res.status}）。もう一度お試しください。`,
     );

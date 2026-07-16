@@ -23,9 +23,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { postJson } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
 type SourceType = "text" | "url" | "pdf";
+
+/** PDF アップロードの上限（MB）。base64 で約 4/3 倍に膨らんで JSON ボディに載るため、
+ *  Vercel のリクエストボディ上限 4.5MB を超えないよう余裕を持たせる。 */
+const MAX_PDF_MB = 3;
 
 /** File を base64 文字列（data URL のプレフィックスなし）へ変換 */
 function fileToBase64(file: File): Promise<string> {
@@ -133,6 +138,12 @@ export default function ProjectListPage() {
       setError("PDF ファイルを選択してください");
       return;
     }
+    if (sourceType === "pdf" && pdfFile && pdfFile.size > MAX_PDF_MB * 1024 * 1024) {
+      setError(
+        `PDF が大きすぎます（${(pdfFile.size / 1024 / 1024).toFixed(1)}MB）。約${MAX_PDF_MB}MB 以下のファイルにするか、必要なページだけを抜き出してください。`,
+      );
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -149,13 +160,12 @@ export default function ProjectListPage() {
       else if (sourceType === "pdf" && pdfFile)
         payload.sourcePdf = await fileToBase64(pdfFile);
 
-      const res = await fetch("/api/projects", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error ?? "作成に失敗しました");
+      // エラー本文は JSON とは限らない（Vercel の 413 はプレーンテキスト
+      // "Request Entity Too Large" を返す）ため postJson で安全にパースする。
+      const d = await postJson<{ project: { id: string } }>(
+        "/api/projects",
+        payload,
+      );
       router.push(`/studio/${d.project.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "エラー");
