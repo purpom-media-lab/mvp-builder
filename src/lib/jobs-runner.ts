@@ -292,6 +292,23 @@ async function runDsPrototypeJob(
   // 念のため: すべてが親扱いになった場合は全項目をリーフとして扱う。
   const navItems = leafNav.length ? leafNav : allNav;
 
+  // 一覧(list)画面には対応する「◯◯詳細」画面を生成対象として補う。
+  // 画面遷移図の「一覧 → 詳細」に対応する実画面。メニュー(nav)には出さず、
+  // 一覧側から navigate("◯◯詳細") で遷移する（骨格ランタイムの navigate を使用）。
+  type ScreenUnit = (typeof navItems)[number] & { listLabel?: string | null };
+  const detailUnits: ScreenUnit[] = navItems
+    .filter((n) => (n.screenType ?? "").toLowerCase().includes("list"))
+    .map((n) => ({
+      label: `${n.label}詳細`,
+      parent: null,
+      icon: null,
+      screenType: "detail",
+      targetObject: n.targetObject ?? null,
+      listLabel: n.label,
+    }));
+  const screenUnits: ScreenUnit[] = [...navItems, ...detailUnits];
+  const hasDetail = new Set(detailUnits.map((d) => d.listLabel));
+
   // 探索プロトタイプ: MVPスコープで絞らず、全ユースケース・全画面を網羅的に作る。
   // （MVPスコープはこの探索プロトタイプを見たあとに確定する設計）。
   const baseContext = [
@@ -312,12 +329,12 @@ async function runDsPrototypeJob(
           .map((f) => f.name)
           .join(" / ")}`
       : "",
-    `# 全画面構成: ${navItems.map((n) => n.label).join(" / ")}`,
+    `# 全画面構成: ${screenUnits.map((n) => n.label).join(" / ")}`,
   ]
     .filter(Boolean)
     .join("\n");
 
-  const total = navItems.length;
+  const total = screenUnits.length;
 
   // DSは「骨格=コード固定／各画面=小さな自己完結コンポーネント」設計なので、
   // 既定では画面・テーマ生成に高速モデル（FAST_MODEL）を使ってレイテンシを大きく下げる。
@@ -353,7 +370,7 @@ async function runDsPrototypeJob(
   };
 
   // ライブ進捗には「揃っている画面」を出す。再利用ぶんは即時に表示する。
-  const done: string[] = navItems
+  const done: string[] = screenUnits
     .filter((n) => !shouldRegen(n))
     .map((n) => n.label);
   await updateJobProgress(job.id, { screens: [...done], totalScreens: total });
@@ -391,12 +408,13 @@ async function runDsPrototypeJob(
   // 保存時の関数名を新しい componentName に置換してから流用する。
   const [screensOut, theme] = await Promise.all([
     Promise.all(
-      navItems.map(async (item, i): Promise<DsScreenRecord> => {
+      screenUnits.map(async (item, i): Promise<DsScreenRecord> => {
         const nav = item as {
           label: string;
           parent?: string | null;
           screenType?: string | null;
           targetObject?: string | null;
+          listLabel?: string | null;
         };
         const componentName = `Screen${i}`;
         // 再利用: 生成済みの保存ソースを流用（関数名だけ採番に合わせる）。
@@ -418,7 +436,15 @@ async function runDsPrototypeJob(
           baseContext +
           `\n# 対象画面: ${nav.label}` +
           (nav.screenType ? `（${nav.screenType}）` : "") +
-          (nav.targetObject ? ` / 主対象オブジェクト: ${nav.targetObject}` : "");
+          (nav.targetObject ? ` / 主対象オブジェクト: ${nav.targetObject}` : "") +
+          // 一覧 → 詳細の遷移指示（詳細画面がある一覧のみ）
+          (hasDetail.has(nav.label)
+            ? `\n# 遷移: 一覧の各行の「詳細」ボタンや行クリックでは navigate("${nav.label}詳細") を呼んで詳細画面へ遷移する。`
+            : "") +
+          // 詳細画面には「どの一覧の詳細か」と戻り導線を指示
+          (nav.listLabel
+            ? `\n# この画面は一覧「${nav.listLabel}」の1件を開いた詳細画面。対象オブジェクトの属性の詳細・関連情報・主要アクションを載せ、「← ${nav.listLabel}に戻る」ボタンで navigate("${nav.listLabel}") を呼ぶ。`
+            : "");
         const r = await generateScreenComponent({
           label: nav.label,
           componentName,
