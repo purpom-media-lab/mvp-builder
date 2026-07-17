@@ -7,7 +7,7 @@
  */
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_PROVIDER, MODEL_CATALOG } from "@/lib/ai/catalog";
 import { postJson } from "@/lib/api-client";
 import {
@@ -55,6 +55,22 @@ import type {
  * (2) 見つからなければ @screen マーカー直後の要素へスクロール、を試みる。
  * プロトタイプの遷移実装は任意JSなので確実ではない（ベストエフォート）。
  */
+/** 生成対象の画面一覧: ナビ項目 + 一覧(list)画面ごとの「◯◯詳細」。
+ *  サーバ（DSエンジン）の導出ロジックと一致させること（jobs-runner の detailUnits）。 */
+function deriveGenTargets(
+  navItems: NavView[],
+): { label: string; group: string | null }[] {
+  const targets: { label: string; group: string | null }[] = navItems.map(
+    (n) => ({ label: n.label, group: n.parent ?? null }),
+  );
+  for (const n of navItems) {
+    if ((n.screenType ?? "").toLowerCase().includes("list")) {
+      targets.push({ label: `${n.label}詳細`, group: n.label });
+    }
+  }
+  return targets;
+}
+
 const SCREEN_JUMP_BRIDGE = `
 <script>
 (function () {
@@ -62,6 +78,11 @@ const SCREEN_JUMP_BRIDGE = `
   window.addEventListener("message", function (e) {
     var d = e && e.data;
     if (!d || d.lqGoto == null) return;
+    // DSエンジンのランタイムはラベル遷移関数を公開している。あればそれを最優先で使う
+    // （メニューに無い詳細画面へも遷移できる）。
+    if (typeof window.__lqNavigate === "function") {
+      try { window.__lqNavigate(String(d.lqGoto)); return; } catch (_) {}
+    }
     var target = norm(String(d.lqGoto));
     if (!target) return;
     var nodes = document.querySelectorAll('a,button,[role="tab"],[role="menuitem"],[onclick],nav li,[data-screen]');
@@ -210,8 +231,8 @@ export default function PrototypePage() {
         setOoui(d.ooui ?? []);
         const navItems = (d.navigation ?? []) as NavView[];
         setNav(navItems);
-        // 既定は全画面を生成対象に選択
-        setSelectedScreens(navItems.map((n) => n.label));
+        // 既定は全画面を生成対象に選択（一覧画面ごとの「◯◯詳細」も対象に含める）
+        setSelectedScreens(deriveGenTargets(navItems).map((t) => t.label));
         setScope(d.scope ?? []);
         setMvpStatement(d.mvpStatement ?? "");
         setKpi(d.kpi ?? null);
@@ -396,7 +417,7 @@ export default function PrototypePage() {
     const useSelection =
       !override?.nav &&
       selectedScreens.length > 0 &&
-      selectedScreens.length < nav.length;
+      selectedScreens.length < genTargets.length;
     const engineUsed = override?.engine ?? engine;
     setLoading("prototype");
     setError(null);
@@ -736,41 +757,50 @@ export default function PrototypePage() {
   const savedFailed = useMemo(() => parseFailedScreenNames(html), [html]);
   const screens = generating ? genScreens : savedScreens;
 
+  // 生成対象の画面一覧（ナビ項目 + 一覧画面ごとの「◯◯詳細」）。
+  const genTargets = useMemo(() => deriveGenTargets(nav), [nav]);
+  const genTargetLabels = useMemo(
+    () => new Set(genTargets.map((t) => t.label)),
+    [genTargets],
+  );
+  // 保存画面名と対象ラベルの照合。完全一致を正とし、部分一致は「相手が別の対象
+  // ラベルでない」場合のみ許す（例:「顧客」と「顧客詳細」を混同しない）。
+  const matchesLabel = useCallback(
+    (saved: string, targetLabel: string) =>
+      saved === targetLabel ||
+      ((saved.includes(targetLabel) || targetLabel.includes(saved)) &&
+        !genTargetLabels.has(saved)),
+    [genTargetLabels],
+  );
+
   // 生成に失敗した（プレースホルダになった）画面のラベル集合。
   const failedSet = useMemo(() => {
     const set = new Set<string>();
-    for (const n of nav) {
-      if (
-        savedFailed.some(
-          (s) => s === n.label || s.includes(n.label) || n.label.includes(s),
-        )
-      ) {
-        set.add(n.label);
+    for (const t of genTargets) {
+      if (savedFailed.some((s) => matchesLabel(s, t.label))) {
+        set.add(t.label);
       }
     }
     return set;
-  }, [nav, savedFailed]);
+  }, [genTargets, savedFailed, matchesLabel]);
 
-  // ナビ画面のうち「すでに生成済み」のラベル集合（保存HTMLの @screen と突き合わせ）。
-  // ラベルが完全一致 or 部分一致するものを生成済みとみなす（モデルの命名揺れに対応）。
+  // 対象画面のうち「すでに生成済み」のラベル集合（保存HTMLの @screen と突き合わせ）。
   // 失敗画面（@screen-failed）は「済」に含めない＝未生成扱いにして再生成を促す。
   const generatedSet = useMemo(() => {
     const set = new Set<string>();
-    for (const n of nav) {
+    for (const t of genTargets) {
       if (
-        !failedSet.has(n.label) &&
-        savedScreens.some(
-          (s) => s === n.label || s.includes(n.label) || n.label.includes(s),
-        )
+        !failedSet.has(t.label) &&
+        savedScreens.some((s) => matchesLabel(s, t.label))
       ) {
-        set.add(n.label);
+        set.add(t.label);
       }
     }
     return set;
-  }, [nav, savedScreens, failedSet]);
+  }, [genTargets, savedScreens, failedSet, matchesLabel]);
   // 未生成の画面ラベル（UC-更新2 の追記対象候補）
-  const missingScreens = nav
-    .map((n) => n.label)
+  const missingScreens = genTargets
+    .map((t) => t.label)
     .filter((l) => !generatedSet.has(l));
 
   // 画面ジャンプは srcDoc プレビュー（ローカルHTML）でのみ可能。demoUrl / /run はクロスオリジン。
@@ -888,7 +918,7 @@ export default function PrototypePage() {
                   ? "生成する画面を1つ以上選択してください"
                   : html &&
                       selectedScreens.length > 0 &&
-                      selectedScreens.length < nav.length
+                      selectedScreens.length < genTargets.length
                     ? "選択した画面だけを作り直し、他の生成済み画面はそのまま保持します"
                     : "骨格をコードで固定し、画面ごとに生成して組み立てます（崩れにくい）"
               }
@@ -998,7 +1028,7 @@ export default function PrototypePage() {
                     >
                       生成
                       {nav.length > 0
-                        ? `（${selectedScreens.length}/${nav.length}）`
+                        ? `（${selectedScreens.length}/${genTargets.length}）`
                         : ""}
                     </button>
                   )}
@@ -1179,17 +1209,17 @@ export default function PrototypePage() {
           {activePanel === "generate" && !generating && nav.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 border-b bg-base-200 px-3 py-2 text-xs">
               <span className="font-medium text-base-content/70">
-                生成する画面（{selectedScreens.length}/{nav.length}）:
+                生成する画面（{selectedScreens.length}/{genTargets.length}）:
               </span>
-              {nav.map((n, i) => {
-                const on = selectedScreens.includes(n.label);
-                const failed = failedSet.has(n.label);
-                const done = generatedSet.has(n.label);
+              {genTargets.map((t, i) => {
+                const on = selectedScreens.includes(t.label);
+                const failed = failedSet.has(t.label);
+                const done = generatedSet.has(t.label);
                 return (
                   <button
-                    key={`${n.label}-${i}`}
+                    key={`${t.label}-${i}`}
                     type="button"
-                    onClick={() => toggleScreen(n.label)}
+                    onClick={() => toggleScreen(t.label)}
                     title={failed ? "生成失敗（再生成してください）" : done ? "生成済み" : "未生成"}
                     className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] transition ${
                       on
@@ -1197,7 +1227,7 @@ export default function PrototypePage() {
                         : "bg-base-200 text-base-content/70 opacity-60"
                     }`}
                   >
-                    {n.parent ? `${n.parent} › ${n.label}` : n.label}
+                    {t.group ? `${t.group} › ${t.label}` : t.label}
                     {/* 生成状況: 済（生成済み）/ 失敗（プレースホルダ）/ 未（未生成） */}
                     <span
                       className={cn(
@@ -1216,7 +1246,9 @@ export default function PrototypePage() {
               })}
               <button
                 type="button"
-                onClick={() => setSelectedScreens(nav.map((n) => n.label))}
+                onClick={() =>
+                  setSelectedScreens(genTargets.map((t) => t.label))
+                }
                 className="ml-1 text-base-content/70 underline"
               >
                 全選択
@@ -1258,7 +1290,7 @@ export default function PrototypePage() {
               {/* 一部選択時のガイド: 主ボタンが非破壊マージになることを明示する。 */}
               {html && selectedScreens.length > 0 && (
                 <span className="ml-auto text-base-content/60">
-                  {selectedScreens.length < nav.length
+                  {selectedScreens.length < genTargets.length
                     ? "↑「プレビュー再生成」で選択画面だけ作り直し（他は保持）"
                     : "↑「プレビュー再生成」で全画面を作り直し"}
                 </span>

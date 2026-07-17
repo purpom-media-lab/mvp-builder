@@ -183,8 +183,29 @@ __SCREENS__
 const NAV = __NAV__;
 const SCREENS = __REGISTRY__;
 
+/* 画面名でルーターを切り替えるグローバル関数（一覧→詳細などの画面内遷移用）。
+   メニューに無い画面（詳細画面など）へもこれで遷移できる。 */
+var __go = null;
+function navigate(label){
+  var t = String(label == null ? "" : label).trim();
+  if (!t) return;
+  var i = -1;
+  for (var k = 0; k < SCREENS.length; k++) {
+    if (SCREENS[k].label === t) { i = k; break; }
+  }
+  if (i < 0) {
+    for (var k2 = 0; k2 < SCREENS.length; k2++) {
+      var l = SCREENS[k2].label;
+      if (l.indexOf(t) !== -1 || t.indexOf(l) !== -1) { i = k2; break; }
+    }
+  }
+  if (i >= 0 && __go) __go(i);
+}
+window.__lqNavigate = navigate;
+
 function App(){
   const [cur, setCur] = useState(0);
+  __go = setCur;
   const entry = SCREENS[cur];
   const Active = entry && entry.Comp ? entry.Comp : function(){
     return <Page title="（画面なし）"><div className="alert">この画面は生成されていません。</div></Page>;
