@@ -9,6 +9,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
+import { ClaudeCodeConnect } from "@/components/claude-code-connect";
 import { getSessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { user } from "@/lib/db/auth-schema";
@@ -225,6 +226,8 @@ export default async function DashboardPage() {
             </div>
           )}
         </div>
+
+        <ClaudeCodeConnect />
       </div>
     </AppShell>
   );
