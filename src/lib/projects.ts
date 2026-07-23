@@ -70,7 +70,7 @@ export type DsScreenRecord = {
 };
 
 /** 所有権チェック（無ければ null） */
-async function getOwnedProject(ownerId: string, projectId: string) {
+export async function getOwnedProject(ownerId: string, projectId: string) {
   const [row] = await db
     .select()
     .from(projects)
