@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "brandName": {
+      "description": "ブランド名",
+      "type": "string"
+    },
+    "tagline": {
+      "description": "タグライン",
+      "type": "string"
+    },
+    "tone": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "トーン（形容詞配列）"
+    },
+    "palette": {
+      "type": "object",
+      "properties": {
+        "primary": {
+          "type": "string",
+          "description": "主要色（HEX）"
+        },
+        "secondary": {
+          "description": "副色（HEX）",
+          "type": "string"
+        },
+        "accent": {
+          "description": "アクセント色（HEX）",
+          "type": "string"
+        },
+        "neutral": {
+          "description": "ニュートラル色（HEX）",
+          "type": "string"
+        },
+        "background": {
+          "description": "背景色（HEX）",
+          "type": "string"
+        }
+      },
+      "required": [
+        "primary"
+      ],
+      "additionalProperties": false,
+      "description": "推奨する配色（paletteOptions のうち最も推奨する案）"
+    },
+    "paletteOptions": {
+      "minItems": 2,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "primary": {
+            "type": "string",
+            "description": "主要色（HEX）"
+          },
+          "secondary": {
+            "description": "副色（HEX）",
+            "type": "string"
+          },
+          "accent": {
+            "description": "アクセント色（HEX）",
+            "type": "string"
+          },
+          "neutral": {
+            "description": "ニュートラル色（HEX）",
+            "type": "string"
+          },
+          "background": {
+            "description": "背景色（HEX）",
+            "type": "string"
+          },
+          "name": {
+            "type": "string",
+            "description": "配色コンセプト名（例: 信頼のネイビー）"
+          }
+        },
+        "required": [
+          "primary",
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "description": "配色の複数案（3案。それぞれ異なる方向性・コンセプト名つき）"
+    },
+    "typography": {
+      "type": "object",
+      "properties": {
+        "heading": {
+          "description": "見出しフォント方向",
+          "type": "string"
+        },
+        "body": {
+          "description": "本文フォント方向",
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "logoDirection": {
+      "description": "ロゴ方向",
+      "type": "string"
+    },
+    "imageryKeywords": {
+      "description": "イメージ語",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "voice": {
+      "description": "ボイス",
+      "type": "string"
+    }
+  },
+  "required": [
+    "tone",
+    "palette",
+    "paletteOptions"
+  ],
+  "additionalProperties": false
+}

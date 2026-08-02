@@ -4,7 +4,7 @@
  * UI/API から provider + 任意の modelId を受け取り、AI SDK の LanguageModel を解決する。
  * クライアントから使うカタログ（純データ）は ./catalog.ts。
  */
-import { anthropic } from "@ai-sdk/anthropic";
+import { type AnthropicProvider, anthropic, createAnthropic } from "@ai-sdk/anthropic";
 import { google } from "@ai-sdk/google";
 import { openai } from "@ai-sdk/openai";
 import type { LanguageModel } from "ai";
@@ -35,6 +35,33 @@ export function maxOutputTokensFor(): number {
   return 16000;
 }
 
+/**
+ * Anthropic プロバイダの解決。
+ *
+ * 通常は `ANTHROPIC_API_KEY`（`sk-ant-api03-` 形式）をデフォルトインスタンスが
+ * `x-api-key` ヘッダーで送る。`ANTHROPIC_AUTH_TOKEN` が設定されている場合のみ、
+ * OAuth アクセストークン（`sk-ant-oat01-` 形式）用に
+ * `Authorization: Bearer` + `anthropic-beta: oauth-2025-04-20` を送る
+ * インスタンスへ切り替える。OAuth トークンは `x-api-key` では 401 になる。
+ *
+ * `createAnthropic` は authToken 指定時に `x-api-key` を送らないため、
+ * 両ヘッダーが同時に飛んで API に弾かれる心配はない。
+ * 元に戻すときは `ANTHROPIC_AUTH_TOKEN` を空にするだけでよい。
+ */
+let anthropicProvider: AnthropicProvider | undefined;
+
+function resolveAnthropicProvider(): AnthropicProvider {
+  if (anthropicProvider) return anthropicProvider;
+  const authToken = process.env.ANTHROPIC_AUTH_TOKEN;
+  anthropicProvider = authToken
+    ? createAnthropic({
+        authToken,
+        headers: { "anthropic-beta": "oauth-2025-04-20" },
+      })
+    : anthropic;
+  return anthropicProvider;
+}
+
 /** provider + modelId から AI SDK の LanguageModel を解決 */
 export function resolveModel(
   provider: LlmProvider = DEFAULT_PROVIDER,
@@ -44,7 +71,7 @@ export function resolveModel(
   const id = modelId ?? cfg.defaultModel;
   switch (provider) {
     case "claude":
-      return anthropic(id);
+      return resolveAnthropicProvider()(id);
     case "openai":
       return openai(id);
     case "gemini":

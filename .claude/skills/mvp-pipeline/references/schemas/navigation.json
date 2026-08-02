@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "description": "メニュー表示名（日本語）"
+          },
+          "targetObject": {
+            "type": "string",
+            "description": "対応するOOUIオブジェクト名（日本語。該当なければ空文字）"
+          },
+          "screenType": {
+            "type": "string",
+            "enum": [
+              "dashboard",
+              "list",
+              "detail",
+              "form",
+              "other"
+            ],
+            "description": "画面種別。コレクション=list, 単一=detail, 集約=dashboard 等"
+          },
+          "parent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "親メニューの label。トップ階層なら null"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "絵文字など任意のアイコン"
+          }
+        },
+        "required": [
+          "label",
+          "targetObject",
+          "screenType",
+          "parent",
+          "icon"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "items"
+  ],
+  "additionalProperties": false
+}

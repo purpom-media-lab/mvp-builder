@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "model": {
+      "type": "string",
+      "description": "グロースモデル/ループの説明（どうやって成長を生むか）"
+    },
+    "levers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "主要なグロースレバー（成長の打ち手の軸）"
+    },
+    "experiments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "施策・実験のタイトル"
+          },
+          "hypothesis": {
+            "description": "仮説",
+            "type": "string"
+          },
+          "metric": {
+            "description": "動かす指標",
+            "type": "string"
+          },
+          "effort": {
+            "description": "工数/難易度（例: 低/中/高）",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "additionalProperties": false
+      },
+      "description": "優先度順の施策/実験（3〜5個）"
+    },
+    "milestones": {
+      "description": "時期ごとの目標マイルストーン",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "type": "string",
+            "description": "時期（例: 1ヶ月後 / Q1）"
+          },
+          "target": {
+            "type": "string",
+            "description": "その時点の目標"
+          }
+        },
+        "required": [
+          "period",
+          "target"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "model",
+    "levers",
+    "experiments"
+  ],
+  "additionalProperties": false
+}

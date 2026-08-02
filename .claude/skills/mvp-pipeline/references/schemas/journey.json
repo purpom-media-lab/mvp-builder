@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "journeys": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "ジャーニー名（ペルソナ×目標の単位。例: 新規リードを初回商談につなげる）"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "phase": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "ステージ/フェーズ（例: 認知/検討/利用/定着・日本語）"
+                },
+                "action": {
+                  "type": "string",
+                  "description": "ユーザーの行動（日本語）"
+                },
+                "touchpoint": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "接点（画面・チャネルなど・日本語）"
+                },
+                "emotion": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "感情（その時の気持ち・日本語）"
+                },
+                "painpoint": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "課題・ペインポイント（改善余地。scope の優先度判断に使う・日本語）"
+                },
+                "opportunity": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "改善の機会・インサイト（日本語）"
+                }
+              },
+              "required": [
+                "phase",
+                "action",
+                "touchpoint",
+                "emotion",
+                "painpoint",
+                "opportunity"
+              ],
+              "additionalProperties": false
+            },
+            "description": "ジャーニーを構成するステップ（時系列順）"
+          }
+        },
+        "required": [
+          "name",
+          "steps"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "journeys"
+  ],
+  "additionalProperties": false
+}

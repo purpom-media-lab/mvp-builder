@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "marketSize": {
+      "type": "object",
+      "properties": {
+        "tam": {
+          "type": "string",
+          "description": "TAM（獲得可能な最大市場規模）。金額・規模感と概算の前提"
+        },
+        "sam": {
+          "type": "string",
+          "description": "SAM（獲得可能なサービス市場規模）。金額・規模感と前提"
+        },
+        "som": {
+          "type": "string",
+          "description": "SOM（初期に現実的に獲得しうる市場規模）。金額・規模感と前提"
+        },
+        "assumptions": {
+          "type": "string",
+          "description": "TAM/SAM/SOM 概算の前提・算出根拠（数値の出どころ・仮定。日本語）"
+        }
+      },
+      "required": [
+        "tam",
+        "sam",
+        "som",
+        "assumptions"
+      ],
+      "additionalProperties": false,
+      "description": "市場規模（TAM/SAM/SOM）"
+    },
+    "trends": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "市場トレンド・追い風/向かい風（3〜5個・日本語）"
+    },
+    "positioning": {
+      "type": "object",
+      "properties": {
+        "xAxis": {
+          "type": "string",
+          "description": "ポジショニングマップの横軸ラベル（両端を示す。例: アイデア生成↔検証・実装）"
+        },
+        "yAxis": {
+          "type": "string",
+          "description": "縦軸ラベル（両端を示す。例: セルフサーブ(自走)↔伴走・制度運営）"
+        }
+      },
+      "required": [
+        "xAxis",
+        "yAxis"
+      ],
+      "additionalProperties": false,
+      "description": "ポジショニングマップの2軸"
+    },
+    "competitors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "競合サービス/企業名"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "direct",
+              "indirect",
+              "alternative"
+            ],
+            "description": "種別: direct=直接競合 / indirect=間接競合 / alternative=代替手段"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "どんなサービスか（1文・日本語）"
+          },
+          "strengths": {
+            "type": "string",
+            "description": "強み（日本語）"
+          },
+          "weaknesses": {
+            "type": "string",
+            "description": "弱み・隙（日本語）"
+          },
+          "x": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "ポジショニング横軸上の位置（0=左端, 1=右端）"
+          },
+          "y": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "ポジショニング縦軸上の位置（0=下端, 1=上端）"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "description",
+          "strengths",
+          "weaknesses",
+          "x",
+          "y"
+        ],
+        "additionalProperties": false
+      },
+      "description": "主要競合（3〜6件）。直接競合だけでなく間接競合・代替手段も含める"
+    },
+    "whitespace": {
+      "type": "string",
+      "description": "競合が手薄な空白地帯（参入余地）。日本語"
+    },
+    "differentiation": {
+      "type": "string",
+      "description": "この事業がとるべき差別化仮説（空白地帯をどう取るか）。日本語"
+    }
+  },
+  "required": [
+    "marketSize",
+    "trends",
+    "positioning",
+    "competitors",
+    "whitespace",
+    "differentiation"
+  ],
+  "additionalProperties": false
+}

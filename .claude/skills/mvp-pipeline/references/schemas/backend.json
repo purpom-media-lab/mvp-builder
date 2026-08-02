@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "needsAuth": {
+      "type": "boolean"
+    },
+    "needsStorage": {
+      "type": "boolean"
+    },
+    "needsDb": {
+      "type": "boolean"
+    },
+    "externalApis": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "rationale": {
+      "type": "string",
+      "description": "判定理由"
+    }
+  },
+  "required": [
+    "needsAuth",
+    "needsStorage",
+    "needsDb",
+    "externalApis",
+    "rationale"
+  ],
+  "additionalProperties": false
+}

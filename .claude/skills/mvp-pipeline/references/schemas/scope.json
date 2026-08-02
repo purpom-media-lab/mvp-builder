@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "mvpStatement": {
+      "type": "string",
+      "description": "このMVPで検証する仮説と提供価値（1-2文）"
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "機能名"
+          },
+          "description": {
+            "description": "機能の概要",
+            "type": "string"
+          },
+          "impact": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5,
+            "description": "影響度（1-5）"
+          },
+          "effort": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5,
+            "description": "実装工数（1-5）"
+          },
+          "initialCost": {
+            "type": "string",
+            "description": "初期開発コスト（構築の参考金額。例: 30〜50万円）"
+          },
+          "operationCost": {
+            "type": "string",
+            "description": "運用コスト（継続運用の参考金額・時間。例: 月3万円 + 月5時間）"
+          },
+          "learningCost": {
+            "type": "string",
+            "description": "顧客の学習コスト（ユーザーが使い方を習得する負担。例: 低/中/高・習得目安）"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "must",
+              "should",
+              "could",
+              "wont"
+            ],
+            "description": "優先度（MoSCoW）"
+          },
+          "includedInMvp": {
+            "type": "boolean",
+            "description": "MVPに含むか"
+          },
+          "rationale": {
+            "description": "絞り込みの理由",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "impact",
+          "effort",
+          "initialCost",
+          "operationCost",
+          "learningCost",
+          "priority",
+          "includedInMvp"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "mvpStatement",
+    "features"
+  ],
+  "additionalProperties": false
+}
