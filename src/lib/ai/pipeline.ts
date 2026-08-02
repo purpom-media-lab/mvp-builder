@@ -6,6 +6,7 @@
  * 例: ユースケース確定後、OOUI / ジャーニー / スコープ / ブランドを同時に走らせる。
  */
 import { FAST_MODEL, type LlmProvider } from "./catalog";
+import { FAST_STEPS, roleHeader, STEP_ROLES, WAVES } from "./step-specs";
 import {
   generateActors,
   generateBackendSpec,
@@ -39,48 +40,12 @@ const STEP_FNS = {
   brand: generateBrand,
 } as const;
 
-/** 各工程の担当ロール（専門家ペルソナ）。プロンプトにも注入し、UI 表示にも使う。 */
-export const STEP_ROLES: Record<StepKey, string> = {
-  actors: "ビジネスアナリスト",
-  usecases: "ビジネスアナリスト",
-  ooui: "UXアーキテクト",
-  journey: "UXデザイナー",
-  market: "事業開発／市場アナリスト",
-  navigation: "情報設計（IA）デザイナー",
-  wireframe: "UIデザイナー",
-  datamodel: "データアーキテクト",
-  backend: "バックエンドエンジニア",
-  scope: "プロダクトマネージャー",
-  kpi: "グロース／データアナリスト",
-  growth: "グロース担当",
-  brand: "ブランドデザイナー",
-};
-
-/** 軽い工程は高速モデルで（analyze ルートと同方針）。
- *  navigation は OOUI オブジェクト/関連の構造推論が要るため除外し、選択モデルで生成する。 */
-const FAST_STEPS = new Set<StepKey>([
-  "actors",
-  "usecases",
-  "journey",
-]);
-
 /**
- * 依存を満たす実行ウェーブ。同一ウェーブ内は並列。
- * 後段ほど前段の成果物をコンテキストとして参照する。
+ * ロール／ウェーブ／高速工程の定義は step-specs.ts（単一ソース）に集約している。
+ * Claude Code 版パイプライン（.claude/）も同じ定義から生成されるため、変更は
+ * step-specs.ts 側で行うこと。
  */
-const WAVES: StepKey[][] = [
-  ["actors"],
-  ["usecases"],
-  // ユーザージャーニーマップ（体験レンズ）。アクター=ペルソナ／ユースケース=目標から導出し、
-  // 抽出した painpoint/opportunity を scope の優先度判断に流すため scope の前に置く。
-  ["journey"],
-  // 市場規模(TAM/SAM/SOM)・競合・参入余地の分析。事業情報とジャーニーまでを前提に、
-  // scope の優先度判断や差別化仮説の材料になるため ooui/scope の前に置く。
-  ["market"],
-  ["ooui", "scope", "brand"],
-  ["navigation", "datamodel", "kpi"],
-  ["wireframe", "backend", "growth"],
-];
+export { FAST_STEPS, STEP_ROLES, WAVES } from "./step-specs";
 
 export interface PipelineOptions {
   baseContext: string;
@@ -109,8 +74,7 @@ export async function runPipelineParallel(
     const ctxSnapshot = context; // ウェーブ内は同じ前提コンテキストを共有
     const waveResults = await Promise.all(
       wave.map(async (step) => {
-        const role = STEP_ROLES[step];
-        const roledContext = `あなたは新規事業開発チームの「${role}」です。担当領域の専門家として、最高品質で作成してください。\n\n${ctxSnapshot}`;
+        const roledContext = `${roleHeader(step)}\n\n${ctxSnapshot}`;
         // 工程ごとの明示モデルを最優先。無ければ従来どおり
         // （軽い工程は FAST_MODEL、それ以外は選択中の modelId）。
         const pref = opts.modelByStep?.[step];
