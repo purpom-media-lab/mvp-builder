@@ -1,15 +1,18 @@
 /**
- * Claude Code 版 MVP パイプラインの資産を `src/lib/ai/step-specs.ts` から生成する。
+ * Claude Code 版 MVP パイプラインの資産を本体のソースから生成する。
  *
- * 生成物:
- *   .claude/agents/mvp-<step>.md                          … 13工程のサブエージェント定義
- *   .claude/skills/mvp-pipeline/references/schemas/*.json … 各工程の出力 JSON Schema
+ * 生成物（生成元）:
+ *   .claude/agents/mvp-<step>.md                          … 13工程のサブエージェント（step-specs.ts）
+ *   .claude/agents/mvp-screen.md                          … プロトタイプ1画面（prototype-ds/prompt.ts）
+ *   .claude/agents/mvp-theme.md                           … daisyUI テーマ（prototype-ds/theme-spec.ts）
+ *   .claude/skills/mvp-pipeline/references/schemas/*.json … 各工程 + theme の出力 JSON Schema
  *   .claude/skills/mvp-pipeline/references/waves.md       … 依存ウェーブ・モデル割当の一覧
+ *   .claude/skills/mvp-pipeline/references/daisyui.md     … daisyUI 5 リファレンス（画面生成が Read する）
  *
  * 実行:
  *   pnpm gen:skill
  *
- * プロンプトの単一ソースは step-specs.ts。生成物を直接編集しても次回生成で失われる。
+ * プロンプトの単一ソースは本体側。生成物を直接編集しても次回生成で失われる。
  */
 import { mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -20,6 +23,9 @@ import {
   STEP_SPECS,
   WAVES,
 } from "../src/lib/ai/step-specs";
+import { DAISYUI_REFERENCE } from "../src/lib/prototype-ds/daisyui-reference";
+import { SCREEN_SYSTEM } from "../src/lib/prototype-ds/prompt";
+import { THEME_SYSTEM, themeSchema } from "../src/lib/prototype-ds/theme-spec";
 import type { StepKey } from "../src/lib/projects";
 
 const AGENTS_DIR = ".claude/agents";
@@ -27,8 +33,9 @@ const SKILL_DIR = ".claude/skills/mvp-pipeline";
 const REF_DIR = join(SKILL_DIR, "references");
 const SCHEMA_DIR = join(REF_DIR, "schemas");
 
-const BANNER =
-  "<!-- 自動生成: scripts/gen-claude-skill.ts が src/lib/ai/step-specs.ts から生成。手で編集しない。 -->";
+const banner = (source: string) =>
+  `<!-- 自動生成: scripts/gen-claude-skill.ts が ${source} から生成。手で編集しない。 -->`;
+const BANNER = banner("src/lib/ai/step-specs.ts");
 
 /**
  * Claude Code 版は全工程を標準モデルで実行する。
@@ -96,6 +103,76 @@ ${inputs}
 - ジョブ分析（JTBD）の内容が入力資料と矛盾する場合は、**必ずジョブ分析を優先**する。
 - 応答本文には「${spec.label}を <projectDir>/artifacts/${step}.json に書き出した。<要点1行>」だけを返す。
   生成した JSON 本体を応答に含めない（呼び出し元のコンテキストを消費しないため）。
+`;
+}
+
+/**
+ * プロトタイプの1画面を書くサブエージェント。
+ *
+ * 本体（generateScreenComponent）が system として渡しているものと同じ規約を持たせる。
+ * 違いは受け渡しだけ: 本体はメッセージで文脈を渡すが、CC 版は plan-screens.ts が
+ * 書き出した `prototype/prompts/<index>.md` を Read させ、結果をファイルに Write させる。
+ */
+function screenAgentMarkdown(): string {
+  return `---
+name: mvp-screen
+description: MVPプロトタイプの1画面を React 関数コンポーネントとして実装する（担当ロール: フロントエンドエンジニア）。<projectDir> と画面番号を渡すと prototype/screens/<番号>.jsx を書き出す。
+model: ${AGENT_MODEL}
+tools: Read, Write
+---
+
+${banner("src/lib/prototype-ds/prompt.ts")}
+
+${SCREEN_SYSTEM}
+
+# 手順
+
+1. 呼び出し時に渡された \`<projectDir>\`（例: \`.mvp/my-product\`）と**画面番号**を確認する。
+2. \`.claude/skills/mvp-pipeline/references/daisyui.md\` を Read する。
+   使ってよいクラス名・構文はここが唯一の正。**推測で書かない**。
+3. \`<projectDir>/prototype/prompts/<番号>.md\` を Read する。
+   アプリの文脈・対象画面・遷移の指示が書いてある。
+4. 上の規約に従って関数コンポーネントを1つ書き、
+   \`<projectDir>/prototype/screens/<番号>.jsx\` に Write する。
+
+# 厳守事項
+
+- ファイルに書くのは**関数1つだけ**。import・説明文・コードフェンス・JSON を書かない。
+- 関数名は \`Screen\` のままにする（一意名への採番は組み立て側が行う）。
+- \`navigate()\` に渡してよい画面名は、プロンプトの「# 遷移」に書かれたものだけ。
+  そこに無い遷移は、モーダル(dialog)やインライン表示で画面内に完結させる。
+- 括弧の対応が崩れた出力は組み立て側で破棄されプレースホルダになる。書き切ること。
+- 応答本文には「\`<画面名>\` を prototype/screens/<番号>.jsx に書き出した。<要点1行>」だけを返す。
+  コンポーネントのソースを応答に含めない（呼び出し元のコンテキストを消費しないため）。
+`;
+}
+
+/** ブランドから daisyUI テーマを設計するサブエージェント（本体の generateDaisyTheme 相当）。 */
+function themeAgentMarkdown(): string {
+  return `---
+name: mvp-theme
+description: MVPプロトタイプの daisyUI 5 テーマ（全セマンティック変数）を設計する（担当ロール: UIカラーシステム設計）。<projectDir> を渡すと prototype/theme.json を書き出す。
+model: ${AGENT_MODEL}
+tools: Read, Write
+---
+
+${banner("src/lib/prototype-ds/theme-spec.ts")}
+
+${THEME_SYSTEM}
+
+# 手順
+
+1. 呼び出し時に渡された \`<projectDir>\` を確認する。
+2. \`<projectDir>/prototype/prompts/theme.md\` を Read する（ブランド名・トーン・基調色）。
+3. \`.claude/skills/mvp-pipeline/references/schemas/theme.json\`（JSON Schema）を Read する。
+4. スキーマに厳密に準拠した JSON を \`<projectDir>/prototype/theme.json\` に Write する。
+
+# 厳守事項
+
+- 出力ファイルは JSON のみ。コメント・コードフェンス・前後の説明文を書かない。
+- 色はすべて \`#rrggbb\` の6桁 HEX（3桁短縮・\`rgb()\`・色名は不可）。
+- スキーマにないキーを足さない。必須キーを省略しない。
+- 応答本文には「テーマを prototype/theme.json に書き出した。<基調色と方向性を1行>」だけを返す。
 `;
 }
 
@@ -171,6 +248,25 @@ for (const step of steps) {
 }
 writeFileSync(join(REF_DIR, "waves.md"), wavesMarkdown());
 
+// --- プロトタイプ（Phase 2） ---------------------------------------------
+
+writeFileSync(join(AGENTS_DIR, "mvp-screen.md"), screenAgentMarkdown());
+writeFileSync(join(AGENTS_DIR, "mvp-theme.md"), themeAgentMarkdown());
+writeFileSync(
+  join(SCHEMA_DIR, "theme.json"),
+  `${JSON.stringify(
+    z.toJSONSchema(themeSchema, { io: "output", unrepresentable: "any" }),
+    null,
+    2,
+  )}\n`,
+);
+// 画面生成エージェントに Read させる daisyUI リファレンス。
+// 本体は同じ文字列をプロンプトに直接埋めている（daisyui-reference.ts が単一ソース）。
+writeFileSync(
+  join(REF_DIR, "daisyui.md"),
+  `${banner("src/lib/prototype-ds/daisyui-reference.ts")}\n\n${DAISYUI_REFERENCE}\n`,
+);
+
 console.log(
-  `generated: ${steps.length} agents (${AGENTS_DIR}/mvp-*.md), ${steps.length} schemas (${SCHEMA_DIR}), ${REF_DIR}/waves.md`,
+  `generated: ${steps.length + 2} agents (${AGENTS_DIR}/mvp-*.md), ${steps.length + 1} schemas (${SCHEMA_DIR}), ${REF_DIR}/waves.md, ${REF_DIR}/daisyui.md`,
 );

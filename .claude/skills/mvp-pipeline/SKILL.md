@@ -1,6 +1,6 @@
 ---
 name: mvp-pipeline
-description: 事業アイデア・要件資料から、OOUI分析〜設計の13工程（アクター/ユースケース/ジャーニー/市場/OOUI/ナビ/ワイヤー/データ設計/バックエンド/スコープ/KPI/グロース/ブランド）を専門ロールのサブエージェントで並列実行し、構造化された成果物を出力する。MVP Builder（Webアプリ）と同じプロンプト・同じスキーマを使う。「MVPの分析をして」「OOUI分析して」「この資料からMVPを設計して」等で使う。
+description: 事業アイデア・要件資料から、OOUI分析〜設計の13工程（アクター/ユースケース/ジャーニー/市場/OOUI/ナビ/ワイヤー/データ設計/バックエンド/スコープ/KPI/グロース/ブランド）を専門ロールのサブエージェントで並列実行し、さらにクリック可能なプロトタイプ（単一HTML）まで生成する。MVP Builder（Webアプリ）と同じプロンプト・同じスキーマ・同じ骨格を使う。「MVPの分析をして」「OOUI分析して」「この資料からMVPを設計して」「プロトタイプを作って」等で使う。
 ---
 
 # MVP パイプライン（Claude Code 版）
@@ -15,7 +15,13 @@ MVP Builder（`src/lib/ai/`）の分析・設計パイプラインを Claude Cod
 .mvp/<project-slug>/
 ├── input/            # 入力資料（PDF/テキスト/URL の控え）
 ├── project.json      # 名前・概要・ジョブ分析（JTBD）
-└── artifacts/        # actors.json … brand.json（13ファイル）
+├── artifacts/        # actors.json … brand.json（13ファイル）
+└── prototype/
+    ├── plan.json     # 生成対象の画面一覧（plan-screens.ts が作る）
+    ├── prompts/      # 画面ごとのプロンプト（mvp-screen が読む）
+    ├── screens/      # <i>.jsx（mvp-screen が書く）
+    ├── theme.json    # daisyUI テーマ（mvp-theme が書く）
+    └── index.html    # 完成品（assemble.ts が組み立てる）
 ```
 
 `<project-slug>` は英小文字・ハイフンで短く（例: `.mvp/lead-crm`）。
@@ -91,6 +97,34 @@ pnpm exec tsx .claude/skills/mvp-pipeline/scripts/validate.ts <projectDir> <step
 
 成果物の JSON 本体は貼らない。ファイルパスを示す。
 
+### 6. プロトタイプを生成する
+
+13工程が揃ったら、クリック可能なプロトタイプ（単一 HTML）を作る。
+規約と考え方は `references/prototype.md` に書いてある。**先にそれを読む。**
+
+```bash
+# ① 生成対象の画面を確定し、画面ごとのプロンプトを書き出す
+pnpm exec tsx .claude/skills/mvp-pipeline/scripts/plan-screens.ts <projectDir>
+```
+
+```
+# ② 出力された画面番号ぶんの mvp-screen を「1メッセージでまとめて」起動する。
+#    テーマ生成が必要と出ていれば mvp-theme も同じメッセージに入れる。
+#    各 Task に渡すのはこれだけ:
+projectDir = .mvp/lead-crm
+画面番号 = 3
+```
+
+```bash
+# ③ 骨格に組み立てる（サニタイズ・採番・テーマ検証はここが行う）
+pnpm exec tsx .claude/skills/mvp-pipeline/scripts/assemble.ts <projectDir>
+```
+
+- `assemble.ts` が「未生成」「壊れている」と報告した画面は、表示されるコマンドで
+  その画面だけ作り直す。**失敗が 0 になるまで繰り返す。**
+- 仕上がったら `<projectDir>/prototype/index.html` のパスをユーザーに伝える。
+  ブラウザで開いて一覧 → 詳細 → 戻るまで動くか、可能なら自分で確認する。
+
 ## 単一工程だけ回す
 
 要望や修正で一部だけ作り直すとき:
@@ -102,8 +136,11 @@ pnpm exec tsx .claude/skills/mvp-pipeline/scripts/validate.ts <projectDir> <step
 
 ## 注意
 
-- `.claude/agents/mvp-*.md` と `references/schemas/*.json` は**自動生成**。直接編集しない。
-  プロンプトを変えるときは `src/lib/ai/step-specs.ts` を直して `pnpm gen:skill` を実行する
-  （Web アプリ本体にも同じ変更が反映される）。
+- `.claude/agents/mvp-*.md` と `references/schemas/*.json`・`references/daisyui.md` は**自動生成**。
+  直接編集しない。プロンプトを変えるときは本体を直して `pnpm gen:skill` を実行する
+  （Web アプリ本体にも同じ変更が反映される）。生成元は次のとおり:
+  - 13工程 … `src/lib/ai/step-specs.ts`
+  - `mvp-screen` … `src/lib/prototype-ds/prompt.ts`
+  - `mvp-theme` … `src/lib/prototype-ds/theme-spec.ts`
 - 工程の実行順を勝手に変えない。ウェーブ順には根拠がある（`references/waves.md` 末尾）。
 - `.mvp/` はコミットしない（`.gitignore` 済み）。
