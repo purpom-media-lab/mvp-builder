@@ -290,7 +290,7 @@ const hex = (c?: string | null): string | null =>
     : null;
 
 /** ブランドパレット → 部分テーマ（theme が無いときのフォールバック）。 */
-function paletteToTheme(p?: DsBrandPalette | null): DaisyTheme | null {
+export function paletteToTheme(p?: DsBrandPalette | null): DaisyTheme | null {
   if (!p) return null;
   const t: DaisyTheme = {};
   if (hex(p.primary)) {
