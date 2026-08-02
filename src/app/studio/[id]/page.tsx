@@ -684,18 +684,12 @@ export default function ProjectDetailPage() {
   );
   const flowchart = useMemo(() => {
     if (!(actors?.length || useCases?.length)) return null;
-    const actorNames = new Set((actors ?? []).map((a) => a.name));
-    const resolved = (useCases ?? []).map((u) => {
-      let actorName = u.actorName ?? null;
-      if (!actorName && u.description) {
-        const cut = u.description.search(/[:：]/);
-        if (cut > 0) {
-          const prefix = u.description.slice(0, cut).trim();
-          if (actorNames.has(prefix)) actorName = prefix;
-        }
-      }
-      return { goal: u.goal, actorName };
-    });
+    // actorName はサーバ側（getProjectWithArtifacts）で actorId から解決済み。
+    // 旧形式（description への埋め込み）の互換もそちらで吸収している。
+    const resolved = (useCases ?? []).map((u) => ({
+      goal: u.goal,
+      actorName: u.actorName ?? null,
+    }));
     return analysisToFlowchart(actors ?? [], resolved);
   }, [actors, useCases]);
 
