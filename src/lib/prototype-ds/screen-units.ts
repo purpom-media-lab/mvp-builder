@@ -74,3 +74,26 @@ export function deriveScreenUnits(
     ),
   };
 }
+
+/**
+ * 部分再生成で、この画面を作り直すか判定する。
+ *
+ * - 未生成の画面は指定に関わらず必ず作る（既存を壊さない）
+ * - 選択が無い（null）なら全再生成
+ * - 選択があるときは「その画面 / 親メニュー / 対になる一覧」のどれかが選ばれていれば作り直す。
+ *   一覧と詳細は内容が対になっているので、一覧を選んだら詳細も揃えて作り直す。
+ *
+ * @param exists 既にソースを持っているか。Web は保存済みレコード、Claude Code 版は
+ *   ファイルの有無で判定するため、存在確認だけを外から渡す。
+ */
+export function shouldRegenerateScreen(
+  unit: ScreenUnit,
+  selected: Set<string> | null,
+  exists: (unit: ScreenUnit) => boolean,
+): boolean {
+  if (!exists(unit)) return true;
+  if (selected === null) return true;
+  return [unit.label, unit.parent, unit.listLabel].some(
+    (name) => name != null && selected.has(name),
+  );
+}

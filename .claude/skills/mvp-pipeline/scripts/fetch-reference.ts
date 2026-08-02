@@ -14,6 +14,7 @@
  */
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { usage } from "./_lib";
 
 const [projectRef, projectDir] = process.argv.slice(2);
 const url = process.env.MVP_BUILDER_MCP_URL;
@@ -21,7 +22,7 @@ const token = process.env.MVP_BUILDER_MCP_TOKEN;
 
 if (!projectRef || !projectDir || !url || !token) {
   console.error(
-    "usage: MVP_BUILDER_MCP_URL=... MVP_BUILDER_MCP_TOKEN=... tsx fetch-reference.ts <projectId|studioURL> <projectDir>",
+    `MVP_BUILDER_MCP_URL=... MVP_BUILDER_MCP_TOKEN=... ${usage("fetch-reference.ts", "<projectId|studioURL> <projectDir>")}`,
   );
   process.exit(2);
 }

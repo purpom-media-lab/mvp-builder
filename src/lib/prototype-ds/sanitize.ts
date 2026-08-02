@@ -23,15 +23,18 @@ export function sanitizeScreen(
   } else {
     return null; // 期待した形でない
   }
-  // 目的のコンポーネントを定義しているか
+  // 置換が効いたことの保険（componentName が `Screen`+数字である限り必ず真）
   if (!new RegExp(`(function|const)\\s+${componentName}\\b`).test(t)) return null;
-  // 括弧・波括弧の釣り合い（粗いが、致命的な途中切れを弾く）
+  // 括弧の釣り合い（粗いが、致命的な途中切れを弾く）
   if (!isBalanced(t)) return null;
   return t;
 }
 
+/**
+ * 括弧の**個数**だけを数える粗い検査。種類の交差（`([)]`）は検出しない。
+ * 目的は生成が途中で切れたソースを弾くことなので、これで足りる。
+ */
 function isBalanced(s: string): boolean {
-  const pairs: Record<string, string> = { ")": "(", "}": "{", "]": "[" };
   let curly = 0,
     paren = 0,
     square = 0;
@@ -43,7 +46,6 @@ function isBalanced(s: string): boolean {
     else if (ch === "[") square++;
     else if (ch === "]") square--;
     if (paren < 0 || curly < 0 || square < 0) return false;
-    void pairs;
   }
   return paren === 0 && curly === 0 && square === 0;
 }

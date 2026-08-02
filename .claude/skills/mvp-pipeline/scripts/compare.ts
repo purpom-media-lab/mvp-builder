@@ -13,12 +13,11 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { usage } from "./_lib";
 
 const [projectDir] = process.argv.slice(2);
 if (!projectDir) {
-  console.error(
-    "usage: tsx .claude/skills/mvp-pipeline/scripts/compare.ts <projectDir>",
-  );
+  console.error(usage("compare.ts", "<projectDir>"));
   process.exit(2);
 }
 
@@ -29,9 +28,27 @@ if (!existsSync(refPath)) {
 }
 const ref = JSON.parse(readFileSync(refPath, "utf8"));
 
-function art(step: string): unknown {
-  const p = join(projectDir, "artifacts", `${step}.json`);
-  return existsSync(p) ? JSON.parse(readFileSync(p, "utf8")) : null;
+const artCache = new Map<string, Record<string, unknown> | null>();
+
+/** CC 版の成果物 `<step>.json`（無ければ null）。同じ工程は 1 度しか読まない。 */
+function art(step: string): Record<string, unknown> | null {
+  if (!artCache.has(step)) {
+    const p = join(projectDir, "artifacts", `${step}.json`);
+    artCache.set(
+      step,
+      existsSync(p) ? JSON.parse(readFileSync(p, "utf8")) : null,
+    );
+  }
+  return artCache.get(step) ?? null;
+}
+
+/**
+ * CC 版の成果物から配列プロパティを取り出す（例: `ccList("ooui", "objects")`）。
+ * 比較項目を足すたびにキャストを書き写さないための入口。
+ */
+function ccList(step: string, key: string): Record<string, unknown>[] {
+  const v = art(step)?.[key];
+  return Array.isArray(v) ? v : [];
 }
 
 /** 2つの名前集合を「共通 / 本体のみ / CC のみ」に分ける。 */
@@ -56,34 +73,33 @@ console.log(`# 比較: ${ref.project?.name ?? projectDir}`);
 
 // --- 件数 ---------------------------------------------------------------
 const counts: [string, number, number][] = [
-  ["actors", (ref.actors ?? []).length, (art("actors") as { actors?: [] })?.actors?.length ?? 0],
-  ["useCases", (ref.useCases ?? []).length, (art("usecases") as { useCases?: [] })?.useCases?.length ?? 0],
-  ["ooui objects", (ref.ooui ?? []).length, (art("ooui") as { objects?: [] })?.objects?.length ?? 0],
-  ["journeys", (ref.journey ?? []).length, (art("journey") as { journeys?: [] })?.journeys?.length ?? 0],
-  ["competitors", (ref.market?.competitors ?? []).length, (art("market") as { competitors?: [] })?.competitors?.length ?? 0],
-  ["navigation", (ref.navigation ?? []).length, (art("navigation") as { items?: [] })?.items?.length ?? 0],
-  ["wireframes", (ref.wireframes ?? []).length, (art("wireframe") as { screens?: [] })?.screens?.length ?? 0],
-  ["dataModel", (ref.dataModel ?? []).length, (art("datamodel") as { entities?: [] })?.entities?.length ?? 0],
-  ["scope features", (ref.scope ?? []).length, (art("scope") as { features?: [] })?.features?.length ?? 0],
-  ["supporting KPI", (ref.kpi?.supporting ?? []).length, (art("kpi") as { supporting?: [] })?.supporting?.length ?? 0],
+  ["actors", (ref.actors ?? []).length, ccList("actors", "actors").length],
+  ["useCases", (ref.useCases ?? []).length, ccList("usecases", "useCases").length],
+  ["ooui objects", (ref.ooui ?? []).length, ccList("ooui", "objects").length],
+  ["journeys", (ref.journey ?? []).length, ccList("journey", "journeys").length],
+  ["competitors", (ref.market?.competitors ?? []).length, ccList("market", "competitors").length],
+  ["navigation", (ref.navigation ?? []).length, ccList("navigation", "items").length],
+  ["wireframes", (ref.wireframes ?? []).length, ccList("wireframe", "screens").length],
+  ["dataModel", (ref.dataModel ?? []).length, ccList("datamodel", "entities").length],
+  ["scope features", (ref.scope ?? []).length, ccList("scope", "features").length],
+  ["supporting KPI", (ref.kpi?.supporting ?? []).length, ccList("kpi", "supporting").length],
 ];
 console.log("\n## 件数\n| 項目 | 本体 | CC |\n| --- | --- | --- |");
 for (const [k, a, b] of counts) console.log(`| ${k} | ${a} | ${b} |`);
 
 // --- 名前集合 -----------------------------------------------------------
-setDiff("アクター", names(ref.actors, "name"), names((art("actors") as { actors?: [] })?.actors, "name"));
-setDiff("OOUI メインオブジェクト", names(ref.ooui, "name"), names((art("ooui") as { objects?: [] })?.objects, "name"));
-setDiff("ナビゲーション項目", names(ref.navigation, "label"), names((art("navigation") as { items?: [] })?.items, "label"));
-setDiff("データエンティティ", names(ref.dataModel, "name"), names((art("datamodel") as { entities?: [] })?.entities, "name"));
+setDiff("アクター", names(ref.actors, "name"), names(ccList("actors", "actors"), "name"));
+setDiff("OOUI メインオブジェクト", names(ref.ooui, "name"), names(ccList("ooui", "objects"), "name"));
+setDiff("ナビゲーション項目", names(ref.navigation, "label"), names(ccList("navigation", "items"), "label"));
+setDiff("データエンティティ", names(ref.dataModel, "name"), names(ccList("datamodel", "entities"), "name"));
 
 const refMvp = (ref.scope ?? []).filter((f: { includedInMvp?: boolean }) => f.includedInMvp);
-const ccScope = art("scope") as { features?: { name: string; includedInMvp?: boolean }[]; mvpStatement?: string } | null;
-const ccMvp = (ccScope?.features ?? []).filter((f) => f.includedInMvp);
+const ccMvp = ccList("scope", "features").filter((f) => f.includedInMvp);
 setDiff("MVPに含む機能", names(refMvp, "name"), names(ccMvp, "name"));
 
 // --- 判断の一致 ---------------------------------------------------------
 const refBe = ref.backend ?? {};
-const ccBe = (art("backend") as Record<string, unknown>) ?? {};
+const ccBe = art("backend") ?? {};
 console.log("\n## バックエンド要否判定\n| 項目 | 本体 | CC | 一致 |\n| --- | --- | --- | --- |");
 for (const k of ["needsAuth", "needsStorage", "needsDb"]) {
   const a = refBe[k];
@@ -94,16 +110,20 @@ console.log(`| externalApis | ${(refBe.externalApis ?? []).join(", ")} | ${((ccB
 
 console.log("\n## 北極星指標");
 console.log(`  本体: ${ref.kpi?.northStar?.name ?? "—"}（目標: ${ref.kpi?.northStar?.target ?? "—"}）`);
-const ccKpi = art("kpi") as { northStar?: { name?: string; target?: string } } | null;
-console.log(`  CC  : ${ccKpi?.northStar?.name ?? "—"}（目標: ${ccKpi?.northStar?.target ?? "—"}）`);
+const ccNorthStar = art("kpi")?.northStar as
+  | { name?: string; target?: string }
+  | undefined;
+console.log(`  CC  : ${ccNorthStar?.name ?? "—"}（目標: ${ccNorthStar?.target ?? "—"}）`);
 
 console.log("\n## MVPステートメント");
 console.log(`  本体: ${ref.mvpStatement ?? "—"}`);
-console.log(`  CC  : ${ccScope?.mvpStatement ?? "—"}`);
+console.log(`  CC  : ${art("scope")?.mvpStatement ?? "—"}`);
 
 console.log("\n## 市場規模（TAM/SAM/SOM）");
-const ccMarket = art("market") as { marketSize?: Record<string, string> } | null;
+const ccMarketSize = art("market")?.marketSize as
+  | Record<string, string>
+  | undefined;
 for (const k of ["tam", "sam", "som"]) {
   console.log(`  ${k.toUpperCase()} 本体: ${ref.market?.marketSize?.[k] ?? "—"}`);
-  console.log(`  ${k.toUpperCase()} CC  : ${ccMarket?.marketSize?.[k] ?? "—"}`);
+  console.log(`  ${k.toUpperCase()} CC  : ${ccMarketSize?.[k] ?? "—"}`);
 }

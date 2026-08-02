@@ -10,14 +10,13 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { STEP_SPECS, STEP_ORDER } from "../../../../src/lib/ai/step-specs";
+import { formatZodIssues, usage } from "./_lib";
 import type { StepKey } from "../../../../src/lib/projects";
 
 const [projectDir, ...rest] = process.argv.slice(2);
 
 if (!projectDir) {
-  console.error(
-    "usage: tsx .claude/skills/mvp-pipeline/scripts/validate.ts <projectDir> [step ...]",
-  );
+  console.error(usage("validate.ts", "<projectDir> [step ...]"));
   process.exit(2);
 }
 
@@ -67,10 +66,7 @@ for (const step of targets) {
 
   invalid++;
   console.log(`INVALID  ${step} (${label}) — ${file}`);
-  for (const issue of result.error.issues) {
-    const path = issue.path.length ? issue.path.join(".") : "(root)";
-    console.log(`  - ${path}: ${issue.message} [${issue.code}]`);
-  }
+  for (const line of formatZodIssues(result.error.issues)) console.log(line);
 }
 
 console.log(

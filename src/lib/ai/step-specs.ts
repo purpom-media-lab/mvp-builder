@@ -31,8 +31,6 @@ import {
 import type { StepKey } from "../projects";
 
 export interface StepSpec {
-  /** 工程キー */
-  key: StepKey;
   /** 工程名（日本語・UI/ドキュメント表示用） */
   label: string;
   /** 担当ロール（専門家ペルソナ）。プロンプト冒頭に注入する。 */
@@ -51,7 +49,6 @@ export interface StepSpec {
 
 export const STEP_SPECS: Record<StepKey, StepSpec> = {
   actors: {
-    key: "actors",
     label: "アクター整理",
     role: "ビジネスアナリスト",
     fast: true,
@@ -61,7 +58,6 @@ export const STEP_SPECS: Record<StepKey, StepSpec> = {
       "【役割への抽象化（厳守）】アクターは『役割・立場』として抽象化すること。資料（チャットログ・議事録・入力資料等）に登場する実在の個人名・氏名・特定の会社名を name や description にそのまま使わない（例: ×「山田太郎（事務所代表）」→ ○「事務所代表」、×「株式会社〇〇」→ ○「顧客企業」）。同じ役割を担う複数の人物は1つのアクターに統合する。個人はあくまで役割の一例であり、システムの設計対象は役割である。",
   },
   usecases: {
-    key: "usecases",
     label: "ユースケース書き出し",
     role: "ビジネスアナリスト",
     fast: true,
@@ -70,7 +66,6 @@ export const STEP_SPECS: Record<StepKey, StepSpec> = {
       "あなたはOOUI/要件分析の専門家です。各アクターが達成したい目的をユースケースとして書き出してください。",
   },
   ooui: {
-    key: "ooui",
     label: "OOUI分析（オブジェクト抽出）",
     role: "UXアーキテクト",
     fast: false,
@@ -85,7 +80,6 @@ export const STEP_SPECS: Record<StepKey, StepSpec> = {
       "【命名規則】属性（attributes）とアクション（actions）は、それぞれ name=英語の識別子（例: leadScore, createLead）と label=日本語の表示名（例: 確度スコア, リードを作成）を**両方**付与してください。",
   },
   journey: {
-    key: "journey",
     label: "ジャーニー整理",
     role: "UXデザイナー",
     fast: true,
@@ -95,7 +89,6 @@ export const STEP_SPECS: Record<StepKey, StepSpec> = {
       "ジャーニーは体験を捉える UX レンズであり、画面・ナビゲーションの構造を駆動するものではありません（画面構造は ooui のオブジェクトから導出する）。抽出した painpoint / opportunity は後続のスコープ確定(scope)で機能の優先度判断に活用され、完成画面に対する体験の抜け漏れ検証にも用います。",
   },
   market: {
-    key: "market",
     label: "市場・競合分析",
     role: "事業開発／市場アナリスト",
     fast: false,
@@ -107,7 +100,6 @@ export const STEP_SPECS: Record<StepKey, StepSpec> = {
       "【空白地帯と差別化】競合が手薄な空白地帯(whitespace=参入余地)を特定し、この事業がそこをどう取るかの差別化仮説(differentiation)を述べます。すべて日本語で、具体的に。",
   },
   navigation: {
-    key: "navigation",
     label: "ナビゲーション設計（メインナビ）",
     role: "情報設計（IA）デザイナー",
     fast: false,
@@ -116,7 +108,6 @@ export const STEP_SPECS: Record<StepKey, StepSpec> = {
       "あなたは OOUI（オブジェクト指向UI）と情報設計の専門家です。【OOUIオブジェクト起点】でアプリのメインナビゲーション（ルートナビ＝トップ階層の画面/メニュー）を設計してください。ユースケースから先に画面を作るのではなく、ooui のオブジェクト構造から画面を導出します。手順と原則: (1) ooui のメインオブジェクト（特に collectionOf を持つ／複数インスタンスを束ねるコレクション、および関連の多い『ハブ』オブジェクト）を特定し、それぞれを『トップ階層の list 画面（入口）』にする。ルートナビには、ユーザーがアプリ利用時に最初に思い浮かべる重要なメインオブジェクトを並べる。(2) 複数オブジェクトを横断して状況把握する必要があれば dashboard をトップに1つ置く。(3) relations（オブジェクト間の関連）と多重度(cardinality)を階層(parent)・参照方向の決定に使う: 1対多の『多』側や従属側（他オブジェクトに保有される/part-of 側）はトップに並べず、親オブジェクトの画面(detail)配下に置く。1対1で従属する相手もトップに出さず、親の detail から相手のシングル(detail)へリンクする。参照は原則シングルビューを起点に、相手が多重なら相手のコレクション、多重でないなら相手のシングルを呼ぶ。(4) 単一インスタンスの詳細(detail)・入力(form)は原則コレクション画面からの遷移とし、トップ階層には主要な入口だけを残す。(5) 各オブジェクト画面が、そのオブジェクトの主要 actions を実行できる入口になっているか確認する。(6) targetObject には ooui の該当オブジェクト名(name)をそのまま使う（表記ゆれ防止）。screenType は list/dashboard/detail/form/other。ユーザーがルートナビ項目を選ぶと、そのオブジェクトのコレクション(list)が開く形を基本とする。(7) label はそのオブジェクト（もの）の名前を基準にした簡潔な日本語にする。『機能』ではなく『もの』が並ぶイメージにし、動詞・機能名は使わない。語尾に『管理／一覧／確認／参照／照会／情報／編集／登録／システム』などの冗長な接尾辞を付けない（例: ×「リード管理」「顧客一覧」→ ○「リード」「顧客」）。項目数は5〜8個に絞り、必要なら2階層まで(parentで表現)。(8) 【検証フェーズ】最後に、主要ユースケース（各アクターのタスク）が、これらのオブジェクト画面の組合せで最後まで達成できるかを点検し、入口が欠けるユースケースがあれば screenType=other 等で最小限だけ補う。ユースケースは設計の起点ではなく『網羅性の検証』に使うこと。",
   },
   wireframe: {
-    key: "wireframe",
     label: "ワイヤーフレーム設計",
     role: "UIデザイナー",
     fast: false,
@@ -135,7 +126,6 @@ export const STEP_SPECS: Record<StepKey, StepSpec> = {
       "screenName と label と items は日本語。各画面3〜6セクション程度に。",
   },
   datamodel: {
-    key: "datamodel",
     label: "データ設計",
     role: "データアーキテクト",
     fast: false,
@@ -144,7 +134,6 @@ export const STEP_SPECS: Record<StepKey, StepSpec> = {
       "あなたはデータモデラーです。OOUIオブジェクト（その属性・関係・多重度）を主な入力に、永続化に必要なデータエンティティを設計してください。OOUIオブジェクトの属性をフィールドへ、関係・多重度を外部キー/中間テーブル等のデータ関係へ写像します。各エンティティに fields（name=英語の識別子, type=データ型）と relations（to=関連先エンティティ名, type=関係種別・日本語）を付与します。",
   },
   backend: {
-    key: "backend",
     label: "バックエンド要否判定",
     role: "バックエンドエンジニア",
     fast: false,
@@ -153,7 +142,6 @@ export const STEP_SPECS: Record<StepKey, StepSpec> = {
       "あなたはソフトウェアアーキテクトです。このMVPに認証・ストレージ・DB・外部APIが必要かを判定し、理由を述べてください。",
   },
   scope: {
-    key: "scope",
     label: "スコープ確定",
     role: "プロダクトマネージャー",
     fast: false,
@@ -162,7 +150,6 @@ export const STEP_SPECS: Record<StepKey, StepSpec> = {
       "あなたは新規事業のプロダクトマネージャーです。**探索プロトタイプで提示された画面・ナビゲーション・機能（MVPに絞らず全機能を含む探索版）を起点に**、そこに現れた機能候補を洗い出し、各機能を影響度(impact 1-5)と実装工数(effort 1-5)で評価し、ユーザージャーニーで挙がった painpoint（課題）/ opportunity（機会）に効く機能を優先度判断に反映し、**プロトタイプで見えた機能の中から** MVPで最初に作るべき機能を10個以下に絞り込みます。プロトタイプに無い機能を新たに足さず、提示済みの機能の取捨選択に徹してください。さらに各機能を3つの判断軸で見積もってください: initialCost=初期開発コスト（日本円。例: 30〜50万円）、operationCost=運用コスト（継続運用の金額・時間。例: 月3万円+月5時間）、learningCost=顧客の学習コスト（ユーザーが使い方を習得する負担。例: 低/中/高）。includedInMvp で MVPに含むか明示し、絞り込みの理由(rationale)を述べてください。mvpStatement に『このMVPで検証する仮説と提供価値』を1-2文で。",
   },
   kpi: {
-    key: "kpi",
     label: "KPI設定",
     role: "グロース／データアナリスト",
     fast: false,
@@ -171,7 +158,6 @@ export const STEP_SPECS: Record<StepKey, StepSpec> = {
       "あなたはグロース/事業計画の専門家です。確定したMVPスコープに紐づく成功指標を設計します。北極星指標(northStar)を1つ、補助KPI(supporting)を3〜5個。各指標に定義/目標値(target)/単位(unit)/計測方法(measurement)/計測頻度(cadence)を日本語で。",
   },
   growth: {
-    key: "growth",
     label: "グロース計画",
     role: "グロース担当",
     fast: false,
@@ -180,7 +166,6 @@ export const STEP_SPECS: Record<StepKey, StepSpec> = {
       "あなたはグロース戦略の専門家です。確定したKPIを伸ばすためのグロース計画を設計します。model=どうやって成長を生むか（グロースモデル/ループ）、levers=主要なグロースレバー、experiments=優先度順の施策/実験(3〜5個、仮説hypothesis・動かす指標metric・工数effortを付与)、milestones=【四半期ごとにざっくり】。period は『Q1』『Q2』…のように四半期で、target にその四半期の到達目標を、3〜4四半期分・時系列で。細かい月次にはせず四半期単位の大枠でよい。KPIと一貫させ、すべて日本語で。",
   },
   brand: {
-    key: "brand",
     label: "ブランド設計",
     role: "ブランドデザイナー",
     fast: false,
@@ -224,11 +209,6 @@ export const STEP_ORDER: StepKey[] = WAVES.flat();
 /** 各工程の担当ロール（プロンプト注入・UI 表示に使う）。 */
 export const STEP_ROLES = Object.fromEntries(
   STEP_ORDER.map((k) => [k, STEP_SPECS[k].role]),
-) as Record<StepKey, string>;
-
-/** 工程名（日本語）。 */
-export const STEP_LABELS = Object.fromEntries(
-  STEP_ORDER.map((k) => [k, STEP_SPECS[k].label]),
 ) as Record<StepKey, string>;
 
 /** 高速モデルで実行してよい「軽い」工程。 */

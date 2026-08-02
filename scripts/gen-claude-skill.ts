@@ -20,6 +20,7 @@ import { z } from "zod";
 import {
   FAST_STEPS,
   roleHeader,
+  STEP_ORDER,
   STEP_SPECS,
   WAVES,
 } from "../src/lib/ai/step-specs";
@@ -60,120 +61,138 @@ function upstreamOf(step: StepKey): StepKey[] {
   return WAVES.slice(0, waveIndex).flat();
 }
 
+/** JSON を書き出す工程に共通の厳守事項。 */
+const JSON_OUTPUT_RULES = [
+  "- 出力ファイルは JSON のみ。コメント・コードフェンス・前後の説明文を書かない。",
+  "- スキーマにないキーを足さない。必須キーを省略しない。",
+];
+
+/** 応答本文を1行に抑えるルール（親のコンテキストを汚さないため）。 */
+const terseReply = (what: string, body: string) =>
+  `- 応答本文には「${what}」だけを返す。\n  ${body}を応答に含めない（呼び出し元のコンテキストを消費しないため）。`;
+
+/** エージェント定義 1 枚を組み立てる。frontmatter の形をここ 1 箇所で決める。 */
+function agentDoc(a: {
+  name: string;
+  description: string;
+  tools: string;
+  /** 生成元ファイル（自動生成バナーに出す） */
+  source: string;
+  /** ロール宣言 + system プロンプト */
+  system: string;
+  steps: string;
+  rules: string[];
+}): string {
+  return `---
+name: ${a.name}
+description: ${a.description}
+model: ${AGENT_MODEL}
+tools: ${a.tools}
+---
+
+${banner(a.source)}
+
+${a.system}
+
+# 手順
+
+${a.steps}
+
+# 厳守事項
+
+${a.rules.join("\n")}
+`;
+}
+
 function agentMarkdown(step: StepKey): string {
   const spec = STEP_SPECS[step];
-  const upstream = upstreamOf(step);
   const inputs = [
     "- `<projectDir>/project.json` — プロジェクト名・概要・ジョブ分析(JTBD)・入力資料の要約",
-    ...upstream.map(
+    ...upstreamOf(step).map(
       (u) => `- \`<projectDir>/artifacts/${u}.json\` — ${STEP_SPECS[u].label}`,
     ),
   ].join("\n");
 
-  return `---
-name: mvp-${step}
-description: MVPパイプラインの「${spec.label}」工程（担当ロール: ${spec.role}）。<projectDir> を渡すと artifacts/${step}.json を書き出す。
-model: ${AGENT_MODEL}
-tools: Read, Write, Glob, Grep
----
-
-${BANNER}
-
-${roleHeader(step)}
-
-# 工程の指示
-
-${spec.system}
-
-# 手順
-
-1. 呼び出し時に渡された \`<projectDir>\`（例: \`.mvp/my-product\`）を確認する。
+  return agentDoc({
+    name: `mvp-${step}`,
+    description: `MVPパイプラインの「${spec.label}」工程（担当ロール: ${spec.role}）。<projectDir> を渡すと artifacts/${step}.json を書き出す。`,
+    tools: "Read, Write, Glob, Grep",
+    source: "src/lib/ai/step-specs.ts",
+    system: `${roleHeader(step)}\n\n# 工程の指示\n\n${spec.system}`,
+    steps: `1. 呼び出し時に渡された \`<projectDir>\`（例: \`.mvp/my-product\`）を確認する。
 2. 次の入力をすべて Read する。存在しないファイルは飛ばしてよい。
 ${inputs}
-3. \`.claude/skills/mvp-pipeline/references/schemas/${step}.json\`（JSON Schema）を Read し、
-   出力の形を厳密に把握する。
+3. \`${SCHEMA_DIR}/${step}.json\`（JSON Schema）を Read し、出力の形を厳密に把握する。
 4. 上の「工程の指示」に従って内容を作り、**JSON Schema に厳密に準拠した JSON** を
-   \`<projectDir>/artifacts/${step}.json\` に Write する。
-
-# 厳守事項
-
-- 出力ファイルは JSON のみ。コメント・コードフェンス・前後の説明文を書かない。
-- スキーマにないキーを足さない。必須キーを省略しない。\`nullable\` でないフィールドを null にしない。
-- 値はスキーマの \`description\` の指示（日本語で書く・単位・粒度など）に従う。
-- ジョブ分析（JTBD）の内容が入力資料と矛盾する場合は、**必ずジョブ分析を優先**する。
-- 応答本文には「${spec.label}を <projectDir>/artifacts/${step}.json に書き出した。<要点1行>」だけを返す。
-  生成した JSON 本体を応答に含めない（呼び出し元のコンテキストを消費しないため）。
-`;
+   \`<projectDir>/artifacts/${step}.json\` に Write する。`,
+    rules: [
+      ...JSON_OUTPUT_RULES,
+      "- `nullable` でないフィールドを null にしない。",
+      "- 値はスキーマの `description` の指示（日本語で書く・単位・粒度など）に従う。",
+      "- ジョブ分析（JTBD）の内容が入力資料と矛盾する場合は、**必ずジョブ分析を優先**する。",
+      terseReply(
+        `${spec.label}を <projectDir>/artifacts/${step}.json に書き出した。<要点1行>`,
+        "生成した JSON 本体",
+      ),
+    ],
+  });
 }
 
 /**
  * プロトタイプの1画面を書くサブエージェント。
  *
- * 本体（generateScreenComponent）が system として渡しているものと同じ規約を持たせる。
- * 違いは受け渡しだけ: 本体はメッセージで文脈を渡すが、CC 版は plan-screens.ts が
- * 書き出した `prototype/prompts/<index>.md` を Read させ、結果をファイルに Write させる。
+ * 画面の書き方そのものは `SCREEN_SYSTEM`（本体が system として渡しているものと同一）が
+ * すべて持つ。ここで足すのは **Claude Code 版に固有の差分だけ** ——
+ * 文脈をメッセージではなくファイルから読み、結果をファイルに書く、という受け渡しの契約。
  */
 function screenAgentMarkdown(): string {
-  return `---
-name: mvp-screen
-description: MVPプロトタイプの1画面を React 関数コンポーネントとして実装する（担当ロール: フロントエンドエンジニア）。<projectDir> と画面番号を渡すと prototype/screens/<番号>.jsx を書き出す。
-model: ${AGENT_MODEL}
-tools: Read, Write
----
-
-${banner("src/lib/prototype-ds/prompt.ts")}
-
-${SCREEN_SYSTEM}
-
-# 手順
-
-1. 呼び出し時に渡された \`<projectDir>\`（例: \`.mvp/my-product\`）と**画面番号**を確認する。
-2. \`.claude/skills/mvp-pipeline/references/daisyui.md\` を Read する。
+  return agentDoc({
+    name: "mvp-screen",
+    description:
+      "MVPプロトタイプの1画面を React 関数コンポーネントとして実装する（担当ロール: フロントエンドエンジニア）。<projectDir> と画面番号を渡すと prototype/screens/<番号>.jsx を書き出す。",
+    tools: "Read, Write",
+    source: "src/lib/prototype-ds/prompt.ts",
+    system: SCREEN_SYSTEM,
+    steps: `1. 呼び出し時に渡された \`<projectDir>\`（例: \`.mvp/my-product\`）と**画面番号**を確認する。
+2. \`${REF_DIR}/daisyui.md\` を Read する。
    使ってよいクラス名・構文はここが唯一の正。**推測で書かない**。
 3. \`<projectDir>/prototype/prompts/<番号>.md\` を Read する。
    アプリの文脈・対象画面・遷移の指示が書いてある。
-4. 上の規約に従って関数コンポーネントを1つ書き、
-   \`<projectDir>/prototype/screens/<番号>.jsx\` に Write する。
-
-# 厳守事項
-
-- ファイルに書くのは**関数1つだけ**。import・説明文・コードフェンス・JSON を書かない。
-- 関数名は \`Screen\` のままにする（一意名への採番は組み立て側が行う）。
-- \`navigate()\` に渡してよい画面名は、プロンプトの「# 遷移」に書かれたものだけ。
-  そこに無い遷移は、モーダル(dialog)やインライン表示で画面内に完結させる。
-- 括弧の対応が崩れた出力は組み立て側で破棄されプレースホルダになる。書き切ること。
-- 応答本文には「\`<画面名>\` を prototype/screens/<番号>.jsx に書き出した。<要点1行>」だけを返す。
-  コンポーネントのソースを応答に含めない（呼び出し元のコンテキストを消費しないため）。
-`;
+4. 上の「出力形式」に従って関数コンポーネントを1つ書き、
+   \`<projectDir>/prototype/screens/<番号>.jsx\` に Write する。`,
+    rules: [
+      "- 上の規約はファイルの中身に対する指示。ファイルには**関数1つだけ**を書く。",
+      "- 括弧の対応が崩れた出力は組み立て側で破棄されプレースホルダになる。書き切ること。",
+      terseReply(
+        "`<画面名>` を prototype/screens/<番号>.jsx に書き出した。<要点1行>",
+        "コンポーネントのソース",
+      ),
+    ],
+  });
 }
 
 /** ブランドから daisyUI テーマを設計するサブエージェント（本体の generateDaisyTheme 相当）。 */
 function themeAgentMarkdown(): string {
-  return `---
-name: mvp-theme
-description: MVPプロトタイプの daisyUI 5 テーマ（全セマンティック変数）を設計する（担当ロール: UIカラーシステム設計）。<projectDir> を渡すと prototype/theme.json を書き出す。
-model: ${AGENT_MODEL}
-tools: Read, Write
----
-
-${banner("src/lib/prototype-ds/theme-spec.ts")}
-
-${THEME_SYSTEM}
-
-# 手順
-
-1. 呼び出し時に渡された \`<projectDir>\` を確認する。
+  return agentDoc({
+    name: "mvp-theme",
+    description:
+      "MVPプロトタイプの daisyUI 5 テーマ（全セマンティック変数）を設計する（担当ロール: UIカラーシステム設計）。<projectDir> を渡すと prototype/theme.json を書き出す。",
+    tools: "Read, Write",
+    source: "src/lib/prototype-ds/theme-spec.ts",
+    system: THEME_SYSTEM,
+    steps: `1. 呼び出し時に渡された \`<projectDir>\` を確認する。
 2. \`<projectDir>/prototype/prompts/theme.md\` を Read する（ブランド名・トーン・基調色）。
-3. \`.claude/skills/mvp-pipeline/references/schemas/theme.json\`（JSON Schema）を Read する。
-4. スキーマに厳密に準拠した JSON を \`<projectDir>/prototype/theme.json\` に Write する。
-
-# 厳守事項
-
-- 出力ファイルは JSON のみ。コメント・コードフェンス・前後の説明文を書かない。
-- 色はすべて \`#rrggbb\` の6桁 HEX（3桁短縮・\`rgb()\`・色名は不可）。
-- スキーマにないキーを足さない。必須キーを省略しない。
-- 応答本文には「テーマを prototype/theme.json に書き出した。<基調色と方向性を1行>」だけを返す。
-`;
+3. \`${SCHEMA_DIR}/theme.json\`（JSON Schema）を Read する。
+4. スキーマに厳密に準拠した JSON を \`<projectDir>/prototype/theme.json\` に Write する。`,
+    rules: [
+      ...JSON_OUTPUT_RULES,
+      "- 色はすべて `#rrggbb` の6桁 HEX（3桁短縮・`rgb()`・色名は不可）。",
+      terseReply(
+        "テーマを prototype/theme.json に書き出した。<基調色と方向性を1行>",
+        "テーマの JSON 本体",
+      ),
+    ],
+  });
 }
 
 function wavesMarkdown(): string {
@@ -223,27 +242,25 @@ function resetDir(dir: string) {
   mkdirSync(dir, { recursive: true });
 }
 
+/** zod スキーマ → JSON Schema。オプションを1箇所に閉じる。 */
+const toJsonSchema = (schema: z.ZodType): string =>
+  `${JSON.stringify(z.toJSONSchema(schema, { io: "output", unrepresentable: "any" }), null, 2)}\n`;
+
 // --- 生成 ---------------------------------------------------------------
 
 mkdirSync(AGENTS_DIR, { recursive: true });
-resetDir(SCHEMA_DIR);
-mkdirSync(REF_DIR, { recursive: true });
+resetDir(SCHEMA_DIR); // 親の REF_DIR もここで作られる
 
 // 既存の mvp-*.md は一旦削除（工程名の変更で孤児が残るのを防ぐ）。
 for (const f of readdirSync(AGENTS_DIR)) {
   if (/^mvp-.*\.md$/.test(f)) rmSync(join(AGENTS_DIR, f));
 }
 
-const steps = WAVES.flat();
-for (const step of steps) {
+for (const step of STEP_ORDER) {
   writeFileSync(join(AGENTS_DIR, `mvp-${step}.md`), agentMarkdown(step));
-  const jsonSchema = z.toJSONSchema(STEP_SPECS[step].schema, {
-    io: "output",
-    unrepresentable: "any",
-  });
   writeFileSync(
     join(SCHEMA_DIR, `${step}.json`),
-    `${JSON.stringify(jsonSchema, null, 2)}\n`,
+    toJsonSchema(STEP_SPECS[step].schema),
   );
 }
 writeFileSync(join(REF_DIR, "waves.md"), wavesMarkdown());
@@ -252,14 +269,7 @@ writeFileSync(join(REF_DIR, "waves.md"), wavesMarkdown());
 
 writeFileSync(join(AGENTS_DIR, "mvp-screen.md"), screenAgentMarkdown());
 writeFileSync(join(AGENTS_DIR, "mvp-theme.md"), themeAgentMarkdown());
-writeFileSync(
-  join(SCHEMA_DIR, "theme.json"),
-  `${JSON.stringify(
-    z.toJSONSchema(themeSchema, { io: "output", unrepresentable: "any" }),
-    null,
-    2,
-  )}\n`,
-);
+writeFileSync(join(SCHEMA_DIR, "theme.json"), toJsonSchema(themeSchema));
 // 画面生成エージェントに Read させる daisyUI リファレンス。
 // 本体は同じ文字列をプロンプトに直接埋めている（daisyui-reference.ts が単一ソース）。
 writeFileSync(
@@ -268,5 +278,5 @@ writeFileSync(
 );
 
 console.log(
-  `generated: ${steps.length + 2} agents (${AGENTS_DIR}/mvp-*.md), ${steps.length + 1} schemas (${SCHEMA_DIR}), ${REF_DIR}/waves.md, ${REF_DIR}/daisyui.md`,
+  `generated: ${STEP_ORDER.length + 2} agents (${AGENTS_DIR}/mvp-*.md), ${STEP_ORDER.length + 1} schemas (${SCHEMA_DIR}), ${REF_DIR}/waves.md, ${REF_DIR}/daisyui.md`,
 );

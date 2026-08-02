@@ -24,29 +24,18 @@ import {
   buildDsHtml,
   paletteToTheme,
   type DaisyTheme,
-  type DsBrandPalette,
 } from "../../../../src/lib/prototype-ds/shell";
 import { themeSchema } from "../../../../src/lib/prototype-ds/theme-spec";
+import type { Plan } from "./plan-screens";
+import { formatZodIssues, SCRIPTS, usage } from "./_lib";
+
+const PLAN_SCREENS = `${SCRIPTS}/plan-screens.ts`;
 
 const [projectDir] = process.argv.slice(2);
 
 if (!projectDir) {
-  console.error(
-    "usage: tsx .claude/skills/mvp-pipeline/scripts/assemble.ts <projectDir>",
-  );
+  console.error(usage("assemble.ts", "<projectDir>"));
   process.exit(2);
-}
-
-interface Plan {
-  projectName: string;
-  nav: { label: string; parent: string | null; icon: string | null }[];
-  brandPalette: DsBrandPalette | null;
-  screens: {
-    index: number;
-    label: string;
-    parent: string | null;
-    listLabel: string | null;
-  }[];
 }
 
 const protoDir = join(projectDir, "prototype");
@@ -63,42 +52,34 @@ const plan = JSON.parse(readFileSync(planFile, "utf8")) as Plan;
 
 // --- 画面 -----------------------------------------------------------------
 
-const missing: string[] = [];
-const broken: string[] = [];
+/** 使えなかった画面。理由つきで1本にまとめる（報告と再生成コマンドの両方に使う）。 */
+const failures: {
+  index: number;
+  label: string;
+  reason: "未生成" | "壊れている";
+}[] = [];
 
 const screens = plan.screens.map((s) => {
   const componentName = `Screen${s.index}`;
   const file = join(protoDir, "screens", `${s.index}.jsx`);
+  const raw = existsSync(file) ? readFileSync(file, "utf8") : null;
+  // サブエージェントの出力は信用しない。関数名の採番・コードフェンス除去・
+  // 括弧バランス検査を必ず通し、通らなければプレースホルダに落として全体を守る。
+  const source = raw === null ? null : sanitizeScreen(raw, componentName);
 
-  if (!existsSync(file)) {
-    missing.push(`[${s.index}] ${s.label}`);
-    return {
+  if (source === null) {
+    failures.push({
+      index: s.index,
       label: s.label,
-      componentName,
-      source: placeholder(componentName, s.label),
-      failed: true,
-      parent: s.parent,
-    };
-  }
-
-  const source = sanitizeScreen(readFileSync(file, "utf8"), componentName);
-  if (!source) {
-    broken.push(`[${s.index}] ${s.label}`);
-    return {
-      label: s.label,
-      componentName,
-      source: placeholder(componentName, s.label),
-      failed: true,
-      parent: s.parent,
-    };
+      reason: raw === null ? "未生成" : "壊れている",
+    });
   }
 
   return {
     label: s.label,
     componentName,
-    source,
-    failed: false,
-    parent: s.parent,
+    source: source ?? placeholder(componentName, s.label),
+    failed: source === null,
   };
 });
 
@@ -118,9 +99,8 @@ if (existsSync(themeFile)) {
       themeSource = "theme.json";
     } else {
       console.warn(`⚠ theme.json がスキーマ不一致のため使わない:`);
-      for (const issue of parsed.error.issues) {
-        const path = issue.path.length ? issue.path.join(".") : "(root)";
-        console.warn(`  - ${path}: ${issue.message}`);
+      for (const line of formatZodIssues(parsed.error.issues, { withCode: false })) {
+        console.warn(line);
       }
     }
   } catch (e) {
@@ -138,12 +118,7 @@ const html = buildDsHtml({
   theme,
   brand: plan.brandPalette ? { palette: plan.brandPalette } : null,
   nav: plan.nav,
-  screens: screens.map((s) => ({
-    label: s.label,
-    componentName: s.componentName,
-    source: s.source,
-    failed: s.failed,
-  })),
+  screens,
 });
 
 const out = join(protoDir, "index.html");
@@ -151,21 +126,23 @@ writeFileSync(out, html);
 
 // --- 報告 -----------------------------------------------------------------
 
-const failed = screens.filter((s) => s.failed);
 console.log(`${out} (${html.length.toLocaleString()} 文字)`);
 console.log(
-  `画面 ${screens.length} 件中 ${screens.length - failed.length} 件が有効 / テーマ: ${themeSource}`,
+  `画面 ${screens.length} 件中 ${screens.length - failures.length} 件が有効 / テーマ: ${themeSource}`,
 );
-if (missing.length) console.log(`未生成: ${missing.join(", ")}`);
-if (broken.length) {
-  console.log(`壊れている（関数の形でない・括弧が閉じていない）: ${broken.join(", ")}`);
+for (const reason of ["未生成", "壊れている"] as const) {
+  const hit = failures.filter((f) => f.reason === reason);
+  if (hit.length) {
+    console.log(
+      `${reason}: ${hit.map((f) => `[${f.index}] ${f.label}`).join(", ")}`,
+    );
+  }
 }
-if (failed.length) {
+if (failures.length) {
   console.log(
     `\n該当画面はプレースホルダで埋めた。作り直すには:\n` +
-      `  pnpm exec tsx .claude/skills/mvp-pipeline/scripts/plan-screens.ts ${projectDir} ${failed
-        .map((s) => `"${s.label}"`)
+      `  pnpm exec tsx ${PLAN_SCREENS} ${projectDir} ${failures
+        .map((f) => `"${f.label}"`)
         .join(" ")}`,
   );
 }
-process.exit(0);

@@ -21,20 +21,57 @@ import {
   buildBrandContext,
   buildScreenContext,
 } from "../../../../src/lib/prototype-ds/prompt";
-import { deriveScreenUnits } from "../../../../src/lib/prototype-ds/screen-units";
+import {
+  deriveScreenUnits,
+  shouldRegenerateScreen,
+} from "../../../../src/lib/prototype-ds/screen-units";
+import type { DsBrandPalette } from "../../../../src/lib/prototype-ds/shell";
+import { usage } from "./_lib";
+import type { z } from "zod";
+import type {
+  brandSchema,
+  navigationSchema,
+  oouiSchema,
+  scopeSchema,
+} from "../../../../src/lib/ai/schemas";
 
 const [projectDir, ...selectedArgs] = process.argv.slice(2);
 
 if (!projectDir) {
-  console.error(
-    "usage: tsx .claude/skills/mvp-pipeline/scripts/plan-screens.ts <projectDir> [画面名 ...]",
-  );
+  console.error(usage("plan-screens.ts", "<projectDir> [画面名 ...]"));
   process.exit(2);
 }
 
-const readJson = <T>(file: string, fallback: T): T => {
+// 成果物の形は本体の zod スキーマがそのまま正。手で写すと必ずずれる。
+type Navigation = z.infer<typeof navigationSchema>;
+type Ooui = z.infer<typeof oouiSchema>;
+type Scope = z.infer<typeof scopeSchema>;
+type Brand = z.infer<typeof brandSchema>;
+type Project = { name?: string; summary?: string };
+
+/**
+ * `<projectDir>/prototype/plan.json` の形。assemble.ts がこれを読む。
+ * 受け渡しの契約なので、書き手（ここ）が型の正とする。
+ */
+export interface Plan {
+  projectName: string;
+  /** メニュー全項目（親子・順序つき）。画面を持たない親も含む。 */
+  nav: { label: string; parent: string | null; icon: string | null }[];
+  brandPalette: DsBrandPalette | null;
+  screens: {
+    index: number;
+    label: string;
+    /** 詳細画面のとき、対応する一覧のラベル */
+    listLabel: string | null;
+    /** この実行で作り直す対象か（進捗表示用。assemble は見ない） */
+    regenerate: boolean;
+  }[];
+}
+
+/** `<projectDir>/<file>` を読む。無ければ null、壊れていれば異常終了。 */
+const readJson = <T>(file: string): T | null => {
   const path = join(projectDir, file);
-  if (!existsSync(path)) return fallback;
+  if (!existsSync(path)) return null;
   try {
     return JSON.parse(readFileSync(path, "utf8")) as T;
   } catch (e) {
@@ -43,44 +80,11 @@ const readJson = <T>(file: string, fallback: T): T => {
   }
 };
 
-const project = readJson<{ name?: string; summary?: string }>(
-  "project.json",
-  {},
-);
-const navigation = readJson<{ items?: NavItem[] }>(
-  "artifacts/navigation.json",
-  {},
-).items;
-const ooui = readJson<{ objects?: OouiObject[] }>("artifacts/ooui.json", {})
-  .objects;
-const scope = readJson<{ mvpStatement?: string; features?: Feature[] }>(
-  "artifacts/scope.json",
-  {},
-);
-const brand = readJson<Brand | null>("artifacts/brand.json", null);
-
-interface NavItem {
-  label: string;
-  parent?: string | null;
-  icon?: string | null;
-  screenType?: string | null;
-  targetObject?: string | null;
-}
-interface OouiObject {
-  name: string;
-  attributes?: { name?: string; label?: string }[] | null;
-}
-interface Feature {
-  name: string;
-  description?: string | null;
-  includedInMvp?: boolean;
-}
-interface Brand {
-  brandName?: string | null;
-  tagline?: string | null;
-  tone?: string[] | null;
-  palette?: Record<string, string | null> | null;
-}
+const project = readJson<Project>("project.json");
+const navigation = readJson<Navigation>("artifacts/navigation.json")?.items;
+const ooui = readJson<Ooui>("artifacts/ooui.json")?.objects;
+const scope = readJson<Scope>("artifacts/scope.json");
+const brand = readJson<Brand>("artifacts/brand.json");
 
 if (!navigation?.length) {
   console.error(
@@ -89,19 +93,25 @@ if (!navigation?.length) {
   process.exit(1);
 }
 
-// 成果物 → プロトタイプ文脈の写像。Web 側は buildRefinePrototypeContext
-// (src/lib/ai/project-context.ts) が DB 行から同じ形を作っている。
+// 成果物 → プロトタイプ文脈の写像。Web 側の DS プロトタイプ経路
+// (src/app/studio/[id]/prototype/page.tsx の payload) と同じ形にする。
+//
+// scope は includedInMvp で**絞らない**。プロトタイプは探索用で、
+// buildBaseContext が「MVPに絞り込まず、全ユースケース・全画面を網羅的に」と
+// 指示している以上、渡す機能一覧を絞ると指示と矛盾する
+// （絞るのは generateDesignBrief 用の buildRefinePrototypeContext のほう）。
 const context = {
-  projectName: project.name ?? "",
-  summary: project.summary ?? null,
-  mvpStatement: scope.mvpStatement ?? null,
+  projectName: project?.name ?? "",
+  summary: project?.summary ?? null,
+  mvpStatement: scope?.mvpStatement ?? null,
   oouiObjects: (ooui ?? []).map((o) => ({
     name: o.name,
     attributes: (o.attributes ?? []).map((at) => at.label ?? at.name ?? ""),
   })),
-  scope: (scope.features ?? [])
-    .filter((f) => f.includedInMvp)
-    .map((f) => ({ name: f.name, description: f.description })),
+  scope: (scope?.features ?? []).map((f) => ({
+    name: f.name,
+    description: f.description,
+  })),
   brand,
 };
 
@@ -117,40 +127,31 @@ const screensDir = join(protoDir, "screens");
 mkdirSync(promptsDir, { recursive: true });
 mkdirSync(screensDir, { recursive: true });
 
-// 再生成対象。画面名の指定が無ければ全画面。指定があれば「その画面 + 配下 + 未生成」。
-const selected = selectedArgs.length ? new Set(selectedArgs) : null;
-const unknownNames = selectedArgs.filter(
-  (name) => !units.some((u) => u.label === name) && !allNav.some((n) => n.label === name),
-);
+// 再生成対象。画面名の指定が無ければ全画面。
+// 指定できるのは「メニュー項目（画面を持たない親も含む）」と「補完した詳細画面」。
+const selectableNames = new Set([...allNav, ...units].map((x) => x.label));
+const unknownNames = selectedArgs.filter((n) => !selectableNames.has(n));
 if (unknownNames.length) {
   console.error(`存在しない画面名: ${unknownNames.join(", ")}`);
-  console.error(`指定できるのは: ${units.map((u) => u.label).join(" / ")}`);
+  console.error(`指定できるのは: ${[...selectableNames].join(" / ")}`);
   process.exit(2);
 }
+const selected = selectedArgs.length ? new Set(selectedArgs) : null;
 
 const screens = units.map((unit, index) => {
-  const sourceFile = join(screensDir, `${index}.jsx`);
-  const regenerate =
-    !existsSync(sourceFile) || // 未生成は必ず作る（破壊しない）
-    selected === null || // 全再生成
-    selected.has(unit.label) ||
-    (unit.parent != null && selected.has(unit.parent)) ||
-    // 一覧が選ばれたら、その詳細画面も作り直す（内容が対になっているため）
-    (unit.listLabel != null && selected.has(unit.listLabel));
-
+  // 「作り直すか」の判定は本体（jobs-runner）と同じ関数を使う。
+  const regenerate = shouldRegenerateScreen(unit, selected, () =>
+    existsSync(join(screensDir, `${index}.jsx`)),
+  );
   if (regenerate) {
     writeFileSync(
       join(promptsDir, `${index}.md`),
       `${buildScreenContext(baseContext, unit, hasDetail)}\n`,
     );
   }
-
   return {
     index,
     label: unit.label,
-    parent: unit.parent ?? null,
-    screenType: unit.screenType ?? null,
-    targetObject: unit.targetObject ?? null,
     listLabel: unit.listLabel ?? null,
     regenerate,
   };
@@ -166,32 +167,29 @@ if (regenerateTheme) {
   writeFileSync(join(promptsDir, "theme.md"), `${buildBrandContext(context)}\n`);
 }
 
+const plan: Plan = {
+  projectName: context.projectName || "プロトタイプ",
+  // メニューは全項目(親子)で2階層描画。親はグループ見出し(画面なし)になる。
+  nav: allNav.map((n) => ({
+    label: n.label,
+    parent: n.parent ?? null,
+    icon: n.icon ?? null,
+  })),
+  brandPalette: brand?.palette ?? null,
+  screens,
+};
 writeFileSync(
   join(protoDir, "plan.json"),
-  `${JSON.stringify(
-    {
-      projectName: context.projectName || "プロトタイプ",
-      // メニューは全項目(親子)で2階層描画。親はグループ見出し(画面なし)になる。
-      nav: allNav.map((n) => ({
-        label: n.label,
-        parent: n.parent ?? null,
-        icon: n.icon ?? null,
-      })),
-      brandPalette: brand?.palette ?? null,
-      regenerateTheme,
-      screens,
-    },
-    null,
-    2,
-  )}\n`,
+  `${JSON.stringify(plan, null, 2)}\n`,
 );
 
 // --- 呼び出し元（スキル）への指示 ----------------------------------------
 
 const todo = screens.filter((s) => s.regenerate);
-const reused = screens.length - todo.length;
 
-console.log(`画面 ${screens.length} 件（生成 ${todo.length} / 再利用 ${reused}）`);
+console.log(
+  `画面 ${screens.length} 件（生成 ${todo.length} / 再利用 ${screens.length - todo.length}）`,
+);
 for (const s of screens) {
   console.log(
     `  ${s.regenerate ? "生成" : "再利用"} [${s.index}] ${s.label}${s.listLabel ? `（${s.listLabel}の詳細）` : ""}`,

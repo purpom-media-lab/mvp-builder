@@ -19,15 +19,15 @@ tools: Read, Write, Glob, Grep
 1. 呼び出し時に渡された `<projectDir>`（例: `.mvp/my-product`）を確認する。
 2. 次の入力をすべて Read する。存在しないファイルは飛ばしてよい。
 - `<projectDir>/project.json` — プロジェクト名・概要・ジョブ分析(JTBD)・入力資料の要約
-3. `.claude/skills/mvp-pipeline/references/schemas/actors.json`（JSON Schema）を Read し、
-   出力の形を厳密に把握する。
+3. `.claude/skills/mvp-pipeline/references/schemas/actors.json`（JSON Schema）を Read し、出力の形を厳密に把握する。
 4. 上の「工程の指示」に従って内容を作り、**JSON Schema に厳密に準拠した JSON** を
    `<projectDir>/artifacts/actors.json` に Write する。
 
 # 厳守事項
 
 - 出力ファイルは JSON のみ。コメント・コードフェンス・前後の説明文を書かない。
-- スキーマにないキーを足さない。必須キーを省略しない。`nullable` でないフィールドを null にしない。
+- スキーマにないキーを足さない。必須キーを省略しない。
+- `nullable` でないフィールドを null にしない。
 - 値はスキーマの `description` の指示（日本語で書く・単位・粒度など）に従う。
 - ジョブ分析（JTBD）の内容が入力資料と矛盾する場合は、**必ずジョブ分析を優先**する。
 - 応答本文には「アクター整理を <projectDir>/artifacts/actors.json に書き出した。<要点1行>」だけを返す。

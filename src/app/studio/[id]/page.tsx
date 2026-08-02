@@ -686,11 +686,7 @@ export default function ProjectDetailPage() {
     if (!(actors?.length || useCases?.length)) return null;
     // actorName はサーバ側（getProjectWithArtifacts）で actorId から解決済み。
     // 旧形式（description への埋め込み）の互換もそちらで吸収している。
-    const resolved = (useCases ?? []).map((u) => ({
-      goal: u.goal,
-      actorName: u.actorName ?? null,
-    }));
-    return analysisToFlowchart(actors ?? [], resolved);
+    return analysisToFlowchart(actors ?? [], useCases ?? []);
   }, [actors, useCases]);
 
   const GenerateButton = () => (

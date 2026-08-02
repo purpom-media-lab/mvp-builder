@@ -39,8 +39,15 @@ export type PrefKey = StepKey | FeatureKey;
 export type ModelPrefs = Partial<Record<PrefKey, ModelPref>>;
 
 /**
- * 既定で高速モデルを割り当てる「軽い」工程
- * （analyze ルート / pipeline と同方針）。
+ * 既定で高速モデルを割り当てる「軽い」工程（設定 UI の初期値）。
+ *
+ * サーバ側の実行既定は `FAST_STEPS`（src/lib/ai/step-specs.ts）で、こちらは
+ * **navigation を含む点だけ意図的に違う**。navigation は OOUI の構造推論が要るので
+ * 実行既定からは外しているが、UI では「軽い工程」として最初から高速側に倒しておく。
+ *
+ * step-specs を import しないのは、この定数がクライアントコンポーネント
+ * （model-prefs-dialog）から参照され、13工程ぶんのプロンプト文字列（約 24KB）を
+ * クライアントバンドルに引き込んでしまうため。
  */
 export const FAST_PREF_STEPS = new Set<StepKey>([
   "actors",

@@ -189,9 +189,8 @@ export async function createProject(
  * （アクター名は actorName として別フィールドで返す）。
  */
 function withActorName<
-  A extends { id: string; name: string },
   U extends { actorId: string | null; description: string | null },
->(actorRows: A[], useCaseRows: U[]) {
+>(actorRows: { id: string; name: string }[], useCaseRows: U[]) {
   const nameById = new Map(actorRows.map((a) => [a.id, a.name]));
   const knownNames = new Set(actorRows.map((a) => a.name));
 
@@ -229,21 +228,12 @@ async function actorIdsByName(projectId: string): Promise<Map<string, string>> {
 async function linkedActorNames(
   projectId: string,
 ): Promise<{ useCaseId: string; actorName: string }[]> {
-  const [actorRows, useCaseRows] = await Promise.all([
-    db
-      .select({ id: actors.id, name: actors.name })
-      .from(actors)
-      .where(eq(actors.projectId, projectId)),
-    db
-      .select({ id: useCases.id, actorId: useCases.actorId })
-      .from(useCases)
-      .where(eq(useCases.projectId, projectId)),
-  ]);
-  const nameById = new Map(actorRows.map((a) => [a.id, a.name]));
-  return useCaseRows.flatMap((u) => {
-    const actorName = u.actorId ? nameById.get(u.actorId) : undefined;
-    return actorName ? [{ useCaseId: u.id, actorName }] : [];
-  });
+  const rows = await db
+    .select({ useCaseId: useCases.id, actorName: actors.name })
+    .from(useCases)
+    .innerJoin(actors, eq(useCases.actorId, actors.id))
+    .where(eq(useCases.projectId, projectId));
+  return rows;
 }
 
 /**
@@ -263,20 +253,25 @@ async function relinkUseCases(
 ): Promise<void> {
   if (!prevLinks.length) return;
   const idByName = new Map(newActors.map((a) => [a.name, a.id]));
-  await Promise.all(
-    prevLinks.flatMap((link) => {
-      const actorId = idByName.get(link.actorName);
-      // 同名アクターが消えた場合は紐付けを復元しない（FK は set null のまま）。
-      return actorId
-        ? [
-            db
-              .update(useCases)
-              .set({ actorId })
-              .where(eq(useCases.id, link.useCaseId)),
-          ]
-        : [];
-    }),
+
+  // アクター単位にまとめる。ユースケース1件ごとに UPDATE を撃つと、
+  // neon-http では文ごとに HTTPS リクエストが飛ぶ（件数分のファンアウト）。
+  const useCaseIdsByActor = new Map<string, string[]>();
+  for (const link of prevLinks) {
+    const actorId = idByName.get(link.actorName);
+    // 同名アクターが消えた場合は紐付けを復元しない（FK は set null のまま）。
+    if (!actorId) continue;
+    const ids = useCaseIdsByActor.get(actorId);
+    if (ids) ids.push(link.useCaseId);
+    else useCaseIdsByActor.set(actorId, [link.useCaseId]);
+  }
+  if (!useCaseIdsByActor.size) return;
+
+  const updates = [...useCaseIdsByActor].map(([actorId, ids]) =>
+    db.update(useCases).set({ actorId }).where(inArray(useCases.id, ids)),
   );
+  // アクター数ぶんの文を 1 リクエストにまとめる。
+  await db.batch(updates as [(typeof updates)[number], ...typeof updates]);
 }
 
 export async function getProjectWithArtifacts(
@@ -499,9 +494,9 @@ export async function saveStepResult(
     }
   } else if (step === "usecases") {
     const r = result as UseCasesOutput;
-    const actorIdByName = await actorIdsByName(projectId);
     await db.delete(useCases).where(eq(useCases.projectId, projectId));
     if (r.useCases.length) {
+      const actorIdByName = await actorIdsByName(projectId);
       await db.insert(useCases).values(
         r.useCases.map((u) => ({
           projectId,

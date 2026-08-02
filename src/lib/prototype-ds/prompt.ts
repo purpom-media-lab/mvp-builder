@@ -103,20 +103,22 @@ export function buildScreenContext(
   unit: ScreenUnit,
   hasDetail: Set<string>,
 ): string {
-  return (
-    baseContext +
-    `\n# 対象画面: ${unit.label}` +
-    (unit.screenType ? `（${unit.screenType}）` : "") +
-    (unit.targetObject ? ` / 主対象オブジェクト: ${unit.targetObject}` : "") +
+  return [
+    baseContext,
+    `# 対象画面: ${unit.label}` +
+      (unit.screenType ? `（${unit.screenType}）` : "") +
+      (unit.targetObject ? ` / 主対象オブジェクト: ${unit.targetObject}` : ""),
     // 一覧 → 詳細の遷移指示（詳細画面がある一覧のみ）
-    (hasDetail.has(unit.label)
-      ? `\n# 遷移: 一覧の各行の「詳細」ボタンや行クリックでは navigate("${unit.label}詳細") を呼んで詳細画面へ遷移する。`
-      : "") +
+    hasDetail.has(unit.label)
+      ? `# 遷移: 一覧の各行の「詳細」ボタンや行クリックでは navigate("${unit.label}詳細") を呼んで詳細画面へ遷移する。`
+      : "",
     // 詳細画面には「どの一覧の詳細か」と戻り導線を指示
-    (unit.listLabel
-      ? `\n# この画面は一覧「${unit.listLabel}」の1件を開いた詳細画面。対象オブジェクトの属性の詳細・関連情報・主要アクションを載せ、「← ${unit.listLabel}に戻る」ボタンで navigate("${unit.listLabel}") を呼ぶ。`
-      : "")
-  );
+    unit.listLabel
+      ? `# この画面は一覧「${unit.listLabel}」の1件を開いた詳細画面。対象オブジェクトの属性の詳細・関連情報・主要アクションを載せ、「← ${unit.listLabel}に戻る」ボタンで navigate("${unit.listLabel}") を呼ぶ。`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export interface BrandContextInput {

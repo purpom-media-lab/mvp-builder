@@ -40,7 +40,11 @@ import {
   buildScreenContext,
 } from "@/lib/prototype-ds/prompt";
 import { renameComponent } from "@/lib/prototype-ds/sanitize";
-import { deriveScreenUnits } from "@/lib/prototype-ds/screen-units";
+import {
+  deriveScreenUnits,
+  shouldRegenerateScreen,
+  type ScreenUnit,
+} from "@/lib/prototype-ds/screen-units";
 import { buildDsHtml } from "@/lib/prototype-ds/shell";
 import {
   type DsScreenRecord,
@@ -309,21 +313,12 @@ async function runDsPrototypeJob(
   for (const s of prev ?? []) prevByLabel.set(s.label, s);
 
   // 再生成対象の集合。selectedScreens 未指定なら全再生成（null）。
-  // 親が選ばれていれば配下のリーフも対象に含める（page 側の展開と同じ）。
+  // 判定ロジックは Claude Code 版と共有している（screen-units.ts）。
   const selected = p.selectedScreens?.length
     ? new Set(p.selectedScreens)
     : null;
-  const shouldRegen = (leaf: {
-    label: string;
-    parent?: string | null;
-  }): boolean => {
-    if (!prevByLabel.has(leaf.label)) return true; // 未保存は必ず作る（破壊しない）
-    if (selected === null) return true; // 全再生成
-    return (
-      selected.has(leaf.label) ||
-      (leaf.parent != null && selected.has(leaf.parent))
-    );
-  };
+  const shouldRegen = (unit: ScreenUnit): boolean =>
+    shouldRegenerateScreen(unit, selected, (u) => prevByLabel.has(u.label));
 
   // ライブ進捗には「揃っている画面」を出す。再利用ぶんは即時に表示する。
   const done: string[] = screenUnits

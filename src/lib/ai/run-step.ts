@@ -43,7 +43,6 @@ export const STEP_FNS = {
  * 高速モデルで実行する「軽い」工程（抽出系・構造が単純で品質影響が小さい）。
  * 定義は step-specs.ts（単一ソース）の `fast` フラグ。
  */
-export { FAST_STEPS };
 
 export function isStepKey(v: unknown): v is StepKey {
   return typeof v === "string" && v in STEP_FNS;

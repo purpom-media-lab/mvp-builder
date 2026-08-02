@@ -45,7 +45,8 @@ const STEP_FNS = {
  * Claude Code 版パイプライン（.claude/）も同じ定義から生成されるため、変更は
  * step-specs.ts 側で行うこと。
  */
-export { FAST_STEPS, STEP_ROLES, WAVES } from "./step-specs";
+// STEP_ROLES は歴史的に pipeline 経由で参照されている。定義は step-specs.ts。
+export { STEP_ROLES } from "./step-specs";
 
 export interface PipelineOptions {
   baseContext: string;
