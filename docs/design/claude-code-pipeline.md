@@ -26,10 +26,15 @@ MVP Builder（Web アプリ）が持つ「事業情報 → 13 工程の分析・
 **採用: 生成方式。** 本体の TypeScript を単一ソースとし、Claude Code 用の資産を機械生成する。
 
 ```
-src/lib/ai/steps.ts     ─┐
-src/lib/ai/schemas.ts    ├→ scripts/gen-claude-skill.ts ─→ .claude/skills/mvp-pipeline/references/*
-src/lib/ai/pipeline.ts  ─┘                               ─→ .claude/agents/mvp-*.md
+src/lib/ai/step-specs.ts            ─┐                   ─→ .claude/agents/mvp-*.md
+src/lib/prototype-ds/prompt.ts       ├→ gen-claude-skill ─→ .claude/skills/mvp-pipeline/references/*
+src/lib/prototype-ds/theme-spec.ts   │
+src/lib/prototype-ds/daisyui-reference.ts ─┘
 ```
+
+13 工程の仕様は `step-specs.ts`（ロール／system プロンプト／zod スキーマ／ウェーブ）に集約し、
+`steps.ts` / `pipeline.ts` / `run-step.ts` もそこを参照する。プロトタイプ側も同様に
+`prompt.ts` / `theme-spec.ts` を単一ソースにして、Web と Claude Code が同じ文字列を使う。
 
 - 前例がリポジトリ内にある（`scripts/gen-daisyui-reference.ts` → `src/lib/prototype-ds/daisyui-reference.ts`）。同じ作法を逆方向に使うだけ。
 - スキーマは zod v4 の `z.toJSONSchema()` で JSON Schema に落とす（`zod@4.4.3` 導入済み）。
@@ -46,10 +51,10 @@ src/lib/ai/pipeline.ts  ─┘                               ─→ .claude/agen
 | --- | --- |
 | `runPipelineParallel` の WAVES 並列実行 | ウェーブ単位でサブエージェントを 1 メッセージ同時起動 |
 | `STEP_ROLES` のロール注入 | `.claude/agents/mvp-<step>.md` の system prompt にロールを固定 |
-| `generateStructured`（zod で構造化強制） | サブエージェントが `artifacts/<step>.json` を書く → `validate.mjs` が zod で検証 → 不一致なら 1 回だけ修正指示 |
+| `generateStructured`（zod で構造化強制） | サブエージェントが `artifacts/<step>.json` を書く → `validate.ts` が zod で検証 → 不一致なら 1 回だけ修正指示 |
 | DB 永続化（`projects` / `artifacts`） | `.mvp/<slug>/artifacts/*.json`（プレーンな JSON ファイル） |
 | コンテキスト積み上げ（`context += JSON.stringify(result)`） | 直前ウェーブまでの `artifacts/*.json` をサブエージェントに Read させる |
-| provider / modelId 切替、`FAST_STEPS` | エージェント frontmatter の `model:`（actors/usecases/journey は haiku、他は sonnet、必要なら opus） |
+| provider / modelId 切替、`FAST_STEPS` | エージェント frontmatter の `model:`（全工程 sonnet。理由は §7 の発見1） |
 | `planOrchestration`（要望 → 再実行工程の計画） | `/mvp-update "<要望>"` コマンド（同じ判断基準のプロンプトを流用） |
 | DS エンジン（骨格コード固定＋画面ごと LLM 生成） | 骨格は `buildDsHtml` をそのまま再利用。画面生成だけサブエージェント |
 | 進捗ジョブ（`jobs` テーブル / SSE） | Claude Code のサブエージェント進捗表示 |
@@ -70,34 +75,38 @@ src/lib/ai/pipeline.ts  ─┘                               ─→ .claude/agen
 
 ## 4. ディレクトリ構成
 
+スクリプトはすべて TypeScript（`.ts`）で、`pnpm exec tsx` で実行する。本体のコードを
+相対 import して再利用するため（`../../../../src/lib/...`）、素の `.mjs` にはしない。
+
 ```
 .claude/
 ├── skills/
 │   └── mvp-pipeline/
 │       ├── SKILL.md                    # 全体手順（オーケストレーション）
 │       ├── references/
-│       │   ├── steps.md                # ⚙自動生成: 13工程のsystemプロンプト全文
-│       │   ├── schemas/<step>.json     # ⚙自動生成: 各工程の JSON Schema
+│       │   ├── schemas/<step>.json     # ⚙自動生成: 各工程 + theme の JSON Schema
 │       │   ├── waves.md                # ⚙自動生成: 依存ウェーブ定義
-│       │   └── prototype.md            # DSエンジンの使い方・画面生成の規約
+│       │   ├── daisyui.md              # ⚙自動生成: daisyUI 5 リファレンス（画面生成が Read）
+│       │   └── prototype.md            # DSエンジンの規約・失敗時の直し方
 │       └── scripts/
-│           ├── validate.mjs            # artifacts/*.json を zod で検証
-│           ├── screen-units.mjs        # nav → 生成対象画面（リーフ + ◯◯詳細）を導出
-│           ├── assemble.mjs            # buildDsHtml で単一HTMLへ組み立て
-│           ├── fetch-reference.mjs     # 検証モード: MCP/API から既存成果物を取得
-│           └── compare.mjs             # 検証モード: 構造差分レポート
+│           ├── validate.ts             # artifacts/*.json を zod で検証
+│           ├── plan-screens.ts         # nav → 生成対象画面を導出し、画面別プロンプトを出力
+│           ├── assemble.ts             # サニタイズ + buildDsHtml で単一HTMLへ組み立て
+│           ├── fetch-reference.ts      # 検証モード: MCP から既存成果物を取得
+│           └── compare.ts              # 検証モード: 構造差分レポート
 ├── agents/
 │   ├── mvp-actors.md  … mvp-brand.md   # ⚙自動生成: 13体
-│   └── mvp-screen.md                   # プロトタイプ1画面生成
+│   ├── mvp-screen.md                   # ⚙自動生成: プロトタイプ1画面生成
+│   └── mvp-theme.md                    # ⚙自動生成: daisyUI テーマ設計
 └── commands/
     ├── mvp-run.md      # フルパイプライン（13工程 → プロトタイプ）
     ├── mvp-step.md     # 単一工程の再実行
-    ├── mvp-update.md   # 要望 → 再実行工程を計画して回す
     ├── mvp-proto.md    # プロトタイプのみ生成/部分再生成
-    └── mvp-diff.md     # 検証モード
+    ├── mvp-update.md   # （未作成）要望 → 再実行工程を計画して回す
+    └── mvp-diff.md     # （未作成）検証モード
 
 scripts/
-└── gen-claude-skill.ts                 # 上記 ⚙ を生成
+└── gen-claude-skill.ts                 # 上記 ⚙ を生成（pnpm gen:skill）
 
 .mvp/                                   # 実行時データ（.gitignore）
 └── <project-slug>/
@@ -105,7 +114,9 @@ scripts/
     ├── project.json     # name / summary / analysisResult(JTBD)
     ├── artifacts/       # actors.json … brand.json
     ├── prototype/
-    │   ├── screens/     # Screen0.jsx … （部分再生成のマージ元）
+    │   ├── plan.json    # 生成対象の画面一覧・ナビ・ブランドパレット
+    │   ├── prompts/     # <i>.md（画面別プロンプト）/ theme.md
+    │   ├── screens/     # <i>.jsx（部分再生成のマージ元）
     │   ├── theme.json
     │   └── index.html
     └── reference/       # 検証モード: MCP から取得した本体の出力
@@ -144,38 +155,46 @@ wave7: wireframe / backend / growth    ← 3体同時
 3. `references/schemas/<step>.json` に厳密に従う JSON を `artifacts/<step>.json` に Write
 4. 返り値は 1 行サマリのみ（本文をコンテキストに戻さない＝親のコンテキストを汚さない）
 
-ウェーブ完了ごとに親が `validate.mjs` を実行。スキーマ不一致なら該当エージェントに
+ウェーブ完了ごとに親が `validate.ts` を実行。スキーマ不一致なら該当エージェントに
 **同じセッションで**（SendMessage）修正させる。2 回失敗したら止めてユーザーに報告する。
 
 > **注意点（本体との差）**: 本体は `generateStructured` でスキーマ準拠が API レベルで保証される。
 > Claude Code のサブエージェントは保証されないので、検証＋リトライで担保する。ここが移植で
-> いちばん壊れやすい箇所なので、`validate.mjs` はエラーメッセージを「どのパスがどう違うか」まで
+> いちばん壊れやすい箇所なので、`validate.ts` はエラーメッセージを「どのパスがどう違うか」まで
 > 具体的に出す（zod の `error.issues` をそのまま整形）。
 
 ### 5.3 プロトタイプ生成
 
-`jobs-runner.ts:270-505`（`runDsPrototypeJob`）の移植。
+`runDsPrototypeJob`（`jobs-runner.ts`）の移植。**本体のロジックをコピーせず、同じ関数を呼ぶ**
+（下記の切り出し済み）。
 
-1. `screen-units.mjs` が `artifacts/navigation.json` から生成対象画面を導出
+1. `plan-screens.ts` が `artifacts/*.json` を読み、`deriveScreenUnits()` で生成対象画面を導出
    - 親（他項目の `parent` になっているラベル）はグループ見出し扱いで画面を作らない
    - `screenType` に `list` を含む画面には `「◯◯詳細」` を自動追加（`listLabel` 付き）
-2. `mvp-screen` サブエージェントを画面数ぶん並列起動（実測 8〜15 画面）
-   - system: `generate-screen.ts` の `SYSTEM_BASE` 全文（React UMD / `useState` のみ / daisyUI 5 / `<Page>` ルート / `navigate()` 規約）
-   - 参照資料: `DAISYUI_REFERENCE`
-   - 一覧画面には `navigate("◯◯詳細")` の遷移指示、詳細画面には戻り導線の指示を注入（本体と同文）
-   - 出力: `prototype/screens/Screen<i>.jsx`
-3. テーマ: `generate-theme.ts` 相当を 1 エージェントで生成 → `prototype/theme.json`
-4. `assemble.mjs` が `buildDsHtml()` を呼んで `prototype/index.html` を出力
-5. サニタイズ（`sanitizeScreen` の関数名リネーム・括弧バランス検査・失敗時プレースホルダ）は
-   **`assemble.mjs` 側に移植**する。エージェントに任せない
+   - 画面ごとのプロンプト（`buildScreenContext()` の結果）を `prototype/prompts/<i>.md` に書く。
+     こうすると各サブエージェントは自分の 1 ファイルを Read するだけで済み、親のコンテキストに
+     プロンプト全文が乗らない
+2. `mvp-screen` サブエージェントを画面数ぶん並列起動（実測 9 画面）
+   - system: `prompt.ts` の `SCREEN_SYSTEM` 全文（React UMD / `useState` のみ / daisyUI 5 /
+     `<Page>` ルート / `navigate()` 規約）＝ 本体が渡しているものと同一
+   - 参照資料: `references/daisyui.md`（`DAISYUI_REFERENCE` から生成）を Read させる
+   - 出力: `prototype/screens/<i>.jsx`（関数名は `Screen` のまま。採番は組み立て側）
+3. テーマ: `mvp-theme` 1 体が `prototype/theme.json` を書く（`THEME_SYSTEM` + `themeSchema`）。
+   ブランドに基調色が無ければ起動せず、`paletteToTheme()` の導出に任せる
+4. `assemble.ts` が `sanitizeScreen()` → `buildDsHtml()` の順に呼んで `prototype/index.html` を出力
+5. サニタイズ（関数名リネーム・括弧バランス検査・失敗時プレースホルダ）とテーマのスキーマ検証は
+   **`assemble.ts` 側**で行う。エージェントに任せない
 
 **部分再生成**は本体と同じ非破壊マージ: `prototype/screens/` に残っているものを再利用し、
-指定画面だけ作り直して `componentName` を採番し直す。
+指定画面だけプロンプトを作り直す。未生成の画面は指定に関わらず必ず作る。
 
-> **本体側にも小改修を提案**: 画面ユニット導出（`jobs-runner.ts:286-310`）と `sanitizeScreen`
-> （`generate-screen.ts:123-174`）は純ロジックなのに実装内に埋まっている。
-> `src/lib/prototype-ds/screen-units.ts` / `sanitize.ts` として切り出せば、Web と Claude Code の
-> **両方から同じコードを使える**。二重実装をここでも避けられる。
+> **本体側の小改修（実施済み）**: 画面ユニット導出・サニタイズ・プロンプト組み立ては純ロジック
+> なのに `jobs-runner.ts` / `generate-screen.ts` の実装内に埋まっていた。
+> `src/lib/prototype-ds/{screen-units,sanitize,prompt,theme-spec}.ts` に切り出し、Web と
+> Claude Code の**両方が同じコードを呼ぶ**ようにした。あわせて `shell.ts` の `paletteToTheme`
+> を export（テーマ生成失敗時のフォールバック用）。
+> 動作不変であることは、旧インラインロジックを再現して 9 画面ぶんのプロンプト文字列まで
+> 突き合わせて確認している。
 
 ### 5.4 要望反映（orchestrate 相当）
 
@@ -195,7 +214,7 @@ wave7: wireframe / backend / growth    ← 3体同時
 
 1. `mcp__mvp-builder__get_project` で本体の成果物一式を取得 → `.mvp/<slug>/reference/`
 2. 同じ入力（`sourceText` / `analysisResult` / `summary`）で Claude Code 版パイプラインを実行
-3. `compare.mjs` が構造差分を出す:
+3. `compare.ts` が構造差分を出す:
    - **数の差**: アクター数 / ユースケース数 / OOUI オブジェクト数 / ナビ項目数 / MVP 機能数
    - **集合の差**: OOUI オブジェクト名、ナビ `label`、`includedInMvp` な機能名の 3 集合について「両方にある / 本体のみ / CC のみ」
    - **判断の差**: `backend`（needsAuth/Db/Storage）の真偽、`scope` の `priority` 不一致、`market.competitors` の顔ぶれ
@@ -212,7 +231,7 @@ wave7: wireframe / backend / growth    ← 3体同時
 | --- | --- | --- | --- |
 | 0 | `scripts/gen-claude-skill.ts` + 生成物のコミット | `pnpm gen:skill` で 13 エージェント・スキーマ・references が出る | ✅ 完了 |
 | 1 | `mvp-pipeline` スキル + 13 工程 + `validate.ts` + `/mvp-run` `/mvp-step` | 実プロジェクト 1 本で 13 個の artifacts が全てスキーマ検証を通る | ✅ 完了（下記） |
-| 2 | プロトタイプ（`screen-units` / `mvp-screen` / `assemble`） | `index.html` がブラウザで開き、一覧→詳細→戻るが動く | 未着手 |
+| 2 | プロトタイプ（`plan-screens` / `mvp-screen` / `mvp-theme` / `assemble` / `/mvp-proto`） | `index.html` がブラウザで開き、一覧→詳細→戻るが動く | ✅ 完了（下記） |
 | 3 | `/mvp-diff` 検証モード | 既存プロジェクト 1 本で差分レポートが出る | 🟡 スクリプトのみ（`fetch-reference.ts` / `compare.ts`）。コマンド未作成 |
 | 4 | `/mvp-update` 要望反映・部分再生成 | 要望 1 件で該当工程＋該当画面だけが更新される | 未着手 |
 | 5（任意） | `.claude/workflows/mvp-pipeline.js` | ウェーブ並列を決定的に回す版（`agent(..., {schema})` でスキーマ強制が効くので検証リトライが不要になる） | 未着手 |
@@ -253,6 +272,22 @@ ooui 5 / navigation 5 / wireframe 9 と下流すべてが痩せた。
 - アクター単独再生成で FK が落ちないよう、同名アクターへ紐付けを貼り直す。
 - studio 側の接頭辞パースは不要になったため削除。
 
+### 実測（2026-08-03・Phase 2 を同じプロジェクトで通し実行）
+
+ナビ 6 項目（うち親 1）→ **生成対象 9 画面**（リーフ 5 + 詳細 4）。
+`mvp-screen` 9 体 + `mvp-theme` 1 体を 1 メッセージで並列起動し、**9/9 成功・サニタイズ落ち 0**。
+`index.html` 169,688 文字。ブラウザで開いて確認した結果:
+
+- 2 階層ナビが描画される（`AI運用設定` は画面を持たないグループ見出し、配下に `精度検証`）
+- 4 つの一覧すべてで **一覧 → ◯◯詳細 → 「← ◯◯に戻る」** が往復する
+- コンソールエラーなし（favicon の 404 のみ）
+- テーマは `theme.json` が適用され、ブランドの基調色 `#A97C50` が反映されている
+
+**本体の回帰**: 使い捨てプロジェクトを作って `runJob(kind="prototype", engine="ds")` を実行し、
+9 画面・失敗 0・`Screen0..Screen8` の採番・テーマ生成を確認（27.7s）。
+続けて `selectedScreens: ["顧客"]` で部分再生成し、**変わったのは `顧客` の 1 画面だけ**・
+テーマは再利用されることを確認した。確認後にプロジェクトは削除済み。
+
 Phase 5 の Workflow 版は、実は `runPipelineParallel` に**構造的にいちばん近い**（`parallel()` がウェーブ、
 `schema` オプションが `generateStructured` に対応する）。ただし起動にユーザーの明示的な opt-in が要るので、
 日常的に使う入口はスキル＋サブエージェント（Phase 1〜4）に置き、Workflow は「フル実行の高速版」として併設する。
@@ -263,15 +298,19 @@ Phase 5 の Workflow 版は、実は `runPipelineParallel` に**構造的にい�
 
 | リスク | 対処 |
 | --- | --- |
-| 構造化出力が保証されない | `validate.mjs`（zod）+ 1 回リトライ。Phase 5 の Workflow 版なら schema 強制で解消 |
+| 構造化出力が保証されない | `validate.ts`（zod）+ 1 回リトライ。Phase 5 の Workflow 版なら schema 強制で解消 |
 | プロンプトの乖離 | 生成方式（§2）。CI で生成物の鮮度チェック |
 | 親コンテキストの肥大 | サブエージェントは artifacts をファイル経由で受け渡し、返り値は 1 行サマリのみ |
-| 画面生成の失敗 | 本体と同じプレースホルダ＋部分再生成。サニタイズはコード側 |
-| モデル差による品質ぶれ | 本体の `FAST_STEPS` と同じ割り当てから始め、`/mvp-diff` の結果で調整 |
+| 画面生成の失敗 | 本体と同じプレースホルダ＋部分再生成。サニタイズはコード側（`assemble.ts`） |
+| モデル差による品質ぶれ | 全工程 sonnet（§7 発見1）。`/mvp-diff` の結果で調整 |
+| prompt caching が効かない | サブエージェントはセッションが別なので、本体のような `[system + daisyUI リファレンス + 文脈]` の使い回しができない。実行コストは本体より高くつく（性能ではなくコストの話なので許容） |
 | `.mvp/` の混入 | `.gitignore` に追加。プロジェクト成果物は Web 側 DB が正 |
 
 ## 9. 判断が要る残件
 
 - **`.mvp/` の置き場所** — リポジトリ内（`.gitignore`）か、`~/.mvp/` などリポジトリ外か。複数プロジェクトを跨いで使うなら後者。
+- **エージェント追加時の再起動** — エージェント定義はセッション開始時に読み込まれる。`pnpm gen:skill` で
+  新しいエージェントが増えても、そのセッションからは `subagent_type` として見えない。
+  生成物をコミットしてあるので通常は問題にならないが、`step-specs.ts` に工程を足したときは要注意。
 - **ブリーフ / 提案デッキ** — 今回スコープ外だが、`generateDesignBrief` / `generateEngineerBrief` / `deck.ts` は同じ写像で足せる（工程を 3 つ増やすだけ）。
 - **「本実装」変換（`realizePrototypeHtml`）** — LQ SDK 前提なので Claude Code 単体では意味が薄い。Claude Code なら「プロトタイプ → 実際の Next.js アプリを書く」に置き換える方が自然。別設計とする。
