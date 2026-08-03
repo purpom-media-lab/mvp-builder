@@ -194,6 +194,38 @@ pnpm exec tsx .claude/skills/mvp-pipeline/scripts/push.ts \
 > 本体では `actorId` が null になり画面遷移図からアクターが消える。`validate.ts` と
 > `push.ts` が警告を出すので、出たら先に直す（スキーマ検証だけでは検出できない）。
 
+### 9. 要望を反映する
+
+「リード一覧に絞り込みを足して」のような要望から、**作り直すべき工程だけ**を選んで回す。
+判断基準は本体（`planOrchestration`）と共有しているので、Web アプリと同じ選び方になる。
+
+```
+# ① mvp-orchestrate に計画を立てさせる（工程を自分で選ばない）
+projectDir = .mvp/lead-crm
+ユーザーの要望 = 「リード一覧に絞り込みを足して」
+```
+
+```bash
+# ② 計画をウェーブ順に展開する
+pnpm exec tsx .claude/skills/mvp-pipeline/scripts/plan-update.ts <projectDir>
+```
+
+出力された順に工程を回す（同一ウェーブは 1 メッセージでまとめて起動）。
+各ウェーブのあとに `validate.ts` で検証するのは手順 4 と同じ。
+
+```bash
+# ③ 計画が regeneratePrototype: true ならプロトタイプを作り直す
+pnpm exec tsx .claude/skills/mvp-pipeline/scripts/plan-screens.ts <projectDir> [画面名 ...]
+```
+
+- **実行前にユーザーへ提示する。** 再実行する工程は既存の成果物を洗い替えるので、
+  「何を作り直すか」を見せて確認を取る
+- `ooui` を作り直すと `navigation` が自動で後続に足される（本体と同じ規則）。
+  `plan-update.ts` が「依存のため追加」と表示する
+- `steps` が空なら分析は回さない。要望が分析工程に当たらないこともある
+  （その場合はエージェントの `reply` をそのまま伝える）
+- 影響が画面だけなら、画面名を指定して部分再生成すれば速い
+
 ## 単一工程だけ回す
 
 要望や修正で一部だけ作り直すとき:
