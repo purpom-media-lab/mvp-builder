@@ -15,6 +15,8 @@ MVP Builder（Web アプリ）が持つ「事業情報 → 13 工程の分析・
 - Web アプリ（Next.js / Neon / Clerk）の置き換えそのもの
 - v0 Platform API 経路の再現（本体でも廃止済み。DS エンジン経路のみ対象）
 - S3 公開・Vercel デプロイ・GitHub 引き継ぎ
+- Claude Code からの**新規プロジェクト作成**（書き戻しは既存プロジェクトの更新のみ）
+- プロトタイプ HTML の書き戻し（成果物 13 工程のみ）
 
 ---
 
@@ -59,6 +61,7 @@ src/lib/prototype-ds/daisyui-reference.ts ─┘
 | DS エンジン（骨格コード固定＋画面ごと LLM 生成） | 骨格は `buildDsHtml` をそのまま再利用。画面生成だけサブエージェント |
 | 進捗ジョブ（`jobs` テーブル / SSE） | Claude Code のサブエージェント進捗表示 |
 | MCP `get_project` | 検証モードの入力として同じ MCP を使う |
+| 手動編集の保存（`/api/save-step`） | MCP `save_step`（同じ `saveStepResult` を呼ぶ）。write スコープのトークンが要る |
 
 ### 再利用できる本体コード（重要）
 
@@ -93,7 +96,9 @@ src/lib/prototype-ds/daisyui-reference.ts ─┘
 │           ├── plan-screens.ts         # nav → 生成対象画面を導出し、画面別プロンプトを出力
 │           ├── assemble.ts             # サニタイズ + buildDsHtml で単一HTMLへ組み立て
 │           ├── fetch-reference.ts      # 検証モード: MCP から既存成果物を取得
-│           └── compare.ts              # 検証モード: 構造差分レポート
+│           ├── compare.ts              # 検証モード: 構造差分レポート
+│           ├── push.ts                 # 成果物を本体 DB へ書き戻す
+│           └── _lib.ts                 # 共通（usage / zod issue 整形 / 工程間の整合性）
 ├── agents/
 │   ├── mvp-actors.md  … mvp-brand.md   # ⚙自動生成: 13体
 │   ├── mvp-screen.md                   # ⚙自動生成: プロトタイプ1画面生成
@@ -103,6 +108,7 @@ src/lib/prototype-ds/daisyui-reference.ts ─┘
     ├── mvp-step.md     # 単一工程の再実行
     ├── mvp-proto.md    # プロトタイプのみ生成/部分再生成
     ├── mvp-diff.md     # 検証モード（本体と突き合わせる）
+    ├── mvp-push.md     # 本体（Web アプリ）へ書き戻す
     └── mvp-update.md   # （未作成）要望 → 再実行工程を計画して回す
 
 scripts/
@@ -315,6 +321,46 @@ ooui 5 / navigation 5 / wireframe 9 と下流すべてが痩せた。
 Phase 5 の Workflow 版は、実は `runPipelineParallel` に**構造的にいちばん近い**（`parallel()` がウェーブ、
 `schema` オプションが `generateStructured` に対応する）。ただし起動にユーザーの明示的な opt-in が要るので、
 日常的に使う入口はスキル＋サブエージェント（Phase 1〜4）に置き、Workflow は「フル実行の高速版」として併設する。
+
+---
+
+## 7.5 本体への書き戻し（`/mvp-push`）
+
+Claude Code 側で作った成果物を本体のプロジェクトへ保存する。**読み取り専用だった MCP を
+読み書きにする変更**なので、次の設計にした。
+
+**経路は本体の手動編集と同じ。** MCP の `save_step` ツールが `saveStepResult()` を呼ぶ
+（`/api/save-step` と同じ関数）。書き込みロジックを別に書かないので、洗い替え・
+`actorId` の解決・`ooui` 保存後のナビ自動再生成がそのまま効く。
+
+**トークンにスコープを足した。** `signMcpToken(ownerId, ttl, now, "read" | "write")`。
+署名ペイロードに `s` が無い古いトークンは **`read` として扱う**。書き込みを足したときに
+発行済みトークンが黙って書き込み可になると、漏れたときの影響が「閲覧」から
+「成果物の上書き・破壊」に変わってしまうため。ダッシュボードのカードは既定 read で、
+チェックを入れたときだけ write を発行する。
+
+**検証は 2 段。** `push.ts` が送信前に本体と同じ zod スキーマで検証し、1 件でも
+不一致なら何も送らずに中止する。サーバ側の `save_step` でも同じ検証をする
+（CC 以外のクライアントから壊れた成果物が入らないように）。
+
+### 実測（2026-08-03・ローカルの dev サーバで確認）
+
+| 確認項目 | 結果 |
+| --- | --- |
+| 読み取り専用トークンで `save_step` | ✅ 拒否され、再発行の案内が出る |
+| 書き込みトークンで 13 工程を送信 | ✅ 依存順に 13/13 保存 |
+| DB に入った件数 | ✅ actors 5 / useCases 12 / ooui 8 / journey 3 / wireframes 11 / dataModel 9 / scope 12 / KPI 5 — すべて CC 側と一致 |
+| `ooui` 保存後のナビ自動再生成 | ✅ 本体側で 6 件が再導出された |
+| `mvpStatement` / 北極星指標 / ブランド | ✅ 保存された |
+
+**書き戻しが上流の不整合を可視化した。** `usecases` の `actorName` が `actors` に無い名前
+（「対応スタッフ」7件・「顧客企業」1件）で、本体では該当行の `actorId` が null になった
+（12件中 4件しか紐付かない）。zod は各工程を独立に見るのでこれを検出できない。
+`_lib.ts` に工程間の整合性チェックを足し、`validate.ts` と `push.ts` の両方で警告するようにした。
+
+> これは書き戻しの不具合ではなく **`usecases` 工程の出力品質の問題**。本体でも同じことは
+> 起こり得るが、`actorId` を使っていなかった頃は名前を description に埋めていたため
+> 表面化しなかった（§7 発見3 の修正で構造化した結果、見えるようになった）。
 
 ---
 

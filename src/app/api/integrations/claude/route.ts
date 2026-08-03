@@ -8,7 +8,7 @@
  */
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth/session";
-import { signMcpToken } from "@/lib/mcp-token";
+import { signMcpToken, type McpScope } from "@/lib/mcp-token";
 
 export const runtime = "nodejs";
 
@@ -29,9 +29,19 @@ export async function POST(req: Request) {
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { token, expiresAt } = signMcpToken(user.id);
+  // 既定は読み取り専用。書き戻し（save_step）が要るときだけ明示的に write を要求する。
+  // 漏れたときの影響が「閲覧」から「成果物の上書き・破壊」に変わるため、既定にはしない。
+  let scope: McpScope = "read";
+  try {
+    const body = (await req.json()) as { scope?: unknown };
+    if (body?.scope === "write") scope = "write";
+  } catch {
+    // ボディなし = 従来どおり read
+  }
+
+  const { token, expiresAt } = signMcpToken(user.id, undefined, undefined, scope);
   const url = `${resolveOrigin(req)}/api/mcp`;
   const command = `claude mcp add --transport http mvp-builder ${url} --header "Authorization: Bearer ${token}"`;
 
-  return NextResponse.json({ token, url, expiresAt, command });
+  return NextResponse.json({ token, url, expiresAt, command, scope });
 }

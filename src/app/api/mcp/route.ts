@@ -9,9 +9,12 @@
  *   claude mcp add --transport http mvp-builder https://<host>/api/mcp \
  *     --header "Authorization: Bearer <token>"
  */
+import { after } from "next/server";
 import { createMcpHandler, withMcpAuth } from "mcp-handler";
 import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import { z } from "zod";
+import { regenerateNavigationFromModeling } from "@/lib/ai/regenerate-navigation";
+import { STEP_ORDER, STEP_SPECS } from "@/lib/ai/step-specs";
 import { verifyMcpToken } from "@/lib/mcp-token";
 import {
   getOwnedProject,
@@ -19,6 +22,8 @@ import {
   listProjectsWithStats,
   loadDesignRequest,
   loadEngineerRequest,
+  saveStepResult,
+  type StepKey,
 } from "@/lib/projects";
 import { listUserVoices } from "@/lib/user-voices";
 
@@ -34,6 +39,22 @@ function ownerIdOf(authInfo: AuthInfo | undefined): string {
   }
   return ownerId;
 }
+
+/** write スコープを持つトークンか。書き込みツールの入口で確認する。 */
+function canWrite(authInfo: AuthInfo | undefined): boolean {
+  return authInfo?.extra?.scope === "write";
+}
+
+/**
+ * 権限不足の返し方。**例外を投げない。**
+ * 投げると mcp-handler がプレーンテキストの HTTP エラーにしてしまい、
+ * クライアントは JSON として読めず「原因が分からない失敗」になる。
+ */
+const readOnlyToken = () =>
+  json({
+    error:
+      "このトークンは読み取り専用です。ダッシュボードの「Claude Code 連携」で「書き戻しを許可する」にチェックして再発行してください。",
+  });
 
 function json(data: unknown) {
   return {
@@ -240,6 +261,72 @@ const handler = createMcpHandler(
         return json(voices);
       },
     );
+
+    server.tool(
+      "save_step",
+      "分析・設計工程の成果物をプロジェクトへ保存する（**既存の内容を洗い替える**）。" +
+        "Claude Code 版パイプラインの artifacts/<step>.json をそのまま渡せる。" +
+        "書き込み権限つきのトークンが必要。",
+      {
+        ...projectIdShape,
+        step: z
+          .enum(STEP_ORDER as [StepKey, ...StepKey[]])
+          .describe("保存する工程のキー"),
+        result: z
+          .unknown()
+          .describe(
+            "その工程の成果物。get_project が返すのと同じ形（各工程の JSON Schema に準拠）。",
+          ),
+      },
+      async ({ projectId: rawId, step, result }, extra) => {
+        if (!canWrite(extra.authInfo)) return readOnlyToken();
+        const ownerId = ownerIdOf(extra.authInfo);
+        const projectId = resolveProjectId(rawId);
+        if (!projectId) return invalidProjectId();
+
+        // 本体と同じ zod スキーマで検証してから保存する。
+        // ここを通さないと壊れた成果物が DB に入り、studio 側の表示が崩れる。
+        const parsed = STEP_SPECS[step].schema.safeParse(result);
+        if (!parsed.success) {
+          return json({
+            error: `${step} の形がスキーマに合っていません`,
+            issues: parsed.error.issues.map((i) => ({
+              path: i.path.length ? i.path.join(".") : "(root)",
+              message: i.message,
+              code: i.code,
+            })),
+          });
+        }
+
+        const saved = await saveStepResult(
+          ownerId,
+          projectId,
+          step,
+          parsed.data as Parameters<typeof saveStepResult>[3],
+        );
+        if (!saved) return json({ error: "project not found" });
+
+        // ooui を保存したらナビゲーションを AI で自動再導出する（本体の /api/save-step と同じ挙動）。
+        // LLM 呼び出しなのでレスポンスは待たせず after() に逃がす（maxDuration 60 秒に収める）。
+        if (step === "ooui") {
+          after(() =>
+            regenerateNavigationFromModeling({ ownerId, projectId }).catch((e) =>
+              console.error("navigation auto-regeneration failed:", e),
+            ),
+          );
+        }
+        return json({
+          ok: true,
+          projectId,
+          step,
+          ...(step === "ooui"
+            ? {
+                note: "ナビゲーションはこの後バックグラウンドで自動再生成される。navigation を明示的に保存する必要はない（保存しても上書きされる）。",
+              }
+            : {}),
+        });
+      },
+    );
   },
   {
     serverInfo: { name: "mvp-builder", version: "0.1.0" },
@@ -260,9 +347,10 @@ const verifyToken = async (
   return {
     token: bearerToken!,
     clientId: claims.ownerId,
-    scopes: ["read"],
+    // write トークンは read も兼ねる。
+    scopes: claims.scope === "write" ? ["read", "write"] : ["read"],
     expiresAt: claims.exp,
-    extra: { ownerId: claims.ownerId },
+    extra: { ownerId: claims.ownerId, scope: claims.scope },
   };
 };
 
