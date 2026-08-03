@@ -16,6 +16,7 @@ MVP Builder（`src/lib/ai/`）の分析・設計パイプラインを Claude Cod
 ├── input/            # 入力資料（PDF/テキスト/URL の控え）
 ├── project.json      # 名前・概要・ジョブ分析（JTBD）
 ├── artifacts/        # actors.json … brand.json（13ファイル）
+├── reference/        # 検証モードのみ: 本体から取得した成果物（分析中は読まない）
 └── prototype/
     ├── plan.json     # 生成対象の画面一覧（plan-screens.ts が作る）
     ├── prompts/      # 画面ごとのプロンプト（mvp-screen が読む）
@@ -124,6 +125,47 @@ pnpm exec tsx .claude/skills/mvp-pipeline/scripts/assemble.ts <projectDir>
   その画面だけ作り直す。**失敗が 0 になるまで繰り返す。**
 - 仕上がったら `<projectDir>/prototype/index.html` のパスをユーザーに伝える。
   ブラウザで開いて一覧 → 詳細 → 戻るまで動くか、可能なら自分で確認する。
+
+### 7. 検証モード（本体と突き合わせる）
+
+本体（Web アプリ）の既存プロジェクトを取得し、**同じ入力**で Claude Code 版を回して
+出力を比べる。用途は 2 つ: (a) CC 版が本体と同等かの回帰チェック、(b) 本体のプロンプト
+改善のネタ出し。
+
+必要な環境変数（ダッシュボードの「Claude Code 連携」で発行）:
+
+```
+MVP_BUILDER_MCP_URL   … 例 https://<host>/api/mcp
+MVP_BUILDER_MCP_TOKEN … パーソナルトークン
+```
+
+```bash
+# ① 本体の成果物を取得。入力(project.json)と正解(reference/)に分けて保存される
+pnpm exec tsx .claude/skills/mvp-pipeline/scripts/fetch-reference.ts \
+  <projectId|studioURL> <projectDir>
+```
+
+**取得した `reference/` を分析中に読まないこと。** 本体の答えを見たまま再分析すると
+「写す」だけになり、品質比較にならない。入力は `project.json` に切り出されている。
+
+```bash
+# ② 手順 3〜4 と同じ要領で13工程を回す（JTBD 対話は不要。analysisResult が入っている）
+
+# ③ 構造差分を出す
+pnpm exec tsx .claude/skills/mvp-pipeline/scripts/compare.ts <projectDir>
+```
+
+`compare.ts` が出すのは**構造の差だけ**（件数・名前集合・真偽判断）。
+どちらが妥当かは判定しないので、**その論評は自分で行う**:
+
+- 数が違う工程はどちらが入力に忠実か（入力に無いものを立てていないか）
+- 名前集合の比較は**完全一致**なので、「対応スタッフ」と「事務所スタッフ」のような
+  表記ゆれは別物として数えられる。「一致 0」でも中身は同じことがあるので必ず中身を読む
+- `backend` の真偽が割れたら、入力のどの記述が根拠になるかを示す
+
+> 既に成果物のある `<projectDir>` に `fetch-reference.ts` を向けると
+> `project.json` を上書きしてしまうため、既存があれば止まる（`--force` で強行）。
+> 検証用は `.mvp/diff-<slug>` のように別ディレクトリを使うのが安全。
 
 ## 単一工程だけ回す
 

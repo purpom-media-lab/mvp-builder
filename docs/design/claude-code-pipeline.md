@@ -102,8 +102,8 @@ src/lib/prototype-ds/daisyui-reference.ts ─┘
     ├── mvp-run.md      # フルパイプライン（13工程 → プロトタイプ）
     ├── mvp-step.md     # 単一工程の再実行
     ├── mvp-proto.md    # プロトタイプのみ生成/部分再生成
-    ├── mvp-update.md   # （未作成）要望 → 再実行工程を計画して回す
-    └── mvp-diff.md     # （未作成）検証モード
+    ├── mvp-diff.md     # 検証モード（本体と突き合わせる）
+    └── mvp-update.md   # （未作成）要望 → 再実行工程を計画して回す
 
 scripts/
 └── gen-claude-skill.ts                 # 上記 ⚙ を生成（pnpm gen:skill）
@@ -215,7 +215,12 @@ wave7: wireframe / backend / growth    ← 3体同時
 /mvp-diff https://<host>/studio/<uuid>
 ```
 
-1. `mcp__mvp-builder__get_project` で本体の成果物一式を取得 → `.mvp/<slug>/reference/`
+`fetch-reference.ts` は MCP の通信を**公式 SDK**（`@modelcontextprotocol/sdk`、本 repo の
+直接依存）に任せる。プロトコルのバージョンネゴシエーション・SSE の解釈・セッション終了を
+自前で書くと、サーバ側（`src/app/api/mcp/route.ts` の `mcp-handler`）が上がったときに
+ここだけ取り残されるため。
+
+1. `get_project` で本体の成果物一式を取得 → `.mvp/<slug>/reference/`
 2. 同じ入力（`sourceText` / `analysisResult` / `summary`）で Claude Code 版パイプラインを実行
 3. `compare.ts` が構造差分を出す:
    - **数の差**: アクター数 / ユースケース数 / OOUI オブジェクト数 / ナビ項目数 / MVP 機能数
@@ -226,6 +231,22 @@ wave7: wireframe / backend / growth    ← 3体同時
 用途は 2 つ: (a) Claude Code 版が本体と同等かの回帰チェック、(b) 本体のプロンプト改善のネタ出し
 （`STEP_ROLES` やプロンプト文言を変えた効果を、既存プロジェクトで A/B できる）。
 
+> **`reference/` を分析中に読ませないこと。** 本体の答えを見たまま再分析すると「写す」だけになり
+> 品質比較にならない。`fetch-reference.ts` は入力（`project.json`）と正解（`reference/`）を
+> 物理的に分けて保存する。既存の `project.json` があると上書きを避けて止まる（`--force` で強行）。
+
+### 実測（2026-08-03・本番の MCP に接続して確認）
+
+- `fetch-reference.ts`: UUID 指定・studio URL 指定の両方で取得成功
+  （社労士顧客管理システム: actors=5 / useCases=8 / ooui=9 / navigation=7 / wireframes=12 / scope=10）。
+  不正な projectId ではサーバのエラーメッセージがそのまま出る。上書きガードも動作
+- `compare.ts`: 件数表・名前集合 5 種・バックエンド判定・北極星指標・MVP ステートメント・
+  TAM/SAM/SOM が出ることを確認
+
+`compare.ts` の名前照合は完全一致なので「MVPに含む機能」は一致 0 と出るが、
+中身は 10 件中 9 件が同じ機能（表記の粒度が違うだけ）。この限界はスクリプト冒頭に明記してあり、
+SKILL.md にも「一致 0 でも中身を読む」と手順として書いてある。
+
 ---
 
 ## 7. 段階計画
@@ -235,7 +256,7 @@ wave7: wireframe / backend / growth    ← 3体同時
 | 0 | `scripts/gen-claude-skill.ts` + 生成物のコミット | `pnpm gen:skill` で 13 エージェント・スキーマ・references が出る | ✅ 完了 |
 | 1 | `mvp-pipeline` スキル + 13 工程 + `validate.ts` + `/mvp-run` `/mvp-step` | 実プロジェクト 1 本で 13 個の artifacts が全てスキーマ検証を通る | ✅ 完了（下記） |
 | 2 | プロトタイプ（`plan-screens` / `mvp-screen` / `mvp-theme` / `assemble` / `/mvp-proto`） | `index.html` がブラウザで開き、一覧→詳細→戻るが動く | ✅ 完了（下記） |
-| 3 | `/mvp-diff` 検証モード | 既存プロジェクト 1 本で差分レポートが出る | 🟡 スクリプトのみ（`fetch-reference.ts` / `compare.ts`）。コマンド未作成 |
+| 3 | `/mvp-diff` 検証モード | 既存プロジェクト 1 本で差分レポートが出る | ✅ 完了（下記） |
 | 4 | `/mvp-update` 要望反映・部分再生成 | 要望 1 件で該当工程＋該当画面だけが更新される | 未着手 |
 | 5（任意） | `.claude/workflows/mvp-pipeline.js` | ウェーブ並列を決定的に回す版（`agent(..., {schema})` でスキーマ強制が効くので検証リトライが不要になる） | 未着手 |
 

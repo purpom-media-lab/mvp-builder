@@ -3,7 +3,7 @@
  * 「Claude Code パイプラインへの入力」と「比較用リファレンス」に分けて保存する。
  *
  *   MVP_BUILDER_MCP_URL=... MVP_BUILDER_MCP_TOKEN=... \
- *   pnpm exec tsx .claude/skills/mvp-pipeline/scripts/fetch-reference.ts <projectId|studioURL> <projectDir>
+ *   pnpm exec tsx .claude/skills/mvp-pipeline/scripts/fetch-reference.ts <projectId|studioURL> <projectDir> [--force]
  *
  * 出力:
  *   <projectDir>/reference/project.json … 本体の成果物一式（比較の正解データ）
@@ -11,9 +11,16 @@
  *
  * 入力だけを切り出すのが要点。本体の分析結果を見せたまま再分析させると
  * 「写す」だけになり品質比較にならないため、artifacts は reference/ に隔離する。
+ *
+ * 通信は公式 SDK（@modelcontextprotocol/sdk、本 repo の直接依存）に任せる。
+ * プロトコルのバージョンネゴシエーション・SSE の解釈・セッション終了を自前で
+ * 実装すると、サーバ側（src/app/api/mcp/route.ts の mcp-handler）が上がったときに
+ * ここだけ取り残されるため。
  */
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { usage } from "./_lib";
 
 const args = process.argv.slice(2);
@@ -40,70 +47,41 @@ if (existsSync(inputFile) && !force) {
   process.exit(1);
 }
 
-let sessionId: string | null = null;
-
-/** Streamable HTTP の 1 リクエスト。SSE で返ることがあるので両対応で読む。 */
-async function rpc(method: string, params?: unknown, id?: number) {
-  const res = await fetch(url!, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      accept: "application/json, text/event-stream",
-      authorization: `Bearer ${token}`,
-      ...(sessionId ? { "mcp-session-id": sessionId } : {}),
-    },
-    body: JSON.stringify({ jsonrpc: "2.0", method, params, ...(id != null ? { id } : {}) }),
-  });
-  const sid = res.headers.get("mcp-session-id");
-  if (sid) sessionId = sid;
-  if (!res.ok) {
-    throw new Error(`${method} failed: ${res.status} ${await res.text()}`);
-  }
-  if (id == null) return null; // 通知（レスポンス本文なし）
-  const text = await res.text();
-  // SSE 形式（"event: message\ndata: {...}"）でもプレーン JSON でも受け取れるようにする。
-  const dataLines = text
-    .split("\n")
-    .filter((l) => l.startsWith("data:"))
-    .map((l) => l.slice(5).trim());
-  const payload = dataLines.length ? dataLines.join("") : text;
-  const json = JSON.parse(payload);
-  if (json.error) throw new Error(`${method} error: ${JSON.stringify(json.error)}`);
-  return json.result;
-}
-
-async function main() {
-  await rpc(
-    "initialize",
-    {
-      protocolVersion: "2025-06-18",
-      capabilities: {},
-      clientInfo: { name: "mvp-pipeline-fetch", version: "1.0.0" },
-    },
-    1,
-  );
-  await rpc("notifications/initialized");
-
-  const result = (await rpc(
-    "tools/call",
-    { name: "get_project", arguments: { projectId: projectRef } },
-    2,
-  )) as { content: { type: string; text: string }[] };
-
-  const snapshot = JSON.parse(result.content[0].text);
-  if (snapshot.error) {
-    console.error(`get_project: ${snapshot.error}`);
-    process.exit(1);
-  }
-  save(snapshot);
-}
-
 interface Snapshot {
   project?: { name?: string; summary?: string };
   analysisResult?: string;
   detail?: string;
   sourceText?: string;
   [k: string]: unknown;
+}
+
+async function fetchSnapshot(): Promise<Snapshot> {
+  const client = new Client({ name: "mvp-pipeline-fetch", version: "1.0.0" });
+  const transport = new StreamableHTTPClientTransport(new URL(url!), {
+    requestInit: { headers: { authorization: `Bearer ${token}` } },
+  });
+
+  await client.connect(transport);
+  try {
+    const result = await client.callTool({
+      name: "get_project",
+      arguments: { projectId: projectRef },
+    });
+
+    const content = result.content as { type: string; text?: string }[] | undefined;
+    const text = content?.find((c) => c.type === "text")?.text;
+    if (!text) {
+      throw new Error(
+        `get_project がテキストを返さなかった: ${JSON.stringify(result).slice(0, 300)}`,
+      );
+    }
+    const snapshot = JSON.parse(text) as Snapshot & { error?: string };
+    if (snapshot.error) throw new Error(`get_project: ${snapshot.error}`);
+    return snapshot;
+  } finally {
+    // セッションを閉じる（サーバ側の状態を残さない）。
+    await client.close();
+  }
 }
 
 function save(snapshot: Snapshot) {
@@ -140,7 +118,9 @@ function save(snapshot: Snapshot) {
   );
 }
 
-main().catch((e) => {
-  console.error(e instanceof Error ? e.message : e);
-  process.exit(1);
-});
+fetchSnapshot()
+  .then(save)
+  .catch((e: unknown) => {
+    console.error(e instanceof Error ? e.message : e);
+    process.exit(1);
+  });
