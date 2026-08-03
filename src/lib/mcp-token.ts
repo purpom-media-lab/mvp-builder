@@ -34,10 +34,23 @@ function sign(payloadB64: string): string {
   return b64url(createHmac("sha256", secret()).update(payloadB64).digest());
 }
 
+/**
+ * トークンの権限。
+ *
+ * `read`  … 成果物の閲覧のみ（従来の6ツール）
+ * `write` … 加えて成果物の書き戻し（`save_step`）。**既存の成果物を洗い替える**
+ *
+ * 署名ペイロードに `s` が無い古いトークンは `read` として扱う。書き込みを
+ * 足したときに、発行済みトークンが黙って書き込み可になるのを避けるため
+ * （漏れたときの影響が「閲覧」から「上書き・破壊」に変わってしまう）。
+ */
+export type McpScope = "read" | "write";
+
 export interface McpTokenClaims {
   ownerId: string;
   /** 失効時刻（unix 秒） */
   exp: number;
+  scope: McpScope;
 }
 
 /** ユーザー単位の MCP トークンを発行する。`<payload>.<sig>` 形式。 */
@@ -45,10 +58,11 @@ export function signMcpToken(
   ownerId: string,
   ttlSec: number = TTL_DEFAULT_SEC,
   nowMs: number = Date.now(),
+  scope: McpScope = "read",
 ): { token: string; expiresAt: Date } {
   const exp = Math.floor(nowMs / 1000) + ttlSec;
   const payload = b64url(
-    Buffer.from(JSON.stringify({ k: "mcp", o: ownerId, e: exp })),
+    Buffer.from(JSON.stringify({ k: "mcp", o: ownerId, e: exp, s: scope })),
   );
   return {
     token: `${payload}.${sign(payload)}`,
@@ -70,7 +84,7 @@ export function verifyMcpToken(
   const a = Buffer.from(sig);
   const b = Buffer.from(expected);
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
-  let data: { k?: unknown; o?: unknown; e?: unknown };
+  let data: { k?: unknown; o?: unknown; e?: unknown; s?: unknown };
   try {
     data = JSON.parse(fromB64url(payload).toString("utf8"));
   } catch {
@@ -79,5 +93,7 @@ export function verifyMcpToken(
   if (data.k !== "mcp" || typeof data.o !== "string") return null;
   if (typeof data.e !== "number" || data.e < Math.floor(nowMs / 1000))
     return null;
-  return { ownerId: data.o, exp: data.e };
+  // スコープ未指定（write 導入前に発行されたトークン）は read に落とす。
+  const scope: McpScope = data.s === "write" ? "write" : "read";
+  return { ownerId: data.o, exp: data.e, scope };
 }

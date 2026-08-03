@@ -10,7 +10,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { STEP_SPECS, STEP_ORDER } from "../../../../src/lib/ai/step-specs";
-import { formatZodIssues, usage } from "./_lib";
+import { crossCheckArtifacts, formatZodIssues, usage } from "./_lib";
 import type { StepKey } from "../../../../src/lib/projects";
 
 const [projectDir, ...rest] = process.argv.slice(2);
@@ -69,7 +69,22 @@ for (const step of targets) {
   for (const line of formatZodIssues(result.error.issues)) console.log(line);
 }
 
+// 工程をまたぐ参照の整合性（zod では表せない）。落とさず警告に留める。
+const warnings = crossCheckArtifacts((step) => {
+  const f = join(projectDir, "artifacts", `${step}.json`);
+  if (!existsSync(f)) return null;
+  try {
+    return JSON.parse(readFileSync(f, "utf8"));
+  } catch {
+    return null;
+  }
+});
+if (warnings.length) {
+  console.log("\n⚠ 工程間の整合性");
+  for (const w of warnings) console.log(w);
+}
+
 console.log(
-  `\nok=${ok} invalid=${invalid}${requested.length ? ` missing=${missing}` : ""}`,
+  `\nok=${ok} invalid=${invalid}${requested.length ? ` missing=${missing}` : ""}${warnings.length ? " warnings=1" : ""}`,
 );
 process.exit(invalid + missing > 0 ? 1 : 0);

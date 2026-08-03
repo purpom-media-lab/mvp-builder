@@ -167,6 +167,33 @@ pnpm exec tsx .claude/skills/mvp-pipeline/scripts/compare.ts <projectDir>
 > `project.json` を上書きしてしまうため、既存があれば止まる（`--force` で強行）。
 > 検証用は `.mvp/diff-<slug>` のように別ディレクトリを使うのが安全。
 
+### 8. 本体（Web アプリ）へ書き戻す
+
+Claude Code 側で作った成果物を、本体のプロジェクトへ保存する。studio で閲覧・編集でき、
+プロトタイプ生成や提案資料など本体の後続機能にそのまま繋がる。
+
+**書き込み権限つきのトークンが要る。** ダッシュボードの「Claude Code 連携」で
+「書き戻しを許可する」にチェックして再発行する（既定は読み取り専用）。
+
+```bash
+MVP_BUILDER_MCP_URL=... MVP_BUILDER_MCP_TOKEN=... \
+pnpm exec tsx .claude/skills/mvp-pipeline/scripts/push.ts \
+  <projectDir> <projectId|studioURL> [step ...]
+```
+
+- step を省略すると、揃っている成果物を**依存順**に全部送る
+- 本体側は工程ごとに**洗い替え**（既存を消して入れ直す）。**上書きされて困るものが
+  本体側にないか、先に studio で確認する**
+- 送る前に本体と同じ zod スキーマで検証し、1 件でも不一致なら**何も送らずに中止**する
+- 途中で失敗したらそこで止まる（中途半端に混ざった状態を作らない）。何件目まで
+  保存済みかを表示するので、直して残りを送り直す
+- `ooui` を送るとナビゲーションは本体側で自動再生成される。`navigation` を明示的に
+  送っても上書きされる
+
+> **工程間の整合性に注意。** `usecases` の `actorName` が `actors` に無い名前だと、
+> 本体では `actorId` が null になり画面遷移図からアクターが消える。`validate.ts` と
+> `push.ts` が警告を出すので、出たら先に直す（スキーマ検証だけでは検出できない）。
+
 ## 単一工程だけ回す
 
 要望や修正で一部だけ作り直すとき:
