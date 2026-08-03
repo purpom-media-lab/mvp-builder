@@ -14,6 +14,7 @@ type IssueResponse = {
   url: string;
   expiresAt: string;
   command: string;
+  scope: "read" | "write";
 };
 
 export function ClaudeCodeConnect() {
@@ -21,13 +22,19 @@ export function ClaudeCodeConnect() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // 既定は読み取り専用。書き戻しは明示的に選んだときだけ。
+  const [writable, setWritable] = useState(false);
 
   async function issue() {
     setLoading(true);
     setError(null);
     setCopied(false);
     try {
-      const res = await fetch("/api/integrations/claude", { method: "POST" });
+      const res = await fetch("/api/integrations/claude", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ scope: writable ? "write" : "read" }),
+      });
       if (!res.ok) throw new Error(`発行に失敗しました (${res.status})`);
       setIssued((await res.json()) as IssueResponse);
     } catch (e) {
@@ -53,6 +60,26 @@ export function ClaudeCodeConnect() {
             MCP でプロジェクトの分析・設計データを Claude Code
             から参照できます。接続トークンを発行し、ターミナルでコマンドを実行してください。
           </p>
+          <label className="mt-3 flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="checkbox checkbox-sm mt-0.5"
+              checked={writable}
+              onChange={(e) => {
+                setWritable(e.target.checked);
+                setIssued(null);
+              }}
+            />
+            <span>
+              書き戻しを許可する
+              <span className="block text-xs text-base-content/60">
+                Claude Code
+                側で作った分析・設計をこのプロジェクトへ保存できるようになります。
+                <strong>既存の成果物は洗い替えられます。</strong>
+                不要なら外したままにしてください。
+              </span>
+            </span>
+          </label>
         </div>
         <button
           type="button"
@@ -79,6 +106,7 @@ export function ClaudeCodeConnect() {
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs text-base-content/60">
               有効期限: {new Date(issued.expiresAt).toLocaleDateString("ja-JP")}
+              ・権限: {issued.scope === "write" ? "読み書き" : "読み取り専用"}
               ・トークンはこの画面でのみ表示されます
             </span>
             <button
