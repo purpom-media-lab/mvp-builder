@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "actors",
+          "usecases",
+          "ooui",
+          "journey",
+          "market",
+          "navigation",
+          "wireframe",
+          "datamodel",
+          "backend",
+          "scope",
+          "kpi",
+          "growth",
+          "brand"
+        ]
+      },
+      "description": "ユーザー要望を満たすために再実行すべき分析工程（依存順。最小限に。不要なら空配列）"
+    },
+    "regeneratePrototype": {
+      "type": "boolean",
+      "description": "分析更新後にプロトタイプ(UI)を作り直すべきか"
+    },
+    "reply": {
+      "type": "string",
+      "description": "ユーザーへの短い日本語の返答（何をするか・何が変わるか）"
+    }
+  },
+  "required": [
+    "steps",
+    "regeneratePrototype",
+    "reply"
+  ],
+  "additionalProperties": false
+}

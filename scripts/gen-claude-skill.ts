@@ -5,6 +5,7 @@
  *   .claude/agents/mvp-<step>.md                          … 13工程のサブエージェント（step-specs.ts）
  *   .claude/agents/mvp-screen.md                          … プロトタイプ1画面（prototype-ds/prompt.ts）
  *   .claude/agents/mvp-theme.md                           … daisyUI テーマ（prototype-ds/theme-spec.ts）
+ *   .claude/agents/mvp-orchestrate.md                     … 要望→再実行工程の計画（ai/orchestrate-spec.ts）
  *   .claude/skills/mvp-pipeline/references/schemas/*.json … 各工程 + theme の出力 JSON Schema
  *   .claude/skills/mvp-pipeline/references/waves.md       … 依存ウェーブ・モデル割当の一覧
  *   .claude/skills/mvp-pipeline/references/daisyui.md     … daisyUI 5 リファレンス（画面生成が Read する）
@@ -24,6 +25,8 @@ import {
   STEP_SPECS,
   WAVES,
 } from "../src/lib/ai/step-specs";
+import { ORCHESTRATE_SYSTEM } from "../src/lib/ai/orchestrate-spec";
+import { orchestratePlanSchema } from "../src/lib/ai/schemas";
 import { DAISYUI_REFERENCE } from "../src/lib/prototype-ds/daisyui-reference";
 import { SCREEN_SYSTEM } from "../src/lib/prototype-ds/prompt";
 import { THEME_SYSTEM, themeSchema } from "../src/lib/prototype-ds/theme-spec";
@@ -195,6 +198,38 @@ function themeAgentMarkdown(): string {
   });
 }
 
+/**
+ * 要望から「どの工程を作り直すか」を決めるサブエージェント。
+ *
+ * 本体の planOrchestration() と同じ判断基準（ORCHESTRATE_SYSTEM）を持つ。
+ * 違いは出力先だけ: 本体は generateObject の戻り値、CC 版はファイル。
+ */
+function orchestrateAgentMarkdown(): string {
+  return agentDoc({
+    name: "mvp-orchestrate",
+    description:
+      "ユーザーの要望から、再実行すべき分析工程とプロトタイプ再生成の要否を決める（担当ロール: オーケストレーター）。<projectDir> と要望を渡すと update-plan.json を書き出す。",
+    tools: "Read, Write",
+    source: "src/lib/ai/orchestrate-spec.ts",
+    system: ORCHESTRATE_SYSTEM,
+    steps: `1. 呼び出し時に渡された \`<projectDir>\` と**ユーザーの要望**を確認する。
+2. 現在の分析状態を把握するため、\`<projectDir>/project.json\` と
+   \`<projectDir>/artifacts/*.json\` を Read する（存在するものだけでよい）。
+3. \`${SCHEMA_DIR}/orchestrate.json\`（JSON Schema）を Read する。
+4. スキーマに厳密に準拠した JSON を \`<projectDir>/update-plan.json\` に Write する。`,
+    rules: [
+      ...JSON_OUTPUT_RULES,
+      "- **要望に関係する最小限の工程だけ**選ぶ。迷ったら少ないほうに倒す（再実行は下流に連鎖して時間がかかる）。",
+      "- 要望がどの工程にも当たらない場合は `steps` を空配列にし、`reply` でその旨を述べる。",
+      "- `ooui` を選ぶと `navigation` は自動的に後続へ足されるので、`steps` に明記しなくてよい。",
+      terseReply(
+        "計画を <projectDir>/update-plan.json に書き出した。<選んだ工程と理由を1行>",
+        "計画の JSON 本体",
+      ),
+    ],
+  });
+}
+
 function wavesMarkdown(): string {
   const rows = WAVES.flatMap((wave, i) =>
     wave.map((step) => {
@@ -267,6 +302,14 @@ writeFileSync(join(REF_DIR, "waves.md"), wavesMarkdown());
 
 // --- プロトタイプ（Phase 2） ---------------------------------------------
 
+writeFileSync(
+  join(AGENTS_DIR, "mvp-orchestrate.md"),
+  orchestrateAgentMarkdown(),
+);
+writeFileSync(
+  join(SCHEMA_DIR, "orchestrate.json"),
+  toJsonSchema(orchestratePlanSchema),
+);
 writeFileSync(join(AGENTS_DIR, "mvp-screen.md"), screenAgentMarkdown());
 writeFileSync(join(AGENTS_DIR, "mvp-theme.md"), themeAgentMarkdown());
 writeFileSync(join(SCHEMA_DIR, "theme.json"), toJsonSchema(themeSchema));
@@ -278,5 +321,5 @@ writeFileSync(
 );
 
 console.log(
-  `generated: ${STEP_ORDER.length + 2} agents (${AGENTS_DIR}/mvp-*.md), ${STEP_ORDER.length + 1} schemas (${SCHEMA_DIR}), ${REF_DIR}/waves.md, ${REF_DIR}/daisyui.md`,
+  `generated: ${STEP_ORDER.length + 3} agents (${AGENTS_DIR}/mvp-*.md), ${STEP_ORDER.length + 2} schemas (${SCHEMA_DIR}), ${REF_DIR}/waves.md, ${REF_DIR}/daisyui.md`,
 );

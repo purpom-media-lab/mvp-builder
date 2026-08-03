@@ -57,7 +57,7 @@ src/lib/prototype-ds/daisyui-reference.ts ─┘
 | DB 永続化（`projects` / `artifacts`） | `.mvp/<slug>/artifacts/*.json`（プレーンな JSON ファイル） |
 | コンテキスト積み上げ（`context += JSON.stringify(result)`） | 直前ウェーブまでの `artifacts/*.json` をサブエージェントに Read させる |
 | provider / modelId 切替、`FAST_STEPS` | エージェント frontmatter の `model:`（全工程 sonnet。理由は §7 の発見1） |
-| `planOrchestration`（要望 → 再実行工程の計画） | `/mvp-update "<要望>"` コマンド（同じ判断基準のプロンプトを流用） |
+| `planOrchestration`（要望 → 再実行工程の計画） | `mvp-orchestrate` サブエージェント（`ORCHESTRATE_SYSTEM` を共有）→ `/mvp-update` |
 | DS エンジン（骨格コード固定＋画面ごと LLM 生成） | 骨格は `buildDsHtml` をそのまま再利用。画面生成だけサブエージェント |
 | 進捗ジョブ（`jobs` テーブル / SSE） | Claude Code のサブエージェント進捗表示 |
 | MCP `get_project` | 検証モードの入力として同じ MCP を使う |
@@ -98,18 +98,20 @@ src/lib/prototype-ds/daisyui-reference.ts ─┘
 │           ├── fetch-reference.ts      # 検証モード: MCP から既存成果物を取得
 │           ├── compare.ts              # 検証モード: 構造差分レポート
 │           ├── push.ts                 # 成果物を本体 DB へ書き戻す
+│           ├── plan-update.ts          # 要望反映: 計画をウェーブ順に展開
 │           └── _lib.ts                 # 共通（usage / zod issue 整形 / 工程間の整合性）
 ├── agents/
 │   ├── mvp-actors.md  … mvp-brand.md   # ⚙自動生成: 13体
 │   ├── mvp-screen.md                   # ⚙自動生成: プロトタイプ1画面生成
-│   └── mvp-theme.md                    # ⚙自動生成: daisyUI テーマ設計
+│   ├── mvp-theme.md                    # ⚙自動生成: daisyUI テーマ設計
+│   └── mvp-orchestrate.md              # ⚙自動生成: 要望→再実行工程の判断
 └── commands/
     ├── mvp-run.md      # フルパイプライン（13工程 → プロトタイプ）
     ├── mvp-step.md     # 単一工程の再実行
     ├── mvp-proto.md    # プロトタイプのみ生成/部分再生成
     ├── mvp-diff.md     # 検証モード（本体と突き合わせる）
     ├── mvp-push.md     # 本体（Web アプリ）へ書き戻す
-    └── mvp-update.md   # （未作成）要望 → 再実行工程を計画して回す
+    └── mvp-update.md   # 要望 → 再実行工程を計画して回す
 
 scripts/
 └── gen-claude-skill.ts                 # 上記 ⚙ を生成（pnpm gen:skill）
@@ -207,11 +209,21 @@ wave7: wireframe / backend / growth    ← 3体同時
 
 ### 5.4 要望反映（orchestrate 相当）
 
-`/mvp-update "リード一覧に絞り込みを足して"` で:
+`/mvp-update <projectDir> "リード一覧に絞り込みを足して"` で:
 
-1. `planOrchestration` と同じ判断基準のプロンプトで、再実行すべき工程と `regeneratePrototype` を決める
-2. 決まった工程だけを依存順に再実行（下流の工程も必要なら連鎖）
-3. `regeneratePrototype` なら影響画面だけ部分再生成
+1. `mvp-orchestrate` が、再実行すべき工程と `regeneratePrototype` を決めて
+   `update-plan.json` に書く。判断基準（`ORCHESTRATE_SYSTEM`）と出力スキーマ
+   （`orchestratePlanSchema`）は本体の `planOrchestration()` と**同じものを共有**する
+2. `plan-update.ts` が計画をウェーブ順に展開する。`ooui` を選んだときに `navigation` を
+   後続へ足す規則（`normalizeSteps`）も本体と共有
+3. 展開された順に工程を再実行し、ウェーブごとに検証する
+4. `regeneratePrototype` なら `plan-screens.ts` でプロトタイプを作り直す
+   （画面名を指定すれば部分再生成）
+
+> `normalizeSteps(requested, order)` が並び順を引数に取るのは、**本体と CC 版で実行順が
+> 違う**ため。本体は 1 工程ずつ逐次実行するので自前の直列順を持ち、CC 版はウェーブ並列で
+> 回すので `STEP_ORDER`（`WAVES.flat()`）に従う。どちらも依存は満たすが順番は同じでない。
+> 共有したのは「`ooui` なら `navigation` を足す」という規則だけ。
 
 ---
 
@@ -263,7 +275,7 @@ SKILL.md にも「一致 0 でも中身を読む」と手順として書いて�
 | 1 | `mvp-pipeline` スキル + 13 工程 + `validate.ts` + `/mvp-run` `/mvp-step` | 実プロジェクト 1 本で 13 個の artifacts が全てスキーマ検証を通る | ✅ 完了（下記） |
 | 2 | プロトタイプ（`plan-screens` / `mvp-screen` / `mvp-theme` / `assemble` / `/mvp-proto`） | `index.html` がブラウザで開き、一覧→詳細→戻るが動く | ✅ 完了（下記） |
 | 3 | `/mvp-diff` 検証モード | 既存プロジェクト 1 本で差分レポートが出る | ✅ 完了（下記） |
-| 4 | `/mvp-update` 要望反映・部分再生成 | 要望 1 件で該当工程＋該当画面だけが更新される | 未着手 |
+| 4 | `/mvp-update` 要望反映・部分再生成 | 要望 1 件で該当工程＋該当画面だけが更新される | ✅ 完了（下記） |
 | 5（任意） | `.claude/workflows/mvp-pipeline.js` | ウェーブ並列を決定的に回す版（`agent(..., {schema})` でスキーマ強制が効くので検証リトライが不要になる） | 未着手 |
 
 ### 実測（2026-08-02・社労士顧客管理システムで通し実行）
@@ -361,6 +373,24 @@ Claude Code 側で作った成果物を本体のプロジェクトへ保存す�
 > これは書き戻しの不具合ではなく **`usecases` 工程の出力品質の問題**。本体でも同じことは
 > 起こり得るが、`actorId` を使っていなかった頃は名前を description に埋めていたため
 > 表面化しなかった（§7 発見3 の修正で構造化した結果、見えるようになった）。
+
+---
+
+### 実測（2026-08-03・要望1件で確認）
+
+要望「顧客一覧に業種と対応ステータスで絞り込めるようにしてほしい。あと配色がもう少し明るいほうがいい」
+を `mvp-orchestrate` に判断させた結果:
+
+```json
+{ "steps": ["wireframe", "brand"], "regeneratePrototype": true, "reply": "…" }
+```
+
+- 出力は `orchestratePlanSchema` に準拠
+- 既存の wireframe を読んだうえで「対応ステータスの絞り込みは既にあるが業種が無い」と
+  差分を特定して `wireframe` を選んでいる。13 工程を全部回さず 2 件に絞れている
+- `plan-update.ts` がウェーブ順（brand → wireframe）に展開し、検証・プロトタイプ再生成の
+  コマンドまで出す
+- `ooui` を選んだ計画では `navigation` が「依存のため追加」として後続に入ることも確認
 
 ---
 

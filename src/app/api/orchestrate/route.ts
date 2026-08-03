@@ -24,6 +24,7 @@ import {
   generateWireframes,
   planOrchestration,
 } from "@/lib/ai/steps";
+import { normalizeSteps } from "@/lib/ai/orchestrate-spec";
 import { getSessionUser } from "@/lib/auth/session";
 import {
   getProjectWithArtifacts,
@@ -50,6 +51,8 @@ const STEP_FNS = {
   brand: generateBrand,
 } as const;
 
+/** 本体の逐次実行順。step-specs の STEP_ORDER（ウェーブ順）とは並びが違う。
+ *  どちらも依存は満たすが、寄せると実行順が変わるためここでは自前の順を保つ。 */
 const STEP_ORDER: StepKey[] = [
   "actors",
   "usecases",
@@ -69,14 +72,6 @@ const STEP_ORDER: StepKey[] = [
 type Artifacts = NonNullable<
   Awaited<ReturnType<typeof getProjectWithArtifacts>>
 >;
-
-/** 要求された工程を依存順に正規化する。ooui（モデリング）を再実行するときは、
- *  ナビゲーションを OOUI から自動導出し直すため navigation を必ず後続に含める。 */
-function normalizeSteps(requested: StepKey[]): StepKey[] {
-  const set = new Set(requested);
-  if (set.has("ooui")) set.add("navigation");
-  return STEP_ORDER.filter((s) => set.has(s));
-}
 
 function buildContext(a: Artifacts): string {
   return [
@@ -144,7 +139,7 @@ export async function POST(req: Request) {
 
     // mode=execute: 承認済みの steps を実行（計画ステップを省略）
     if (body.mode === "execute") {
-      const steps = normalizeSteps(body.steps ?? []);
+      const steps = normalizeSteps(body.steps ?? [], STEP_ORDER);
       const requirement = `\n\n## ユーザーからの変更要望（必ず反映すること）\n${body.message}`;
       const results: Record<string, unknown> = {};
       for (const step of steps) {
@@ -168,7 +163,7 @@ export async function POST(req: Request) {
     });
 
     // 依存順に正規化（ooui を含むなら navigation を自動追随）
-    const steps = normalizeSteps(plan.steps);
+    const steps = normalizeSteps(plan.steps, STEP_ORDER);
 
     // mode=plan: 計画だけ返して実行しない（承認フロー用）
     if (body.mode === "plan") {
