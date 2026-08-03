@@ -65,6 +65,12 @@ pnpm exec tsx .claude/skills/mvp-pipeline/scripts/plan-screens.ts <projectDir> "
 
 **未生成の画面は指定に関わらず必ず作る**ので、失敗画面の作り直しは安全に繰り返せる。
 
+画面ソースは `screens/<番号>.jsx` に番号で保存している。番号はナビ順から決まるので、
+`navigation` を作り直すと同じ番号が別の画面を指し得る。`plan-screens.ts` は前回の
+`plan.json` と突き合わせ、**前回も同じ番号が同じ画面だったときだけ再利用する**
+（ずれていれば作り直す）。ナビを変えたあとに部分再生成しても、別画面の中身が
+紛れ込むことはない。
+
 ## よくある失敗と直し方
 
 | `assemble.ts` の報告 | 原因 | 直し方 |

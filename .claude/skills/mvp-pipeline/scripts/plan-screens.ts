@@ -138,11 +138,22 @@ if (unknownNames.length) {
 }
 const selected = selectedArgs.length ? new Set(selectedArgs) : null;
 
+// 前回の割り当て（index → ラベル）。ソースは `screens/<index>.jsx` に index で
+// 保存しているが、index はナビ順に依存するので、navigation を作り直すと同じ index が
+// 別の画面を指すようになる。前回と同じラベルのときだけ再利用してよい
+// （本体はラベルをキーに保存しているのでこの問題がない）。
+const prevPlan = readJson<Plan>("prototype/plan.json");
+const prevLabelAt = new Map(
+  (prevPlan?.screens ?? []).map((s) => [s.index, s.label]),
+);
+
 const screens = units.map((unit, index) => {
   // 「作り直すか」の判定は本体（jobs-runner）と同じ関数を使う。
-  const regenerate = shouldRegenerateScreen(unit, selected, () =>
-    existsSync(join(screensDir, `${index}.jsx`)),
-  );
+  // 既存ソースが「この画面のもの」と言えるのは、前回も同じ index が同じラベルだったときだけ。
+  const reusable =
+    prevLabelAt.get(index) === unit.label &&
+    existsSync(join(screensDir, `${index}.jsx`));
+  const regenerate = shouldRegenerateScreen(unit, selected, () => reusable);
   if (regenerate) {
     writeFileSync(
       join(promptsDir, `${index}.md`),

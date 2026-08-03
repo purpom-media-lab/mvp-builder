@@ -12,19 +12,32 @@
  * 入力だけを切り出すのが要点。本体の分析結果を見せたまま再分析させると
  * 「写す」だけになり品質比較にならないため、artifacts は reference/ に隔離する。
  */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { usage } from "./_lib";
 
-const [projectRef, projectDir] = process.argv.slice(2);
+const args = process.argv.slice(2);
+const force = args.includes("--force");
+const [projectRef, projectDir] = args.filter((a) => a !== "--force");
 const url = process.env.MVP_BUILDER_MCP_URL;
 const token = process.env.MVP_BUILDER_MCP_TOKEN;
 
 if (!projectRef || !projectDir || !url || !token) {
   console.error(
-    `MVP_BUILDER_MCP_URL=... MVP_BUILDER_MCP_TOKEN=... ${usage("fetch-reference.ts", "<projectId|studioURL> <projectDir>")}`,
+    `MVP_BUILDER_MCP_URL=... MVP_BUILDER_MCP_TOKEN=... ${usage("fetch-reference.ts", "<projectId|studioURL> <projectDir> [--force]")}`,
   );
   process.exit(2);
+}
+
+// project.json は JTBD 対話で合意した内容が入っている場合がある。黙って潰さない。
+const inputFile = join(projectDir, "project.json");
+if (existsSync(inputFile) && !force) {
+  console.error(
+    `${inputFile} が既にある。上書きすると JTBD の合意内容が失われる。\n` +
+      `別の <projectDir> を指定するか、消えて構わないなら --force を付ける。\n` +
+      `（reference/project.json だけが欲しい場合も、この入力の切り出しは同時に走る）`,
+  );
+  process.exit(1);
 }
 
 let sessionId: string | null = null;
@@ -94,6 +107,7 @@ interface Snapshot {
 }
 
 function save(snapshot: Snapshot) {
+  // artifacts/ は各工程のサブエージェントが書く。ここでは作るだけ（空でよい）。
   mkdirSync(join(projectDir, "reference"), { recursive: true });
   mkdirSync(join(projectDir, "artifacts"), { recursive: true });
 
