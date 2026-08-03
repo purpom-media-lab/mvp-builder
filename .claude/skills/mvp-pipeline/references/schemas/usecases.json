@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "useCases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "actorName": {
+            "type": "string",
+            "description": "対応するアクター名"
+          },
+          "goal": {
+            "type": "string",
+            "description": "ユースケースの目的（〜する）"
+          },
+          "description": {
+            "type": "string",
+            "description": "概要"
+          }
+        },
+        "required": [
+          "actorName",
+          "goal",
+          "description"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "useCases"
+  ],
+  "additionalProperties": false
+}

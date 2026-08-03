@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "objects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "オブジェクト名（名詞・日本語）"
+          },
+          "attributes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "英語の識別子（例: leadScore）"
+                },
+                "label": {
+                  "type": "string",
+                  "description": "日本語の表示名（例: 確度スコア）"
+                }
+              },
+              "required": [
+                "name",
+                "label"
+              ],
+              "additionalProperties": false
+            },
+            "description": "属性（英名 name と 日本語名 label を両方）"
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "英語の識別子（例: leadScore）"
+                },
+                "label": {
+                  "type": "string",
+                  "description": "日本語の表示名（例: 確度スコア）"
+                }
+              },
+              "required": [
+                "name",
+                "label"
+              ],
+              "additionalProperties": false
+            },
+            "description": "アクション（動詞。英名 name と 日本語名 label を両方）"
+          },
+          "collectionOf": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "コレクションの場合の要素名（日本語のオブジェクト名）"
+          },
+          "relations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "to": {
+                  "type": "string",
+                  "description": "関係先のオブジェクト名（日本語）"
+                },
+                "type": {
+                  "type": "string",
+                  "description": "関係の種別（日本語。例: 保有する）"
+                },
+                "cardinality": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "多重度（日本語。例: 1対多 / 多対多 / 1対1）。ナビ階層と画面の親子関係の判断に使う"
+                }
+              },
+              "required": [
+                "to",
+                "type",
+                "cardinality"
+              ],
+              "additionalProperties": false
+            },
+            "description": "他オブジェクトとの関係"
+          }
+        },
+        "required": [
+          "name",
+          "attributes",
+          "actions",
+          "collectionOf",
+          "relations"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "objects"
+  ],
+  "additionalProperties": false
+}

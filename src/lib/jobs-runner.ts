@@ -34,6 +34,17 @@ import {
 import { parseScreenNames } from "@/lib/prototype-screens";
 import { generateScreenComponent } from "@/lib/prototype-ds/generate-screen";
 import { generateDaisyTheme } from "@/lib/prototype-ds/generate-theme";
+import {
+  buildBaseContext,
+  buildBrandContext,
+  buildScreenContext,
+} from "@/lib/prototype-ds/prompt";
+import { renameComponent } from "@/lib/prototype-ds/sanitize";
+import {
+  deriveScreenUnits,
+  shouldRegenerateScreen,
+  type ScreenUnit,
+} from "@/lib/prototype-ds/screen-units";
 import { buildDsHtml } from "@/lib/prototype-ds/shell";
 import {
   type DsScreenRecord,
@@ -271,68 +282,17 @@ async function runDsPrototypeJob(
   job: JobRow,
   p: PrototypePayload,
 ): Promise<void> {
-  // メニュー全項目（親子・順序つき）。
-  const allNav: {
-    label: string;
-    parent?: string | null;
-    icon?: string | null;
-    screenType?: string | null;
-    targetObject?: string | null;
-  }[] =
-    p.navigation && p.navigation.length
-      ? p.navigation
-      : [{ label: p.projectName || "ホーム" }];
-
-  // 親(=他項目の parent になっている label)はグループ見出しとして扱い、画面は生成しない。
-  // これで2階層ナビが描画でき、カテゴリ親の空画面ノイズも出ない。
-  const parentLabels = new Set(
-    allNav.map((n) => n.parent).filter((x): x is string => !!x),
-  );
-  const leafNav = allNav.filter((n) => !parentLabels.has(n.label));
-  // 念のため: すべてが親扱いになった場合は全項目をリーフとして扱う。
-  const navItems = leafNav.length ? leafNav : allNav;
-
-  // 一覧(list)画面には対応する「◯◯詳細」画面を生成対象として補う。
-  // 画面遷移図の「一覧 → 詳細」に対応する実画面。メニュー(nav)には出さず、
-  // 一覧側から navigate("◯◯詳細") で遷移する（骨格ランタイムの navigate を使用）。
-  type ScreenUnit = (typeof navItems)[number] & { listLabel?: string | null };
-  const detailUnits: ScreenUnit[] = navItems
-    .filter((n) => (n.screenType ?? "").toLowerCase().includes("list"))
-    .map((n) => ({
-      label: `${n.label}詳細`,
-      parent: null,
-      icon: null,
-      screenType: "detail",
-      targetObject: n.targetObject ?? null,
-      listLabel: n.label,
-    }));
-  const screenUnits: ScreenUnit[] = [...navItems, ...detailUnits];
-  const hasDetail = new Set(detailUnits.map((d) => d.listLabel));
+  // メニュー全項目（親子・順序つき）と、そこから導いた生成対象の画面。
+  // 導出ロジックは Claude Code 版パイプラインと共有している（screen-units.ts）。
+  const {
+    allNav,
+    units: screenUnits,
+    hasDetail,
+  } = deriveScreenUnits(p.navigation, p.projectName);
 
   // 探索プロトタイプ: MVPスコープで絞らず、全ユースケース・全画面を網羅的に作る。
   // （MVPスコープはこの探索プロトタイプを見たあとに確定する設計）。
-  const baseContext = [
-    `# アプリ: ${p.projectName ?? ""}${p.summary ? `：${p.summary}` : ""}`,
-    p.mvpStatement ? `# 想定する提供価値(参考): ${p.mvpStatement}` : "",
-    p.oouiObjects?.length
-      ? `# 主要オブジェクト（データ単位）: ${p.oouiObjects
-          .map(
-            (o) =>
-              o.name +
-              (o.attributes?.length ? `（${o.attributes.join(", ")}）` : ""),
-          )
-          .join(" / ")}`
-      : "",
-    `# 方針: これは探索用プロトタイプです。MVPに絞り込まず、全ユースケース・全画面を網羅的に作成してください（取捨選択はこのプロトタイプを見てから別途行います）。`,
-    p.scope?.length
-      ? `# 主な機能（すべて網羅対象・取捨選択しない）: ${p.scope
-          .map((f) => f.name)
-          .join(" / ")}`
-      : "",
-    `# 全画面構成: ${screenUnits.map((n) => n.label).join(" / ")}`,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const baseContext = buildBaseContext(p, screenUnits);
 
   const total = screenUnits.length;
 
@@ -353,21 +313,12 @@ async function runDsPrototypeJob(
   for (const s of prev ?? []) prevByLabel.set(s.label, s);
 
   // 再生成対象の集合。selectedScreens 未指定なら全再生成（null）。
-  // 親が選ばれていれば配下のリーフも対象に含める（page 側の展開と同じ）。
+  // 判定ロジックは Claude Code 版と共有している（screen-units.ts）。
   const selected = p.selectedScreens?.length
     ? new Set(p.selectedScreens)
     : null;
-  const shouldRegen = (leaf: {
-    label: string;
-    parent?: string | null;
-  }): boolean => {
-    if (!prevByLabel.has(leaf.label)) return true; // 未保存は必ず作る（破壊しない）
-    if (selected === null) return true; // 全再生成
-    return (
-      selected.has(leaf.label) ||
-      (leaf.parent != null && selected.has(leaf.parent))
-    );
-  };
+  const shouldRegen = (unit: ScreenUnit): boolean =>
+    shouldRegenerateScreen(unit, selected, (u) => prevByLabel.has(u.label));
 
   // ライブ進捗には「揃っている画面」を出す。再利用ぶんは即時に表示する。
   const done: string[] = screenUnits
@@ -379,20 +330,7 @@ async function runDsPrototypeJob(
   // → 配色の一貫性を保ち、テーマ生成のLLM呼び出し（数十秒）を省いて高速化する。
   // 全再生成（selected===null）や初回・テーマ未保存なら従来どおりブランドから生成。
   const reuseTheme = selected !== null && prevTheme != null;
-  const brandCtx = [
-    `# アプリ: ${p.projectName ?? ""}`,
-    p.brand?.brandName ? `# ブランド名: ${p.brand.brandName}` : "",
-    p.brand?.tagline ? `# タグライン: ${p.brand.tagline}` : "",
-    p.brand?.tone?.length ? `# トーン: ${p.brand.tone.join(" / ")}` : "",
-    p.brand?.palette?.primary
-      ? `# 基調色(primary): ${p.brand.palette.primary}`
-      : "",
-    p.brand?.palette?.accent
-      ? `# アクセント: ${p.brand.palette.accent}`
-      : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const brandCtx = buildBrandContext(p);
   const themePromise = reuseTheme
     ? Promise.resolve(prevTheme)
     : p.brand?.palette?.primary
@@ -432,19 +370,7 @@ async function runDsPrototypeJob(
             parent: nav.parent ?? null,
           };
         }
-        const screenCtx =
-          baseContext +
-          `\n# 対象画面: ${nav.label}` +
-          (nav.screenType ? `（${nav.screenType}）` : "") +
-          (nav.targetObject ? ` / 主対象オブジェクト: ${nav.targetObject}` : "") +
-          // 一覧 → 詳細の遷移指示（詳細画面がある一覧のみ）
-          (hasDetail.has(nav.label)
-            ? `\n# 遷移: 一覧の各行の「詳細」ボタンや行クリックでは navigate("${nav.label}詳細") を呼んで詳細画面へ遷移する。`
-            : "") +
-          // 詳細画面には「どの一覧の詳細か」と戻り導線を指示
-          (nav.listLabel
-            ? `\n# この画面は一覧「${nav.listLabel}」の1件を開いた詳細画面。対象オブジェクトの属性の詳細・関連情報・主要アクションを載せ、「← ${nav.listLabel}に戻る」ボタンで navigate("${nav.listLabel}") を呼ぶ。`
-            : "");
+        const screenCtx = buildScreenContext(baseContext, nav, hasDetail);
         const r = await generateScreenComponent({
           label: nav.label,
           componentName,
@@ -503,13 +429,6 @@ async function runDsPrototypeJob(
       totalScreens: total,
     },
   );
-}
-
-/** 保存ソースの関数名（旧 componentName）を新しい componentName に置換する。
- *  componentName は英数字のみ（Screen+index）なので識別子境界で安全に置換できる。 */
-function renameComponent(source: string, from: string, to: string): string {
-  if (from === to) return source;
-  return source.replace(new RegExp(`\\b${from}\\b`, "g"), to);
 }
 
 interface BriefPayload {

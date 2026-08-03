@@ -8,7 +8,7 @@
  */
 import type { LlmProvider } from "./catalog";
 import { jtbdSection } from "./context-sections";
-import { STEP_ROLES } from "./pipeline";
+import { roleHeader } from "./step-specs";
 import { generateNavigation } from "./steps";
 import { getProjectWithArtifacts, saveStepResult } from "@/lib/projects";
 
@@ -34,7 +34,7 @@ export async function regenerateNavigationFromModeling(args: {
     .filter(Boolean)
     .join("\n\n");
 
-  const roledContext = `あなたは新規事業開発チームの「${STEP_ROLES.navigation}」です。担当領域の専門家として、最高品質で作成してください。\n\n${context}`;
+  const roledContext = `${roleHeader("navigation")}\n\n${context}`;
 
   const result = await generateNavigation({
     context: roledContext,

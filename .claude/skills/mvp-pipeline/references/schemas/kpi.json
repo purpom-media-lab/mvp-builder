@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "northStar": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "指標名"
+        },
+        "definition": {
+          "description": "定義",
+          "type": "string"
+        },
+        "target": {
+          "description": "目標値",
+          "type": "string"
+        },
+        "unit": {
+          "description": "単位",
+          "type": "string"
+        },
+        "cadence": {
+          "description": "計測頻度",
+          "type": "string"
+        },
+        "measurement": {
+          "description": "計測方法",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false,
+      "description": "北極星指標（1つ）"
+    },
+    "supporting": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "指標名"
+          },
+          "definition": {
+            "description": "定義",
+            "type": "string"
+          },
+          "target": {
+            "description": "目標値",
+            "type": "string"
+          },
+          "unit": {
+            "description": "単位",
+            "type": "string"
+          },
+          "cadence": {
+            "description": "計測頻度",
+            "type": "string"
+          },
+          "measurement": {
+            "description": "計測方法",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "description": "補助KPI（3〜5個）"
+    }
+  },
+  "required": [
+    "northStar",
+    "supporting"
+  ],
+  "additionalProperties": false
+}

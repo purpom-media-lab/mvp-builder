@@ -180,6 +180,100 @@ export async function createProject(
   return project;
 }
 
+/**
+ * ユースケース行に `actorName` を補って返す。
+ *
+ * 正となるのは `actorId`（actors への FK）。ただし 2026-08 以前に保存された行は
+ * actorId が null で、アクター名が description の先頭に `"名前: 説明"` の形で
+ * 埋め込まれている。互換のためその形も読み取り、description からは取り除く
+ * （アクター名は actorName として別フィールドで返す）。
+ */
+function withActorName<
+  U extends { actorId: string | null; description: string | null },
+>(actorRows: { id: string; name: string }[], useCaseRows: U[]) {
+  const nameById = new Map(actorRows.map((a) => [a.id, a.name]));
+  const knownNames = new Set(actorRows.map((a) => a.name));
+
+  return useCaseRows.map((u) => {
+    const linked = u.actorId ? (nameById.get(u.actorId) ?? null) : null;
+    if (linked) return { ...u, actorName: linked };
+
+    // 旧形式のフォールバック: "アクター名: 説明" を分解する。
+    const desc = u.description ?? "";
+    const cut = desc.search(/[:：]/);
+    if (cut > 0) {
+      const prefix = desc.slice(0, cut).trim();
+      if (knownNames.has(prefix)) {
+        return {
+          ...u,
+          actorName: prefix,
+          description: desc.slice(cut + 1).trim(),
+        };
+      }
+    }
+    return { ...u, actorName: null };
+  });
+}
+
+/** プロジェクトのアクターを「名前 → id」で引ける Map にする。 */
+async function actorIdsByName(projectId: string): Promise<Map<string, string>> {
+  const rows = await db
+    .select({ id: actors.id, name: actors.name })
+    .from(actors)
+    .where(eq(actors.projectId, projectId));
+  return new Map(rows.map((a) => [a.name, a.id]));
+}
+
+/** 現在のユースケースが指しているアクター名を「ユースケース id → アクター名」で返す。 */
+async function linkedActorNames(
+  projectId: string,
+): Promise<{ useCaseId: string; actorName: string }[]> {
+  const rows = await db
+    .select({ useCaseId: useCases.id, actorName: actors.name })
+    .from(useCases)
+    .innerJoin(actors, eq(useCases.actorId, actors.id))
+    .where(eq(useCases.projectId, projectId));
+  return rows;
+}
+
+/**
+ * アクター再生成後、同名のアクターへユースケースの紐付けを貼り直す。
+ *
+ * これが無いと、アクターだけを再実行したときに FK が set null で落ちて
+ * ユースケースのアクター表示が消える（依存順に usecases も再実行される通常の
+ * オーケストレーションでは起きないが、単独再実行の経路がある）。
+ *
+ * 副作用: use_cases は sort_order を持たず取得順＝物理順のため、UPDATE された行が
+ * 後ろに回り一覧の並びが変わる（表示上のみ。ユースケース再生成で元に戻る）。
+ * 並び順を保証したい場合は use_cases に sort_order を足すのが本筋。
+ */
+async function relinkUseCases(
+  prevLinks: { useCaseId: string; actorName: string }[],
+  newActors: { id: string; name: string }[],
+): Promise<void> {
+  if (!prevLinks.length) return;
+  const idByName = new Map(newActors.map((a) => [a.name, a.id]));
+
+  // アクター単位にまとめる。ユースケース1件ごとに UPDATE を撃つと、
+  // neon-http では文ごとに HTTPS リクエストが飛ぶ（件数分のファンアウト）。
+  const useCaseIdsByActor = new Map<string, string[]>();
+  for (const link of prevLinks) {
+    const actorId = idByName.get(link.actorName);
+    // 同名アクターが消えた場合は紐付けを復元しない（FK は set null のまま）。
+    if (!actorId) continue;
+    const ids = useCaseIdsByActor.get(actorId);
+    if (ids) ids.push(link.useCaseId);
+    else useCaseIdsByActor.set(actorId, [link.useCaseId]);
+  }
+  if (!useCaseIdsByActor.size) return;
+
+  const updates = [...useCaseIdsByActor].map(([actorId, ids]) =>
+    db.update(useCases).set({ actorId }).where(inArray(useCases.id, ids)),
+  );
+  // アクター数ぶんの文を 1 リクエストにまとめる。
+  await db.batch(updates as [(typeof updates)[number], ...typeof updates]);
+}
+
 export async function getProjectWithArtifacts(
   ownerId: string,
   projectId: string,
@@ -243,7 +337,7 @@ export async function getProjectWithArtifacts(
     // 参考資料（URL/PDF 抽出テキスト）は source_documents から。
     sourceText: sourceRows[0]?.rawText ?? "",
     actors: actorRows,
-    useCases: useCaseRows,
+    useCases: withActorName(actorRows, useCaseRows),
     ooui: oouiRows,
     journey: journeyRows,
     market: project.marketAnalysis ?? null,
@@ -380,26 +474,36 @@ export async function saveStepResult(
 
   if (step === "actors") {
     const r = result as ActorsOutput;
+    // アクターは洗い替えるので id が変わる。既存ユースケースの紐付け（actorId）が
+    // 落ちないよう、削除前に「ユースケース id → アクター名」を控えて後で貼り直す。
+    const prevLinks = await linkedActorNames(projectId);
     await db.delete(actors).where(eq(actors.projectId, projectId));
     if (r.actors.length) {
-      await db.insert(actors).values(
-        r.actors.map((a) => ({
-          projectId,
-          name: a.name,
-          description: a.description,
-          kind: a.kind,
-        })),
-      );
+      const inserted = await db
+        .insert(actors)
+        .values(
+          r.actors.map((a) => ({
+            projectId,
+            name: a.name,
+            description: a.description,
+            kind: a.kind,
+          })),
+        )
+        .returning({ id: actors.id, name: actors.name });
+      await relinkUseCases(prevLinks, inserted);
     }
   } else if (step === "usecases") {
     const r = result as UseCasesOutput;
     await db.delete(useCases).where(eq(useCases.projectId, projectId));
     if (r.useCases.length) {
+      const actorIdByName = await actorIdsByName(projectId);
       await db.insert(useCases).values(
         r.useCases.map((u) => ({
           projectId,
+          // アクターは actorId（FK）で紐付ける。名前を description に埋め込まない。
+          actorId: actorIdByName.get(u.actorName) ?? null,
           goal: u.goal,
-          description: `${u.actorName}: ${u.description}`,
+          description: u.description,
         })),
       );
     }

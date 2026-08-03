@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // MVP パイプラインの実行時データ（LLM 生成の画面ソース。プロダクトのコードではない）
+    ".mvp/**",
   ]),
 ]);
 

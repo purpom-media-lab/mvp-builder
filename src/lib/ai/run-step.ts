@@ -20,6 +20,7 @@ import {
   generateUseCases,
   generateWireframes,
 } from "./steps";
+import { FAST_STEPS } from "./step-specs";
 import type { StepKey } from "@/lib/projects";
 
 export const STEP_FNS = {
@@ -40,15 +41,8 @@ export const STEP_FNS = {
 
 /**
  * 高速モデルで実行する「軽い」工程（抽出系・構造が単純で品質影響が小さい）。
- * 重要な判断を伴う工程（ooui/scope/kpi/growth/brand/wireframe/datamodel/backend）は
- * 選択中のモデルのまま使う。
+ * 定義は step-specs.ts（単一ソース）の `fast` フラグ。
  */
-// navigation は OOUI オブジェクト/関連の構造推論が要るため FAST から除外し選択モデルで生成。
-export const FAST_STEPS = new Set<StepKey>([
-  "actors",
-  "usecases",
-  "journey",
-]);
 
 export function isStepKey(v: unknown): v is StepKey {
   return typeof v === "string" && v in STEP_FNS;

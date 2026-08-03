@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "actors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "アクター名"
+          },
+          "description": {
+            "type": "string",
+            "description": "役割・特徴"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "primary",
+              "secondary",
+              "system"
+            ],
+            "description": "種別"
+          }
+        },
+        "required": [
+          "name",
+          "description",
+          "kind"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "actors"
+  ],
+  "additionalProperties": false
+}

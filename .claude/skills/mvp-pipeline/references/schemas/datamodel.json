@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "entities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "エンティティ名（日本語可）"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "フィールド名（英語の識別子）"
+                },
+                "type": {
+                  "type": "string",
+                  "description": "データ型"
+                }
+              },
+              "required": [
+                "name",
+                "type"
+              ],
+              "additionalProperties": false
+            },
+            "description": "エンティティの属性"
+          },
+          "relations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "to": {
+                  "type": "string",
+                  "description": "関連先エンティティ名"
+                },
+                "type": {
+                  "type": "string",
+                  "description": "関係種別（日本語）"
+                }
+              },
+              "required": [
+                "to",
+                "type"
+              ],
+              "additionalProperties": false
+            },
+            "description": "他エンティティとの関係"
+          }
+        },
+        "required": [
+          "name",
+          "fields",
+          "relations"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "entities"
+  ],
+  "additionalProperties": false
+}

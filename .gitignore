@@ -51,4 +51,9 @@ tmp/
 
 # Claude Code ローカル設定（マシン固有・コミットしない）
 .claude/settings.local.json
-.claude/skills/
+# 外部から入れたスキルはコミットしない。自前の mvp-pipeline だけ管理対象。
+.claude/skills/*
+!.claude/skills/mvp-pipeline/
+
+# MVP パイプラインの実行データ（プロジェクト成果物。Web 側 DB が正）
+.mvp/
