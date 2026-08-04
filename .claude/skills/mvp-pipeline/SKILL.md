@@ -245,6 +245,9 @@ pnpm exec tsx .claude/skills/mvp-pipeline/scripts/plan-screens.ts <projectDir> [
   - `mvp-theme` … `src/lib/prototype-ds/theme-spec.ts`
 - 工程の実行順を勝手に変えない。ウェーブ順には根拠がある（`references/waves.md` 末尾）。
 - `.mvp/` はコミットしない（`.gitignore` 済み）。
+- 取りこぼしなく一息に通したいときは Workflow 版（`.claude/workflows/mvp-pipeline.js`）もある。
+  ウェーブ並列・検証・作り直しがスクリプトで固定されるが、**起動にユーザーの明示的な
+  opt-in が要る**ので、こちらから勝手に使わない。ユーザーが望んだときだけ案内する。
 - エージェント定義はセッション開始時に読み込まれる。`pnpm gen:skill` で**新しい**エージェントが
   増えた場合、そのセッションからは `subagent_type` として見えない（`not found` になる）。
   Claude Code を再起動すれば使える。
