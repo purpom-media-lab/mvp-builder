@@ -9,6 +9,7 @@
  *   .claude/skills/mvp-pipeline/references/schemas/*.json … 各工程 + theme の出力 JSON Schema
  *   .claude/skills/mvp-pipeline/references/waves.md       … 依存ウェーブ・モデル割当の一覧
  *   .claude/skills/mvp-pipeline/references/daisyui.md     … daisyUI 5 リファレンス（画面生成が Read する）
+ *   .claude/workflows/mvp-pipeline.js                     … ウェーブ並列を決定的に回す版（step-specs.ts）
  *
  * 実行:
  *   pnpm gen:skill
@@ -33,6 +34,8 @@ import { THEME_SYSTEM, themeSchema } from "../src/lib/prototype-ds/theme-spec";
 import type { StepKey } from "../src/lib/projects";
 
 const AGENTS_DIR = ".claude/agents";
+const WORKFLOWS_DIR = ".claude/workflows";
+const SCRIPTS_DIR = ".claude/skills/mvp-pipeline/scripts";
 const SKILL_DIR = ".claude/skills/mvp-pipeline";
 const REF_DIR = join(SKILL_DIR, "references");
 const SCHEMA_DIR = join(REF_DIR, "schemas");
@@ -271,6 +274,188 @@ Claude Code 版は全工程を \`${AGENT_MODEL}\` で回す。本体が \`haiku\
 `;
 }
 
+/**
+ * ウェーブ並列を決定的に回す Workflow 版。
+ *
+ * Workflow スクリプトは**プレーンな JS で import できない**ため、ウェーブ定義と
+ * 工程名をここで埋め込む。手で写すと step-specs.ts からずれるので生成する。
+ *
+ * スキル版（SKILL.md + サブエージェント）との違いは、並列の粒度・検証・リトライが
+ * スクリプトで固定される点。オーケストレータの判断に委ねないぶん取りこぼしが無い。
+ * 起動にユーザーの明示的な opt-in が要るので、日常の入口はスキル版のまま。
+ */
+function workflowScript(): string {
+  const meta = {
+    name: "mvp-pipeline",
+    description:
+      "13工程をウェーブ並列で回し、ウェーブごとの検証と作り直しまで決定的に行う。プロトタイプ生成まで含む。",
+    whenToUse:
+      "分析からプロトタイプまでを一息に通したいとき。日常の部分的な操作は /mvp-run /mvp-step /mvp-proto を使う。",
+    phases: [
+      ...WAVES.map((wave, i) => ({
+        title: `Wave ${i + 1}`,
+        detail: wave.map((s) => STEP_SPECS[s].label).join(" / "),
+      })),
+      { title: "検証", detail: "スキーマ検証と、失敗した工程の作り直し" },
+      { title: "プロトタイプ", detail: "画面の確定 → 並列生成 → 組み立て" },
+    ],
+  };
+
+  const body = [
+  "",
+  "const WAVES = __WAVES__",
+  "const LABELS = __LABELS__",
+  "const SCRIPTS = __SCRIPTS__",
+  "",
+  "// projectDir は args で受け取る。例: { projectDir: \".mvp/lead-crm\" }",
+  "const projectDir = typeof args === \"string\" ? args : args?.projectDir",
+  "if (!projectDir) {",
+  "  throw new Error(",
+  "    'projectDir を渡すこと。例: args = { projectDir: \".mvp/lead-crm\" }。' +",
+  "      \"project.json（name/summary/analysisResult）は先に用意しておくこと。\",",
+  "  )",
+  "}",
+  "",
+  "const VALIDATION = {",
+  "  type: \"object\",",
+  "  properties: {",
+  "    ok: { type: \"boolean\", description: \"全工程が OK なら true\" },",
+  "    failures: {",
+  "      type: \"array\",",
+  "      items: {",
+  "        type: \"object\",",
+  "        properties: {",
+  "          step: { type: \"string\", description: \"工程キー\" },",
+  "          detail: { type: \"string\", description: \"validate.ts が出したエラー明細\" },",
+  "        },",
+  "        required: [\"step\", \"detail\"],",
+  "      },",
+  "    },",
+  "  },",
+  "  required: [\"ok\", \"failures\"],",
+  "}",
+  "",
+  "/** validate.ts を実行し、結果を構造化して返す。 */",
+  "function validate(steps, phaseName) {",
+  "  const cmd = \"pnpm exec tsx \" + SCRIPTS + \"/validate.ts \" + projectDir + \" \" + steps.join(\" \")",
+  "  return agent(",
+  "    \"次のコマンドを実行し、出力をそのまま構造化して返してください。\\n\\n  \" + cmd + \"\\n\\n\" +",
+  "      \"INVALID / MISSING の行があれば ok=false とし、工程ごとのエラー明細を failures に入れる。\" +",
+  "      \"「⚠ 工程間の整合性」は警告であって失敗ではないので failures に入れない。\",",
+  "    { label: \"validate:\" + phaseName, phase: \"検証\", schema: VALIDATION, effort: \"low\" },",
+  "  )",
+  "}",
+  "",
+  "/** 1工程を実行する。detail があれば「直し」として渡す。 */",
+  "function runStep(step, detail) {",
+  "  const base =",
+  "    \"projectDir = \" + projectDir +",
+  "    \"\\nこの工程を実行して artifacts/\" + step + \".json を書き出してください。\"",
+  "  const prompt = detail",
+  "    ? base + \"\\n\\n前回の出力はスキーマ検証を通りませんでした。次の指摘を直して書き直してください。\\n\" + detail",
+  "    : base",
+  "  return agent(prompt, { agentType: \"mvp-\" + step, label: step })",
+  "}",
+  "",
+  "// --- 13工程（ウェーブ並列 → 検証 → 1回だけ作り直し） ----------------------",
+  "",
+  "for (let i = 0; i < WAVES.length; i++) {",
+  "  const wave = WAVES[i]",
+  "  const name = \"Wave \" + (i + 1)",
+  "  phase(name)",
+  "  await parallel(wave.map((step) => () => runStep(step)))",
+  "",
+  "  const result = await validate(wave, name)",
+  "  if (result && !result.ok && result.failures && result.failures.length) {",
+  "    const names = result.failures.map((f) => LABELS[f.step] || f.step).join(\" / \")",
+  "    log(name + \": \" + names + \" がスキーマ検証を通らなかった。作り直す。\")",
+  "    phase(name)",
+  "    await parallel(result.failures.map((f) => () => runStep(f.step, f.detail)))",
+  "    const retry = await validate(wave, name + \"-retry\")",
+  "    if (retry && !retry.ok) {",
+  "      // 2回目も通らなければ止める（手で JSON を書き換えない）。",
+  "      return {",
+  "        stoppedAt: name,",
+  "        failures: retry.failures,",
+  "        hint: \"該当工程の指示（step-specs.ts）かスキーマを見直すこと。\",",
+  "      }",
+  "    }",
+  "  }",
+  "}",
+  "",
+  "// --- プロトタイプ ---------------------------------------------------------",
+  "",
+  "phase(\"プロトタイプ\")",
+  "",
+  "const PLAN = {",
+  "  type: \"object\",",
+  "  properties: {",
+  "    indexes: {",
+  "      type: \"array\",",
+  "      items: { type: \"number\" },",
+  "      description: \"「生成」と表示された画面番号\",",
+  "    },",
+  "    needsTheme: { type: \"boolean\", description: \"テーマを生成すると出ていたか\" },",
+  "  },",
+  "  required: [\"indexes\", \"needsTheme\"],",
+  "}",
+  "",
+  "const plan = await agent(",
+  "  \"次を実行し、出力を構造化して返してください。\\n\\n  pnpm exec tsx \" +",
+  "    SCRIPTS + \"/plan-screens.ts \" + projectDir + \"\\n\\n\" +",
+  "    \"「生成」と表示された画面番号を indexes に入れる（「再利用」は入れない）。\",",
+  "  { label: \"plan-screens\", phase: \"プロトタイプ\", schema: PLAN, effort: \"low\" },",
+  ")",
+  "",
+  "if (plan && plan.indexes && plan.indexes.length) {",
+  "  const jobs = plan.indexes.map(",
+  "    (i) => () =>",
+  "      agent(\"projectDir = \" + projectDir + \"\\n画面番号 = \" + i, {",
+  "        agentType: \"mvp-screen\",",
+  "        label: \"screen:\" + i,",
+  "        phase: \"プロトタイプ\",",
+  "      }),",
+  "  )",
+  "  if (plan.needsTheme) {",
+  "    jobs.push(() =>",
+  "      agent(\"projectDir = \" + projectDir, {",
+  "        agentType: \"mvp-theme\",",
+  "        label: \"theme\",",
+  "        phase: \"プロトタイプ\",",
+  "      }),",
+  "    )",
+  "  }",
+  "  await parallel(jobs)",
+  "}",
+  "",
+  "const assembled = await agent(",
+  "  \"次を実行し、出力をそのまま返してください。\\n\\n  pnpm exec tsx \" +",
+  "    SCRIPTS + \"/assemble.ts \" + projectDir,",
+  "  { label: \"assemble\", phase: \"プロトタイプ\", effort: \"low\" },",
+  ")",
+  "",
+  "return {",
+  "  projectDir,",
+  "  prototype: projectDir + \"/prototype/index.html\",",
+  "  assembled,",
+  "}",
+  ]
+    .join("\n")
+    .replace("__WAVES__", JSON.stringify(WAVES))
+    .replace(
+      "__LABELS__",
+      JSON.stringify(
+        Object.fromEntries(STEP_ORDER.map((s) => [s, STEP_SPECS[s].label])),
+      ),
+    )
+    .replace("__SCRIPTS__", JSON.stringify(SCRIPTS_DIR));
+
+  return `${BANNER.replace("<!-- ", "// ").replace(" -->", "")}
+export const meta = ${JSON.stringify(meta, null, 2)}
+${body}
+`;
+}
+
 /** 生成物ディレクトリを作り直す（消し忘れの残骸を残さない）。 */
 function resetDir(dir: string) {
   rmSync(dir, { recursive: true, force: true });
@@ -284,6 +469,7 @@ const toJsonSchema = (schema: z.ZodType): string =>
 // --- 生成 ---------------------------------------------------------------
 
 mkdirSync(AGENTS_DIR, { recursive: true });
+mkdirSync(WORKFLOWS_DIR, { recursive: true });
 resetDir(SCHEMA_DIR); // 親の REF_DIR もここで作られる
 
 // 既存の mvp-*.md は一旦削除（工程名の変更で孤児が残るのを防ぐ）。
@@ -315,11 +501,12 @@ writeFileSync(join(AGENTS_DIR, "mvp-theme.md"), themeAgentMarkdown());
 writeFileSync(join(SCHEMA_DIR, "theme.json"), toJsonSchema(themeSchema));
 // 画面生成エージェントに Read させる daisyUI リファレンス。
 // 本体は同じ文字列をプロンプトに直接埋めている（daisyui-reference.ts が単一ソース）。
+writeFileSync(join(WORKFLOWS_DIR, "mvp-pipeline.js"), workflowScript());
 writeFileSync(
   join(REF_DIR, "daisyui.md"),
   `${banner("src/lib/prototype-ds/daisyui-reference.ts")}\n\n${DAISYUI_REFERENCE}\n`,
 );
 
 console.log(
-  `generated: ${STEP_ORDER.length + 3} agents (${AGENTS_DIR}/mvp-*.md), ${STEP_ORDER.length + 2} schemas (${SCHEMA_DIR}), ${REF_DIR}/waves.md, ${REF_DIR}/daisyui.md`,
+  `generated: ${STEP_ORDER.length + 3} agents (${AGENTS_DIR}/mvp-*.md), ${STEP_ORDER.length + 2} schemas (${SCHEMA_DIR}), ${REF_DIR}/waves.md, ${REF_DIR}/daisyui.md, ${WORKFLOWS_DIR}/mvp-pipeline.js`,
 );

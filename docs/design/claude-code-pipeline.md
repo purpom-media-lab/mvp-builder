@@ -113,6 +113,9 @@ src/lib/prototype-ds/daisyui-reference.ts ─┘
     ├── mvp-push.md     # 本体（Web アプリ）へ書き戻す
     └── mvp-update.md   # 要望 → 再実行工程を計画して回す
 
+workflows/
+└── mvp-pipeline.js                     # ⚙自動生成: ウェーブ並列を決定的に回す版
+
 scripts/
 └── gen-claude-skill.ts                 # 上記 ⚙ を生成（pnpm gen:skill）
 
@@ -276,7 +279,7 @@ SKILL.md にも「一致 0 でも中身を読む」と手順として書いて�
 | 2 | プロトタイプ（`plan-screens` / `mvp-screen` / `mvp-theme` / `assemble` / `/mvp-proto`） | `index.html` がブラウザで開き、一覧→詳細→戻るが動く | ✅ 完了（下記） |
 | 3 | `/mvp-diff` 検証モード | 既存プロジェクト 1 本で差分レポートが出る | ✅ 完了（下記） |
 | 4 | `/mvp-update` 要望反映・部分再生成 | 要望 1 件で該当工程＋該当画面だけが更新される | ✅ 完了（下記） |
-| 5（任意） | `.claude/workflows/mvp-pipeline.js` | ウェーブ並列を決定的に回す版（`agent(..., {schema})` でスキーマ強制が効くので検証リトライが不要になる） | 未着手 |
+| 5（任意） | `.claude/workflows/mvp-pipeline.js` | ウェーブ並列を決定的に回す版 | ✅ 完了（下記） |
 
 ### 実測（2026-08-02・社労士顧客管理システムで通し実行）
 
@@ -330,9 +333,35 @@ ooui 5 / navigation 5 / wireframe 9 と下流すべてが痩せた。
 続けて `selectedScreens: ["顧客"]` で部分再生成し、**変わったのは `顧客` の 1 画面だけ**・
 テーマは再利用されることを確認した。確認後にプロジェクトは削除済み。
 
-Phase 5 の Workflow 版は、実は `runPipelineParallel` に**構造的にいちばん近い**（`parallel()` がウェーブ、
-`schema` オプションが `generateStructured` に対応する）。ただし起動にユーザーの明示的な opt-in が要るので、
-日常的に使う入口はスキル＋サブエージェント（Phase 1〜4）に置き、Workflow は「フル実行の高速版」として併設する。
+### Phase 5: Workflow 版（`.claude/workflows/mvp-pipeline.js`）
+
+`runPipelineParallel` に**構造的にいちばん近い**のがこれ（`parallel()` がウェーブに対応する）。
+スキル版との違いは、**並列の粒度・検証・リトライがスクリプトで固定される**こと。
+オーケストレータの判断に委ねないので、「並列にし忘れた」「検証を飛ばした」が起きない。
+
+```
+args = { projectDir: ".mvp/lead-crm" }
+```
+
+1. ウェーブごとに `parallel()` で工程を同時起動
+2. そのウェーブを `validate.ts` にかけ、結果を `schema` で構造化して受け取る
+3. 失敗があれば**エラー明細を渡して 1 回だけ作り直す**。2 回目も通らなければ
+   その場で止めて返す（手で JSON を書き換えない）
+4. 13 工程が揃ったら `plan-screens.ts` → `mvp-screen` を画面数ぶん並列 → `assemble.ts`
+
+**スクリプト自体も生成物。** Workflow スクリプトはプレーンな JS で import できないため、
+ウェーブ定義と工程名を埋め込む必要がある。手で写すと `step-specs.ts` からずれるので
+`gen-claude-skill.ts` が生成する（他の生成物と同じ扱い）。
+
+> **設計書の当初の想定は外した。** 「`agent(..., {schema})` でスキーマ強制が効くので検証
+> リトライが不要になる」と書いていたが、成果物は**ファイル**（`artifacts/*.json`）であって
+> エージェントの戻り値ではない。Workflow スクリプトはファイルシステムに触れないので、
+> 書くのはサブエージェント側のまま。したがって `validate.ts` による検証は Workflow 版でも要る。
+> `schema` は検証結果の受け取り（`{ok, failures[]}`）に使っている。
+
+**起動にはユーザーの明示的な opt-in が要る**（Workflow ツールの制約）。そのため日常の入口は
+スキル＋サブエージェント（Phase 1〜4）のままで、Workflow は「取りこぼしなく一息に通したいとき」の
+併設という位置づけにする。
 
 ---
 
@@ -398,7 +427,7 @@ Claude Code 側で作った成果物を本体のプロジェクトへ保存す�
 
 | リスク | 対処 |
 | --- | --- |
-| 構造化出力が保証されない | `validate.ts`（zod）+ 1 回リトライ。Phase 5 の Workflow 版なら schema 強制で解消 |
+| 構造化出力が保証されない | `validate.ts`（zod）+ 1 回リトライ。Workflow 版でも同じ（成果物はファイルなので `schema` では代替できない。§7 Phase 5 参照） |
 | プロンプトの乖離 | 生成方式（§2）。CI で生成物の鮮度チェック |
 | 親コンテキストの肥大 | サブエージェントは artifacts をファイル経由で受け渡し、返り値は 1 行サマリのみ |
 | 画面生成の失敗 | 本体と同じプレースホルダ＋部分再生成。サニタイズはコード側（`assemble.ts`） |
