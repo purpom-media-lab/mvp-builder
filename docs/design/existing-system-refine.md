@@ -34,7 +34,7 @@ MVP Builder は今、**新規の事業アイデア**から 13 工程 → プロ�
 | 13 工程 | 全部回す | 要望に関係する工程だけ（`mvp-orchestrate` の考え方を使う） |
 | 画面 | 全画面を作る | **変わる画面と新しい画面だけ**。変わらない画面は既存のものを参照する |
 | 見た目 | ブランド工程で決める | 対象システムのテーマを使う（ブランド工程は回さない） |
-| Figma | プラグインが部品を新しく描く | Figma MCP（`use_figma`）で**既存ファイルの部品**を使い、ブランチか専用ページに置く |
+| Figma | プラグインが部品を新しく描く | Figma MCP（`use_figma`）で**既存ファイルの部品**を使い、専用ページに置く（ブランチは Organization プラン以上で、今の Pro では使えない） |
 | 成果物 | 新しいプロダクトの設計一式 | 画面の差分表（追加・変更・削除）＋モック＋Figma の URL |
 
 ## 3. システムごとの「プロファイル」
@@ -60,7 +60,7 @@ sources:
   theme: apps/blackswan-web/src/theme/core/palette.ts            # 色・フォント
 figma:
   file_key: iYY6Uo3lcvr8tAqPYiPZ1b  # ブラックスワン_Web（MW6.0）
-  output: branch                    # branch（Figma のブランチ）| page（専用ページ）
+  output: page                      # page（専用ページ）| branch（Figma のブランチ。Organization 以上）
 requests:                           # 要望の入口
   linear_team: BlackSwan
   notion_backlog: BSB
@@ -101,7 +101,7 @@ requests:
        │             テーマはプロファイルの theme から daisyUI テーマを作る
        ▼
 ⑤ Figma … use_figma で既存ファイルの部品（search_design_system で探す）を使って対象画面を組む。
-       │       変更画面は既存画面を複製して直す。ブランチか専用ページに置き、本線には書かない
+       │       変更画面は既存画面を複製して直す。専用ページ（「改修案 / <イシュー> …」）に置き、既存のページには書かない
        ▼
 ⑥ 返す … 画面の差分表・モックの URL・Figma の URL を Linear のイシュー（または PML AI のタスク）にコメントする
 ```
@@ -130,14 +130,14 @@ requests:
 | --- | --- | --- |
 | 1 | BlackSwan Web の baseline（①）とプロファイル | Web の全画面が navigation / wireframe の形で起こせる |
 | 2 | 影響の判定とモック（②〜④） | 実際の要望 1 件（BS のイシュー）から、変わる画面だけのモックができる |
-| 3 | Figma（⑤）と返却（⑥） | 同じ要望で、ブラックスワン_Web の Figma のブランチに画面ができ、Linear にコメントが付く |
+| 3 | Figma（⑤）と返却（⑥） | 同じ要望で、ブラックスワン_Web の Figma の専用ページに画面ができ、Linear にコメントが付く |
 | 4 | PML AI のプロファイル | PML AI の要望 1 件で同じことができる |
 | 5 | PML AI から起動 | PML AI のタスクで「UI の検討」を選ぶと、pml-agent が Mac で `/mvp-refine` を回し、結果がタスクに戻る |
 | 6 | Studio（Web 版）への組み込み | 必要になったら |
 
 ## 6. 未決・確認すること
 
-- **Figma への書き込み先**: ブラックスワン_Web にブランチを切ってよいか（Figma のブランチは Organization プラン以上）。ダメなら専用ページ
+- ~~**Figma への書き込み先**~~: 専用ページに決定（2026-11-21）。所属チームはどれも Pro で、ブランチ（Organization 以上）は使えない
 - **Figma の部品の状態**: ブラックスワン_Web の部品がライブラリとして公開されているか。されていなければ、既存画面のフレームを複製して使う
 - **試す要望**: Phase 2 の検証に使う BlackSwan のイシューを 1 件決める
 - **PML AI 側の入口**: タスクに「UI の検討が要る」をどう持たせるか（ラベルか、種別か）。Phase 5 の前に PML AI 側で決める
