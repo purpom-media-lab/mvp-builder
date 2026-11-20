@@ -18,9 +18,17 @@
       "apps/blackswan-web/src/routes/sections/dashboard.tsx"
     ],
     "pagesDir": "apps/blackswan-web/src/pages",
-    "componentDirs": ["apps/blackswan-web/src/sections"],
-    "datamodel": { "format": "prisma", "path": "packages/backend/schema.prisma" },
-    "theme": { "format": "mui-colors-json", "path": "apps/blackswan-web/src/theme/core/colors.json" }
+    "componentDirs": [
+      "apps/blackswan-web/src/sections"
+    ],
+    "datamodel": {
+      "format": "prisma",
+      "path": "packages/backend/schema.prisma"
+    },
+    "theme": {
+      "format": "mui-colors-json",
+      "path": "apps/blackswan-web/src/theme/core/colors.json"
+    }
   },
   "figma": {
     "fileKey": "iYY6Uo3lcvr8tAqPYiPZ1b",
@@ -31,5 +39,11 @@
     "linearTeam": "BlackSwan",
     "linearTeamId": "098efd41-b74d-444f-bd47-9a44bf2cb048",
     "notionBacklog": "BSB"
+  },
+  "existingWork": {
+    "figmaIndex": ".claude/figma/index.tsv",
+    "notesDirs": [
+      "internal/notes"
+    ]
   }
 }

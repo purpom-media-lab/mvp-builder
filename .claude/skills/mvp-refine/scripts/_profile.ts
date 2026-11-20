@@ -36,6 +36,12 @@ export interface Profile {
   };
   figma?: { fileKey: string | null; fileName?: string; output: "branch" | "page" };
   requests?: Record<string, string>;
+  /**
+   * 既存の検討（段取り 2 の最初に確かめるもの）。リポジトリ相対。
+   * figmaIndex: 画面インデックス（TSV。kind=draft の行を引く）
+   * notesDirs: 社内メモの置き場（イシューのキーと言葉で探す）
+   */
+  existingWork?: { figmaIndex?: string; notesDirs?: string[] };
 }
 
 export const expandHome = (p: string): string =>
@@ -75,3 +81,7 @@ export function sourcePaths(p: Profile): string[] {
 
 export const git = (repo: string, ...args: string[]): string =>
   execFileSync("git", ["-C", repo, ...args], { encoding: "utf8" }).trim();
+
+/** 要望ごとの作業の置き場所（.mvp/<profile>/requests/<イシュー>）。 */
+export const requestDir = (id: string, issue: string): string =>
+  join(".mvp", id, "requests", issue);

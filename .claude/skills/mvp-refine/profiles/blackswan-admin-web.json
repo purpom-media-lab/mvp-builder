@@ -1,0 +1,49 @@
+{
+  "id": "blackswan-admin-web",
+  "name": "BlackSwan Admin Web",
+  "description": "運用者（PML・パラマウントベッドの運用ご担当）向けの管理画面。契約法人・組織の管理。React + MUI。",
+  "repo": "~/claudecode/dev/prj-blackswan/blackswan",
+  "uiStack": "mui",
+  "sources": {
+    "screenInventory": {
+      "path": "docs/analysis/screen-inventory.md",
+      "section": "## 4. Admin Web（blackswan-admin-web）"
+    },
+    "nav": [
+      "apps/blackswan-admin-web/src/layouts/config-nav-dashboard.tsx"
+    ],
+    "routes": [
+      "apps/blackswan-admin-web/src/routes/paths.ts",
+      "apps/blackswan-admin-web/src/routes/sections/corporation.tsx",
+      "apps/blackswan-admin-web/src/routes/sections/index.tsx"
+    ],
+    "pagesDir": "apps/blackswan-admin-web/src/pages",
+    "componentDirs": [
+      "apps/blackswan-admin-web/src/sections"
+    ],
+    "datamodel": {
+      "format": "prisma",
+      "path": "packages/backend/schema.prisma"
+    },
+    "theme": {
+      "format": "mui-colors-json",
+      "path": "apps/blackswan-admin-web/src/theme/core/colors.json"
+    }
+  },
+  "figma": {
+    "fileKey": "iYY6Uo3lcvr8tAqPYiPZ1b",
+    "fileName": "ブラックスワン_Web（MW6.0）",
+    "output": "page"
+  },
+  "requests": {
+    "linearTeam": "BlackSwan",
+    "linearTeamId": "098efd41-b74d-444f-bd47-9a44bf2cb048",
+    "notionBacklog": "BSB"
+  },
+  "existingWork": {
+    "figmaIndex": ".claude/figma/index.tsv",
+    "notesDirs": [
+      "internal/notes"
+    ]
+  }
+}
