@@ -1,0 +1,35 @@
+{
+  "id": "blackswan-web",
+  "name": "BlackSwan Web",
+  "description": "介護記録・ケアマネジメントの Web（事業所スタッフ向け）。React + MUI。",
+  "repo": "~/claudecode/dev/prj-blackswan/blackswan",
+  "uiStack": "mui",
+  "sources": {
+    "screenInventory": {
+      "path": "docs/analysis/screen-inventory.md",
+      "section": "## 1. Web（blackswan-web）"
+    },
+    "nav": [
+      "apps/blackswan-web/src/layouts/config-nav-dashboard.tsx",
+      "apps/blackswan-web/src/layouts/config-nav-tooltips.tsx"
+    ],
+    "routes": [
+      "apps/blackswan-web/src/routes/paths.ts",
+      "apps/blackswan-web/src/routes/sections/dashboard.tsx"
+    ],
+    "pagesDir": "apps/blackswan-web/src/pages",
+    "componentDirs": ["apps/blackswan-web/src/sections"],
+    "datamodel": { "format": "prisma", "path": "packages/backend/schema.prisma" },
+    "theme": { "format": "mui-colors-json", "path": "apps/blackswan-web/src/theme/core/colors.json" }
+  },
+  "figma": {
+    "fileKey": "iYY6Uo3lcvr8tAqPYiPZ1b",
+    "fileName": "ブラックスワン_Web（MW6.0）",
+    "output": "branch"
+  },
+  "requests": {
+    "linearTeam": "BlackSwan",
+    "linearTeamId": "098efd41-b74d-444f-bd47-9a44bf2cb048",
+    "notionBacklog": "BSB"
+  }
+}
